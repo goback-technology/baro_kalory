@@ -1680,7 +1680,7 @@ function renderPins() {
 
 // ---- 오라클 대조 ----
 // 시뮬레이터가 존재하는 이유가 이것이다: 여기서는 정답이 실재한다. /simulator/project 는
-// UE 가 실제 렌더에 쓴 뷰·투영 행렬로 월드점을 픽셀로 옮긴 값이고, /simulator/overlay 는
+// 렌더러가 실제 렌더에 쓰는 뷰·투영 행렬로 월드점을 픽셀로 옮긴 값이고, /simulator/overlay 는
 // 같은 점을 우리 광학 모델로 옮긴 값이다. 둘을 나란히 놓는 것이 우리 모델의 시험이다.
 //
 // 두 답은 반드시 **같은 순간의 자세**로 물어야 한다. 오라클은 렌더러의 현재 자세를 쓰고
@@ -1768,7 +1768,7 @@ document.getElementById("oracle-check").addEventListener("click", compareWithOra
 function reproject() { refreshOverlay(); }
 
 // ===================== 시뮬레이터 주차/차량/번호판 제어 =====================
-// UE sim 씬을 /api/simulator/* RPC 로 편집. 백엔드가 UE 미연결이면 FakeSceneClient 폴백이라
+// 시뮬(UE·omTide) 씬을 /api/simulator/* RPC 로 편집. 백엔드가 시뮬 미연결이면 FakeSceneClient 폴백이라
 // 이 페이지는 UE 없이도 동작(계약 검증). 웹UI·CLI·MCP 가 동일 제어면을 공유.
 let simCatalog = null;
 let simSelectedSlot = null;   // 스폰 대상 슬롯 id
@@ -2668,13 +2668,14 @@ function finishPlacing() {
 //
 // 방향은 여기서 다루지 않는다. 카메라가 어디를 보는가는 팬이 정하는 값이고, 그것을 지도에서
 // 끌어 바꾸는 일은 아직 넣지 않았다(이교수님 지시, 2026-08-12).
-// 시뮬 캡처 깨우기 — 플러그인 버그의 워크어라운드다(2026-08-24 실측, 보드 baro_unreal 이슈).
-// 씬캡처는 어느 컴포넌트의 **상대변환이 실제로 바뀌는** PTZ 명령에서만 새 자세로 렌더한다:
+// 시뮬 캡처 깨우기 — omTide(OV 시뮬레이터) 버그의 워크어라운드다(2026-08-24 실측, 보드 #266).
+// 렌더 카메라의 자세는 PTZ **값이 실제로 바뀔 때만** 재계산되는 것으로 보인다:
 // 위치·설치방위만 바뀐 PATCH 는 액터와 투영(/simulator/project)은 즉시 따라오는데 영상은
-// 옛 자리 뷰로 얼어 있다(+20m 를 옮겨도 스냅샷 불변, 팬 0.01° 명령이 오면 그제야 새 자리로).
+// 옛 자리 뷰로 얼어 있다(+20m 를 옮겨도 스냅샷 불변, 같은 값 PTZ 재전송도 무효, 팬 0.01°
+// 처럼 값이 바뀌는 명령이 오면 그제야 새 자리로). UE 시뮬에는 없던 증상이다.
 // 그래서 자리·방위 PATCH 성공 뒤 팬을 0.01° 만 갔다가 되돌린다 — 눈에 안 보이는 최소 변화로
 // 캡처를 깨운다. 제어 창구는 활성 카메라에만 닿으므로 비활성 카메라의 스트림은 이 워크어라운드
-// 밖이다(플러그인이 고치면 이 함수째로 걷어낸다).
+// 밖이다 — 근본 수정은 시뮬레이터 몫이고, omTide 가 고치면 이 함수째로 걷어낸다.
 async function nudgeSimCapture(cam) {
   if (!cam || cameraDeviceFor(cam)?.id !== simActiveCameraId) return;
   const p = ptzSnapshot(lastPtz);
@@ -2970,7 +2971,7 @@ async function finishCameraDrag(event) {
     const moved = Math.hypot(at.x - drag.from.x, at.y - drag.from.y) / 100;
     setCamStatus(t("옮겼습니다 — {d} m", { d: moved.toFixed(2) }));
     log(t("카메라 이동: {id} → ({x}, {y})", { id: drag.cam.id, x: Math.round(at.x), y: Math.round(at.y) }));
-    await nudgeSimCapture(drag.cam);   // 자리만 바뀐 캡처는 얼어 있다 — 영상도 새 자리를 보게 깨운다
+    await nudgeSimCapture(drag.cam);   // 자리만 바뀐 렌더는 얼어 있다 — 영상도 새 자리를 보게 깨운다
   } catch (e) {
     setCamStatus(t("옮기기 실패") + ": " + e.message);
   } finally {
