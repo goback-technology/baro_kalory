@@ -2668,24 +2668,6 @@ function finishPlacing() {
 //
 // 방향은 여기서 다루지 않는다. 카메라가 어디를 보는가는 팬이 정하는 값이고, 그것을 지도에서
 // 끌어 바꾸는 일은 아직 넣지 않았다(이교수님 지시, 2026-08-12).
-// 시뮬 캡처 깨우기 — omTide(OV 시뮬레이터) 버그의 워크어라운드다(2026-08-24 실측, 보드 #266).
-// 렌더 카메라의 자세는 PTZ **값이 실제로 바뀔 때만** 재계산되는 것으로 보인다:
-// 위치·설치방위만 바뀐 PATCH 는 액터와 투영(/simulator/project)은 즉시 따라오는데 영상은
-// 옛 자리 뷰로 얼어 있다(+20m 를 옮겨도 스냅샷 불변, 같은 값 PTZ 재전송도 무효, 팬 0.01°
-// 처럼 값이 바뀌는 명령이 오면 그제야 새 자리로). UE 시뮬에는 없던 증상이다.
-// 그래서 자리·방위 PATCH 성공 뒤 팬을 0.01° 만 갔다가 되돌린다 — 눈에 안 보이는 최소 변화로
-// 캡처를 깨운다. 제어 창구는 활성 카메라에만 닿으므로 비활성 카메라의 스트림은 이 워크어라운드
-// 밖이다 — 근본 수정은 시뮬레이터 몫이고, omTide 가 고치면 이 함수째로 걷어낸다.
-async function nudgeSimCapture(cam) {
-  if (!cam || cameraDeviceFor(cam)?.id !== simActiveCameraId) return;
-  const p = ptzSnapshot(lastPtz);
-  if (!p) return;
-  try {
-    await postJson(api("/simulator/control/ptz"), { panpos: (p.panpos + 1) % 36000, tiltpos: p.tiltpos, zoompos: p.zoompos, panspeed: MOVE_SPEED, tiltspeed: MOVE_SPEED, zoomspeed: MOVE_SPEED });
-    await postJson(api("/simulator/control/ptz"), { panpos: p.panpos, tiltpos: p.tiltpos, zoompos: p.zoompos, panspeed: MOVE_SPEED, tiltspeed: MOVE_SPEED, zoomspeed: MOVE_SPEED });
-  } catch { /* 킥 실패는 치명이 아니다 — 다음 PTZ 조작이 어차피 깨운다 */ }
-}
-
 function beginCameraDrag(cam, event) {
   // 누르는 순간 그 카메라를 고르고, **그대로 끌린다.** 예전에는 첫 동작을 선택으로만 끝냈는데,
   // 누르고 곧장 끄는 보통의 손짓이 아무것도 안 움직이는 것으로 보였다("클릭해서 옮기면
@@ -2906,7 +2888,6 @@ async function finishAimDrag(event) {
       await reqJson("PATCH", api(`/simulator/cameras/${encodeURIComponent(drag.cam.id)}`), { yawDeg });
       setCamStatus(t("설치방위 {m}° — {a}° 돌려 달았습니다", { m: yawDeg.toFixed(1), a: turned.toFixed(1) }));
       log(t("설치방위: {id} → {m}°", { id: drag.cam.id, m: yawDeg.toFixed(1) }));
-      await nudgeSimCapture(drag.cam);   // 방위만 바뀐 캡처도 같은 이유로 얼어 있다
     } catch (e) {
       setCamStatus(t("설치 고치기 실패") + ": " + e.message);
     } finally {
@@ -2971,7 +2952,6 @@ async function finishCameraDrag(event) {
     const moved = Math.hypot(at.x - drag.from.x, at.y - drag.from.y) / 100;
     setCamStatus(t("옮겼습니다 — {d} m", { d: moved.toFixed(2) }));
     log(t("카메라 이동: {id} → ({x}, {y})", { id: drag.cam.id, x: Math.round(at.x), y: Math.round(at.y) }));
-    await nudgeSimCapture(drag.cam);   // 자리만 바뀐 렌더는 얼어 있다 — 영상도 새 자리를 보게 깨운다
   } catch (e) {
     setCamStatus(t("옮기기 실패") + ": " + e.message);
   } finally {
@@ -3374,8 +3354,6 @@ async function applyInstallEdit() {
     const movedM = cameraHeightM(r.camera) ?? heightM;
     log(t("설치 갱신: {id} · {h} m", { id: cam.id, h: movedM === null ? "?" : movedM.toFixed(2) }));
     setCamStatus(t("적용했습니다: {id}", { id: cam.id }));
-    // 위치·방위가 바뀐 저장이면 캡처를 깨운다(하향각은 채널 틸트가 바뀌므로 스스로 깬다).
-    if (patch.location || patch.yawDeg !== undefined) await nudgeSimCapture(cam);
     markClean();            // 적용했으니 손글씨는 씬이 되었다 — 이제 씬 값으로 다시 채워야 한다
     await refreshRig();
   } catch (e) {
