@@ -36,7 +36,7 @@ test("첫 페인트는 대기가 아니라 정지 상태로 그린다", async ()
   // cctv·height 는 SPA 라우트다 — 첫 페인트 마크업이 HTML 이 아니라 그 라우트 안에 있다.
   const [cctv, discovery, height] = await Promise.all([
     readFile(cctvRouteUrl, "utf8"),
-    readFile(new URL("../public/discovery.html", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/discovery/page.jsx", import.meta.url), "utf8"),
     readFile(new URL("../src/pages/height/page.jsx", import.meta.url), "utf8"),
   ]);
   // 바닐라 페이지는 class="…", 라우트는 className={…} 이고 ref·핸들러가 사이에 낀다.
@@ -60,7 +60,7 @@ test("첫 페인트는 대기가 아니라 정지 상태로 그린다", async ()
 test("legacy parking spot registration UI is absent (점 기반 탐색이 대체했다)", async () => {
   const [html, discovery] = await Promise.all([
     readFile(cctvRouteUrl, "utf8"),
-    readFile(new URL("../public/discovery.html", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/discovery/page.jsx", import.meta.url), "utf8"),
   ]);
   for (const page of [html, discovery]) {
     for (const id of ["ws-save", "ws-goto", "ws-info", "spot-name", "spot-save", "mark-info"]) {
@@ -101,24 +101,25 @@ test("기기 전환은 자동 스냅샷 폴백을 무효화한다 (저fps 고착
 // discovery 도 같은 전환 계약을 지켜야 한다. 다만 cctv 와 한 곳이 다르다 — 이 페이지는
 // 프리뷰가 곧 작업 화면(영상 위에 점을 찍는 것이 본업)이라 전환 후 다시 켠다. 켜는 것은
 // 괜찮지만 **놓아주기가 먼저**여야 하고, 폴백은 새 기기에 물려주지 않아야 한다.
-test("discovery 도 전환 시 먼저 놓아주고 폴백을 걷어낸다", async () => {
-  const html = await readFile(new URL("../public/discovery.html", import.meta.url), "utf8");
-  assert.match(html, /beforeChange:\s*async\s*\(\)\s*=>\s*\{/, "놓아주기 훅이 있어야 한다");
-  const before = html.match(/beforeChange:\s*async\s*\(\)\s*=>\s*\{[\s\S]*?\n  \},/)[0];
-  assert.match(before, /await discoveryPreview\.stop\(\)/, "stop 을 await 해야 한다");
-  assert.match(before, /discoveryPreview\.resetFallbackForNewDevice\(\)/, "폴백을 걷어내야 한다");
-  // 옛 형태(전환 후에야 stop→start)가 남아 있으면 유령 창이 다시 생긴다.
-  assert.doesNotMatch(html, /onChange:\s*async\s*\(\)\s*=>\s*\{\s*await discoveryPreview\.stop\(\)/,
-    "stop 이 onChange 에 남아 있으면 서버 전환보다 늦다");
-  assert.match(html, /window\.addEventListener\("pagehide"/, "페이지 이탈 시 강제 종료는 유지되어야 한다");
+// 전환 계약은 이제 화면마다 배선하지 않는다 — 프리뷰 훅 한 곳이 든다. 놓아주기가 서버
+// 전환보다 **먼저**여야 하고(유령 시청자 방지), 자동 폴백은 새 기기에 물려주지 않아야 한다
+// (스트림 없는 기기를 한 번 거치면 그 탭이 세션 내내 저fps 에 갇혔다).
+test("프리뷰 훅이 전환 계약을 든다 — 화면마다 배선하지 않는다", async () => {
+  const hook = await readFile(new URL("../src/app/hooks/use-camera-preview.mjs", import.meta.url), "utf8");
+  const reg = hook.slice(hook.indexOf("registerRelease(async"), hook.indexOf("const bye ="));
+  assert.match(reg, /await preview\.stop\(\)/, "stop 을 await 해야 한다");
+  assert.match(reg, /resetFallbackForNewDevice\(\)/, "폴백을 걷어내야 한다");
+  assert.ok(reg.indexOf("await preview.stop()") < reg.indexOf("resetFallbackForNewDevice"),
+    "먼저 끊고 나서 폴백을 걷는다");
+  assert.match(hook, /window\.addEventListener\("pagehide", bye\)/, "문서 이탈 시 강제 종료는 유지되어야 한다");
+  // provider 가 활성을 바꾸기 **전에** 이 함수를 await 한다.
+  const provider = await readFile(new URL("../src/app/camera-provider.jsx", import.meta.url), "utf8");
+  assert.match(provider, /beforeChange: releaseAll/);
+  const sel = await readFile(new URL("../src/camera-select.mjs", import.meta.url), "utf8");
+  assert.ok(sel.indexOf("await beforeChange(") < sel.indexOf('postJson(api("/cctv/active")'),
+    "beforeChange 가 /cctv/active 전환보다 먼저여야 한다");
 });
 
-// 3D 검출은 사각형이 아니라 투영된 직육면체다. 사이드카가 주는 것은 12개 모서리의 픽셀
-// 선분과 미터 값이고 2D bbox 는 아예 없다 — boxes 로 옮기면 좌표 4개의 뜻이 "사각형의 대각
-// 두 점"으로 바뀌어 차 한 대가 사각형 12개가 된다.
-// 적대적 리뷰가 재현한 결함: 그리는 쪽은 좌표를 클램프하고 퇴화한 것을 건너뛰는데 세는 쪽이
-// 원좌표로 다시 판정하면, 화면은 비어 있는데 "영상 위 박스 n개"라고 말하는 상태가 성립한다.
-// 사이드카는 프레임 밖 좌표를 정상 출력으로 낸다(클램프하지 않는다) — 드문 입력이 아니다.
 // 카메라 목록은 **하나다.** 실기든 씬에 세운 것이든 같은 줄에 같은 모양으로 선다 — 어디에
 // 기록돼 있는지는 백엔드의 내부 사정이라, 병합(등록 기기 + 씬 카메라)과 활성 판정(지금 몰고
 // 있는 카메라)은 서버(/cctv/devices)가 끝내서 보낸다. 화면이 두 목록을 다시 합치면 그

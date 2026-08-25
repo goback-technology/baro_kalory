@@ -21,7 +21,10 @@ function writeWanted(key, on) {
   try { localStorage.setItem(key, on ? "on" : "off"); } catch { /* 저장소 사용 불가 */ }
 }
 
-export function useCameraPreview({ storageKey, wantedKey, log, ...opts } = {}) {
+// alwaysOn — 프리뷰가 곧 작업면인 화면을 위한 것이다(주차면 탐색: 영상 위에 점을 찍는 것이
+// 본업이라 꺼져 있으면 화면이 성립하지 않는다). 그 화면에는 켬/끔 버튼도 없고 기억할 선택도
+// 없다. 나머지 화면의 기본은 여전히 **꺼짐**이다 — 페이지를 여는 행위가 카메라 점유가 되면 안 된다.
+export function useCameraPreview({ storageKey, wantedKey, alwaysOn = false, log, ...opts } = {}) {
   const imgRef = useRef(null);
   const modeBtnRef = useRef(null);
   const fpsRef = useRef(null);
@@ -80,8 +83,8 @@ export function useCameraPreview({ storageKey, wantedKey, log, ...opts } = {}) {
   useEffect(() => {
     if (!loaded || restored.current) return;
     restored.current = true;
-    if (readWanted(wantedKey)) start();
-  }, [loaded, wantedKey, start]);
+    if (alwaysOn || readWanted(wantedKey)) start();
+  }, [loaded, wantedKey, alwaysOn, start]);
 
   // 카메라가 바뀌었는데 켜 둔 상태였으면 새 기기로 다시 켠다 — 전환이 사용자의
   // "보고 있겠다"는 선택을 지우면 안 된다. 끄는 일은 provider 의 놓아주기가 이미 했다.

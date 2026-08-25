@@ -1,0 +1,55 @@
+/* 주차면 탐색 화면의 자리잡기. SPA 에서는 방문한 화면의 CSS 가 언로드되지 않고 쌓이므로,
+   접두사 없는 선택자(main·body 같은 것)를 쓰면 떠난 화면의 규칙이 다음 화면을 망가뜨린다.
+   전역 규칙은 셸(public/index.html)이 갖고, 공유 base/컴포넌트/토큰은 app.css 에서 온다.
+   .props·.spot-row·.prow 는 disc- 를 붙이지 않았다 — 이 화면에만 있고, 다음에 공용
+   컴포넌트로 묶일 자리다(그때 이름이 함께 정해진다). */
+
+/* 반응형 금지 — 고정폭 1200 = 좌 860 + gap 16 + 우 296 (+ 패딩 28).
+   좁은 창에서는 문서 전체를 넓히는 대신 이 화면 안에서만 가로로 굴린다. */
+.disc-main { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0; }
+#disc-wrap { display: flex; gap: 16px; padding: 14px; width: 1200px; min-width: 1200px; box-sizing: border-box; align-items: flex-start; }
+#disc-left { flex: 0 0 860px; }
+#disc-stage { position: relative; line-height: 0; background: #000; border: 1px solid var(--color-border); overflow: hidden; }
+#disc-view { display: block; width: 860px; aspect-ratio: 16 / 9; height: auto; background: #000; object-fit: contain; cursor: crosshair; }
+#disc-points { position: absolute; inset: 0; pointer-events: none; }
+#disc-home-frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; display: none; }
+/* 호밍 중 차량 세그멘테이션 오버레이 (프레임 좌표 → 화면 정합). */
+#disc-masks { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; display: none; }
+#disc-masks polygon.target { fill: rgba(255,90,80,.24); stroke: #ff635a; stroke-width: 4; }
+#disc-masks polygon.candidate { fill: rgba(255,174,64,.12); stroke: #ffae40; stroke-width: 3; stroke-dasharray: 12 8; }
+#disc-home-box { z-index: 4; }   /* 번호판 박스는 마스크(z2)·조준선(z3) 위 */
+#disc-home-box.locked::before { content: "PLATE LOCK"; position: absolute; left: -2px; top: -22px; padding: 2px 5px;
+  background: #16d05a; color: #071108; font: 700 11px/1.3 var(--font-mono); white-space: nowrap; }
+/* 에이전트 '독백' — 화면 좌하단 녹색 모노 텍스트, 스트림 오브 콘셔스니스. */
+#disc-monologue { position: absolute; left: 12px; right: 12px; bottom: 10px; z-index: 5; pointer-events: none;
+  display: flex; flex-direction: column; gap: 2px; font-family: var(--font-mono); font-size: 13px; line-height: 1.5; }
+#disc-monologue .th { color: #16d05a; text-shadow: 0 0 3px #000, 0 1px 4px #000, 0 0 8px rgba(22,208,90,.5);
+  opacity: .5; transition: opacity .2s; }
+#disc-monologue .th:last-child { opacity: 1; font-weight: 600; }
+#disc-monologue .th::before { content: "› "; opacity: .7; }
+#disc-crosshair { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; z-index: 3; }
+#disc-crosshair::before { content: ""; position: absolute; left: -16px; top: -1px; width: 32px; height: 2px; background: rgba(255,90,90,.7); box-shadow: 0 0 2px #000; }
+#disc-crosshair::after { content: ""; position: absolute; left: -1px; top: -16px; width: 2px; height: 32px; background: rgba(255,90,90,.7); box-shadow: 0 0 2px #000; }
+#hr-cross::before { content: ""; position: absolute; left: -16px; top: -1px; width: 32px; height: 2px; background: rgba(255,90,90,.85); box-shadow: 0 0 2px #000; }
+#hr-cross::after { content: ""; position: absolute; left: -1px; top: -16px; width: 2px; height: 32px; background: rgba(255,90,90,.85); box-shadow: 0 0 2px #000; }
+#disc-panel { flex: 0 0 296px; display: flex; flex-direction: column; gap: 12px; }
+.pdot { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2px solid var(--color-accent); background: rgba(211,162,74,.4); box-shadow: 0 0 0 1px #0008; pointer-events: auto; cursor: pointer; }
+.pdot.sel { border-color: var(--color-warn); background: rgba(211,162,74,.55); width: 18px; height: 18px; margin: -9px 0 0 -9px; }
+.pdot-lab { position: absolute; left: 16px; top: -3px; font-size: 11px; color: var(--color-text); background: #000a; padding: 0 3px; white-space: nowrap; }
+/* 프리셋/점 리스트 */
+.spot-row { display: flex; gap: 6px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--color-border); }
+.spot-row .nm { flex: 1; font-size: 13px; }
+.spot-row .pz { font-size: 11px; color: var(--color-muted); }
+.prow { cursor: pointer; }
+.prow:hover { background: rgba(255,255,255,.04); }
+.prow.sel { background: rgba(211,162,74,.12); }
+/* 선택 항목 상세 — 리스트 위에 고정, 영상 가까이. 1줄=이름/상태/위치, 2줄=동작 버튼. */
+.props { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; padding: 8px; border: 1px solid var(--color-border); border-radius: 6px; background: rgba(211,162,74,.07); }
+.props .line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 22px; }
+.props .pname { font-weight: 700; font-size: 13px; }
+.props .pmeta { font-size: 11px; color: var(--color-muted); }
+.props .pz { font-size: 12px; }
+.props input.pname { width: 110px; font-weight: 700; font-size: 13px; padding: 3px 6px; }
+/* 카드 타이틀 바 — 제목 왼쪽 · 상태 오른쪽 */
+.card h2.tbar { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.04); border: 1px solid var(--color-border); border-radius: 4px; padding: 5px 8px; }
+.card h2.tbar .tstat { margin-left: auto; text-transform: none; letter-spacing: 0; font-size: 12px; text-align: right; }
