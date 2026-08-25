@@ -14,14 +14,21 @@ PTZ CCTV **커미셔닝 콘솔 웹 UI**. 카메라를 현장에 붙일 때 필�
 - [빌드](#빌드)
 - [정적 배포 (GitHub Pages)](#정적-배포-github-pages)
 - [백엔드 주소 지정](#백엔드-주소-지정)
-- [페이지](#페이지)
+- [화면](#화면)
 - [브라우저 모듈](#브라우저-모듈)
 - [테마](#테마)
 - [지켜야 하는 계약](#지켜야-하는-계약)
 
 ## 무엇
 
-**무빌드 바닐라다.** React/Vite 가 아니고 JS 번들러도 없다. 빌드는 Tailwind CLI 한 번뿐이다.
+**React + Vite SPA 다.** 셸 하나에 해시 라우트가 붙는다(자세한 것은 [화면](#화면)).
+런타임 의존성은 react·react-dom 둘뿐이고, 라우터도 상태 관리도 들이지 않았다 — 이 앱의
+라우팅 요구는 「해시 → 화면 표 룩업」 하나라 60줄이면 끝난다.
+
+2026-08-25 까지는 무빌드 바닐라였다. 화면마다 인라인 <script> 가 통째로 들어 있었고,
+같은 UI 조합(프리뷰·폴링·잠금·탭·목록 행)이 화면마다 복붙돼 있었다 — 공유되는 것은 모듈
+여섯뿐이고 그 위는 전부 따로였다. 옮기면서 판정 로직이 actions.mjs 로 내려왔고, 그제야
+node 테스트로 물 수 있게 됐다(그 전에는 회귀 그물이 HTML 정규식뿐이었다).
 
 **도메인 수식이 없다.** 화각·투영·조준은 전부 백엔드가 계산해 값으로 내려준다. 계산 지점이
 하나라 모델이 두 벌로 갈라질 수 없다. 광학을 선언하지 않은 기기에서는 화각 값이 **응답에 아예
@@ -159,24 +166,37 @@ https://<사이트>/?api=reset          # 저장된 주소를 지우는 탈출�
 
 **백엔드 주소를 이 저장소에 커밋하지 않는다.** 배포 시 주입하거나 사용자가 지정한다.
 
-## 페이지
+## 화면
 
-| 경로 | 파일 | 무엇 |
+셸 하나(`public/index.html`)에 라우트가 붙는 **SPA** 다. 경로가 아니라 **해시**를 쓰는 이유는
+배포 형태다 — dist 를 정적 호스트에 그대로 올리므로 깊은 경로에 index.html 을 돌려줄 서버가
+없고, 해시는 그 문제를 통째로 없앤다(문서 URL 이 언제나 index.html 하나라 상대 참조·버전 파일
+경로가 깊이에 따라 어긋나지 않는다).
+
+| 해시 | 라우트 | 무엇 |
 |---|---|---|
-| `/` | `public/home.html` | 대문 — 앱 카드·버전 |
-| `/cctv` | `public/cctv.html` | CCTV 제어·모니터링 (PTZ·프리뷰·검출 테스트) |
-| `/discovery` | `public/discovery.html` | 주차면 탐색 · 번호판 호밍 |
-| `/simulator` | `public/simulator.html` | 시뮬레이터 셋업 (씬·시뮬 카메라) |
-| `/settings` | `public/settings.html` | 설정 (기기·API 서버·검출기·LPR·API 키) |
-| `/calibration` | `public/calibration.html` | 카메라 캘리브레이션 (기기별 광학·조준 실측) |
-| `/height` | `public/height.html` | 설치 높이 · 측량 (시공 실측 정본 + 영상 자동 측정) |
-| `/v0` | `public/cctv.html` | CCTV alias |
+| `#/` | `src/pages/home/` | 대문 — 앱 카드·버전 |
+| `#/cctv` | `src/pages/cctv/` | CCTV 제어·모니터링 (PTZ·프리뷰·검출 테스트) |
+| `#/discovery` | `src/pages/discovery/` | 주차면 탐색 · 번호판 호밍 |
+| `#/settings` | `src/pages/settings/` | 설정 (기기·API 서버·검출기·LPR·API 키) — 탭은 `#/settings/<tab>` |
+| `#/calibration` | `src/pages/calibration/` | 카메라 캘리브레이션 (기기별 광학·조준 실측) |
+| `#/height` | `src/pages/height/` | 설치 높이 · 측량 (시공 실측 정본 + 영상 자동 측정) |
+| `/simulator` | `public/simulator.html` | 시뮬레이터 셋업 — **아직 자기 문서를 갖는 마지막 화면** |
 
-페이지 목록의 단일 출처는 `src/pages.mjs` 다 — 헤더 nav·버전 배지·홈 카드가 전부 이 표를 보고,
-`pack.mjs` 도 dist 파일 목록을 여기서 파생시킨다(`test/static-build.test.mjs` 가 그 정합과
-실파일 존재를 검사한다). 개발 서버 라우팅(`build/vite-kalory.mjs` 의 `ROUTES`)도 이 표에서
-파생된다. 손으로 맞춰야 하는 미러는 하나 남았다 — `styles/tailwind.css` 의 `@source`(글로브가
-아니라 파일 나열!). 자동 검사가 없어서, 빠뜨리면 그 화면만 조용히 스타일을 잃는다.
+**쿼리는 `#` 앞에만 둔다**(`index.html?api=reset#/settings`). API base 는 `location.search`
+에서 읽으므로 해시 안의 쿼리는 그 파서에 닿지 않는다 — 벽돌 탈출구가 정확히 필요한 순간에
+조용히 사라지는 모양이 된다.
+
+옛 주소(`…/cctv.html`, `…/v0.html`)는 **리다이렉트 셸**이 받는다. 빌드가 `src/pages.mjs` 에서
+파생해 발행하고, 쿼리를 그대로 넘긴다 — 북마크가 404 가 되지 않고 `?api=reset` 도 살아 있다.
+
+화면 목록의 단일 출처는 `src/pages.mjs` 다 — 헤더 nav·버전 배지·홈 카드·라우트 표·빌드 진입점·
+dist 파일 목록·개발 서버 라우팅·리다이렉트 셸이 전부 이 표에서 파생된다. `spa` 플래그가 옮긴
+화면과 안 옮긴 화면을 가르며, 전부 옮겨 가면 그 플래그와 분기는 통째로 사라진다.
+
+각 화면은 `page.jsx`(그리기) · `actions.mjs`(판정·문구, node 테스트) · `<id>.css` 로 나뉜다.
+**라우트 CSS 에 전역 선택자를 쓰지 않는다** — SPA 에서는 방문한 화면의 CSS 가 언로드되지 않고
+쌓여서, `main`·`body` 같은 규칙을 남기면 떠난 화면이 다음 화면을 망가뜨린다(테스트가 문다).
 
 ## 브라우저 모듈
 
