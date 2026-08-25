@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getJson, postJson, reqJson, api } from "../../lib/api.mjs";
 import { useCamera } from "../../camera/provider.jsx";
 import { createCameraPreview } from "../../camera/preview.mjs";
+import { readFlag, writeFlag } from "../../lib/prefs.mjs";
 import { t } from "../../i18n/index.mjs";
 import "./calibration.css";
 import { SweepOverlay } from "./sweep-overlay.jsx";
@@ -42,9 +43,7 @@ function LiveStage({ st, registerRelease }) {
       storageKey: "calib",
     });
     previewRef.current = preview;
-    let on = false;
-    try { on = localStorage.getItem(KEY) === "on"; } catch { /* 저장소 사용 불가 */ }
-    if (on) { preview.start(); setRunning(true); setLabel(t("실행 중")); }
+    if (readFlag(KEY)) { preview.start(); setRunning(true); setLabel(t("실행 중")); }
     // 스트림을 놓아 줄 세 갈래를 전부 건다. 안 하면 유령 시청자로 남아 카메라를 점유한다.
     //   1) 카메라 전환 전    — provider 가 활성을 바꾸기 **전에** 이 함수를 await 한다.
     //   2) 라우트 이탈·언마운트 — SPA 에는 pagehide 가 오지 않는다. cleanup 이 그 자리다.
@@ -60,12 +59,12 @@ function LiveStage({ st, registerRelease }) {
   }, [registerRelease]);
 
   const start = () => {
-    try { localStorage.setItem(KEY, "on"); } catch { /* 저장소 사용 불가 */ }
+    writeFlag(KEY, true);
     previewRef.current.start();
     setRunning(true); setLabel(t("실행 중"));
   };
   const stop = async () => {
-    try { localStorage.setItem(KEY, "off"); } catch { /* 저장소 사용 불가 */ }
+    writeFlag(KEY, false);
     // 전환은 이전 stop 을 await 한 뒤 — 안 하면 연결이 누적돼 스트림이 저하된다(저장소 계약).
     await previewRef.current.stop();
     setRunning(false); setLabel(t("중지됨"));

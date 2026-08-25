@@ -8,6 +8,7 @@ import { t } from "../../i18n/index.mjs";
 import { useCamera } from "../../camera/provider.jsx";
 import { useCameraPreview } from "../../camera/use-preview.mjs";
 import { useJobPoll } from "../../lib/use-job-poll.mjs";
+import { readPref, writePref } from "../../lib/prefs.mjs";
 import { usePtzControls, PtzPad, AbsoluteMove } from "../../components/ptz-pad.jsx";
 import { useStagePointer } from "../../components/use-stage-pointer.mjs";
 import {
@@ -18,8 +19,8 @@ import "./cctv.css";
 const enc = encodeURIComponent;
 const SNAP_RES_KEY = "cctv:snap-res.v1";
 const CROSSHAIR_KEY = "cctv:crosshair.v1";
-const read = (k, dflt) => { try { return localStorage.getItem(k) ?? dflt; } catch { return dflt; } };
-const write = (k, v) => { try { localStorage.setItem(k, v); } catch { /* 저장소 사용 불가 */ } };
+
+
 
 const DET_TARGETS = [
   ["det-test-vpd", "VPD 테스트", ["vpd"]],
@@ -45,9 +46,9 @@ export default function CctvPage() {
   const [detCards, setDetCards] = useState([]);
   const [detStatus, setDetStatus] = useState("");
   const [detBusy, setDetBusy] = useState(false);
-  const [crosshair, setCrosshair] = useState(() => read(CROSSHAIR_KEY, "on") !== "off");
+  const [crosshair, setCrosshair] = useState(() => readPref(CROSSHAIR_KEY, "on") !== "off");
   const [ptzOverlayOn, setPtzOverlayOn] = useState(true);
-  const [snapRes, setSnapRes] = useState(() => read(SNAP_RES_KEY, "full"));
+  const [snapRes, setSnapRes] = useState(() => readPref(SNAP_RES_KEY, "full"));
   const [snapBusy, setSnapBusy] = useState(false);
   const stageRef = useRef(null);
 
@@ -268,7 +269,7 @@ export default function CctvPage() {
             <button id="cctv-preview-stop" disabled={!preview.running} onClick={preview.stop}>종료</button>
             <button id="preview-mode" ref={preview.modeBtnRef}>프리뷰: 스트림</button>
             <select id="snap-res" title="스크린샷 해상도" style={{ width: "auto", padding: "4px 6px", fontSize: 12 }}
-                    value={snapRes} onChange={(e) => { setSnapRes(e.target.value); write(SNAP_RES_KEY, e.target.value); }}>
+                    value={snapRes} onChange={(e) => { setSnapRes(e.target.value); writePref(SNAP_RES_KEY, e.target.value); }}>
               <option value="full">원본 해상도</option>
               <option value="screen">화면 해상도</option>
             </select>
@@ -276,7 +277,7 @@ export default function CctvPage() {
                     title="스크린샷 다운로드 — 원본은 카메라에서 새로 받고, 화면은 지금 보이는 프레임 그대로">스크린샷</button>
             <label style={{ margin: 0 }} title="화면 중앙 조준선 켜기/끄기">
               <input type="checkbox" id="crosshair-toggle" style={{ width: "auto" }} checked={crosshair}
-                     onChange={(e) => { setCrosshair(e.target.checked); write(CROSSHAIR_KEY, e.target.checked ? "on" : "off"); }} /> Crosshair
+                     onChange={(e) => { setCrosshair(e.target.checked); writePref(CROSSHAIR_KEY, e.target.checked ? "on" : "off"); }} /> Crosshair
             </label>
             <label style={{ margin: 0 }}>
               <input type="checkbox" id="ptz-overlay-toggle" style={{ width: "auto" }} checked={ptzOverlayOn}

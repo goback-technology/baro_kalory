@@ -8,6 +8,7 @@
 // Shared by the control tab and the layout editor — same code, two instances.
 
 import { api } from "../lib/api.mjs";
+import { readPref, writePref } from "../lib/prefs.mjs";
 import { createMjpegPlayer } from "./mjpeg-player.mjs";
 import { createMotionSettleTracker } from "./motion-settle.mjs";
 import { t } from "../i18n/index.mjs";
@@ -41,13 +42,13 @@ export function createCameraPreview(opts) {
   const keyMode = storageKey ? storageKey + ":mode.v2" : null;
   const keyInt = storageKey ? storageKey + ":interval" : null;
 
-  let mode = (keyMode && localStorage.getItem(keyMode)) || defaultMode; // "stream" | "snapshot"
+  let mode = (keyMode && readPref(keyMode)) || defaultMode; // "stream" | "snapshot"
   // 자동 폴백으로 스냅샷에 내려왔는지. **저장하지 않는다** — 이건 "그 기기가 스트림을 못 준다"는
   // 사실이지 사용자의 선택이 아니다. 저장값은 명시적 선택만 담는다(위 .v2 주석).
   let fellBackToSnapshot = false;
   let intervalMs = defaultIntervalMs;
   if (keyInt) {
-    const s = localStorage.getItem(keyInt);
+    const s = readPref(keyInt);
     if (s !== null && Number.isFinite(Number(s))) intervalMs = clamp(Number(s), 0, 3000);
   }
   let paused = true;          // starts paused; host calls start() for the active tab
@@ -90,7 +91,7 @@ export function createCameraPreview(opts) {
     on(intervalInput, "change", () => {
       intervalMs = clamp(Number(intervalInput.value) || 0, 0, 3000);
       intervalInput.value = intervalMs;
-      if (keyInt) localStorage.setItem(keyInt, String(intervalMs));
+      if (keyInt) writePref(keyInt, intervalMs);
     });
   }
   if (modeButton) on(modeButton, "click", () => setMode(mode === "stream" ? "snapshot" : "stream"));
@@ -276,7 +277,7 @@ export function createCameraPreview(opts) {
     // Persist only explicit user choices. An automatic stream→snapshot fallback is
     // session-only: persisting it once stuck every browser in low-fps snapshot mode
     // even after the stream endpoint was fixed.
-    if (keyMode && !fallback) localStorage.setItem(keyMode, m);
+    if (keyMode && !fallback) writePref(keyMode, m);
     if (fallback) log(t("MJPEG 스트림 사용 불가 → 스냅샷 폴링으로 전환"));
     if (!paused) apply();
   }
@@ -371,7 +372,7 @@ export function createCameraPreview(opts) {
   function resetFallbackForNewDevice() {
     if (!fellBackToSnapshot) return false;
     fellBackToSnapshot = false;
-    const restored = (keyMode && localStorage.getItem(keyMode)) || defaultMode;
+    const restored = (keyMode && readPref(keyMode)) || defaultMode;
     if (restored === mode) return false;
     mode = restored;
     if (!paused) apply();

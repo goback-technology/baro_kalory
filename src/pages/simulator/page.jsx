@@ -12,6 +12,7 @@ import { t } from "../../i18n/index.mjs";
 import { toNum } from "../../lib/format.mjs";
 import { createCameraPreview } from "../../camera/preview.mjs";
 import { useJobPoll } from "../../lib/use-job-poll.mjs";
+import { readPref, writePref } from "../../lib/prefs.mjs";
 import { useStagePointer } from "../../components/use-stage-pointer.mjs";
 import { RigMap } from "./map.jsx";
 import {
@@ -34,8 +35,8 @@ import {
 import "./simulator.css";
 
 const enc = encodeURIComponent;
-const read = (k, dflt) => { try { return localStorage.getItem(k) ?? dflt; } catch { return dflt; } };
-const write = (k, v) => { try { localStorage.setItem(k, v); } catch { /* 저장소 사용 불가 */ } };
+
+
 
 const TABS = [
   ["log", "로그"], ["rig", "카메라 배치"], ["drive", "카메라 컨트롤"], ["info", "씬"], ["settings", "설정"],
@@ -66,7 +67,7 @@ export default function SimulatorPage() {
   const [mapSelectedId, setMapSelectedId] = useState("");
   const [placing, setPlacing] = useState(null);
   const [showAllSlots, setShowAllSlots] = useState(false);
-  const [crosshair, setCrosshair] = useState(() => read(SIM_CROSSHAIR_KEY, "on") !== "off");
+  const [crosshair, setCrosshair] = useState(() => readPref(SIM_CROSSHAIR_KEY, "on") !== "off");
 
   // ── 화면이 말하는 것들 ─────────────────────────────────────────────────────
   const [lines, setLines] = useState([]);
@@ -181,7 +182,7 @@ export default function SimulatorPage() {
 
   const startPreview = useCallback(() => {
     if (S.current.previewRunning) return;
-    write(SIM_PREVIEW_WANTED_KEY, "on");
+    writePref(SIM_PREVIEW_WANTED_KEY, "on");
     previewRef.current?.start();
     setPreviewRunning(true);
     setPreviewLabel(t("실행 중"));
@@ -189,7 +190,7 @@ export default function SimulatorPage() {
   }, [log]);
 
   const stopPreview = useCallback(async () => {
-    write(SIM_PREVIEW_WANTED_KEY, "off");
+    writePref(SIM_PREVIEW_WANTED_KEY, "off");
     await previewRef.current?.stop();
     setPreviewRunning(false);
     setPreviewLabel(t("정지됨"));
@@ -364,7 +365,7 @@ export default function SimulatorPage() {
         setCamInfo(t("씬에 카메라가 없습니다 — 「카메라 배치」 탭에서 세우면 여기에 나타납니다."));
         return false;
       }
-      let selectedId = pickDevice(sims, { savedId: read(SIM_ACTIVE_CAMERA_KEY, ""), activeId: cfg.active });
+      let selectedId = pickDevice(sims, { savedId: readPref(SIM_ACTIVE_CAMERA_KEY, ""), activeId: cfg.active });
       // 활성 전환은 목록의 일이 아니다 — 이 POST 한 건의 일시 실패가 바깥 catch 로 나가면
       // 「카메라 목록 실패」로 오보되고, 목록은 이미 채워졌는데 활성만 반쪽으로 남는다.
       if (selectedId !== cfg.active) {
@@ -375,7 +376,7 @@ export default function SimulatorPage() {
         }
       }
       setActiveCameraId(selectedId);
-      write(SIM_ACTIVE_CAMERA_KEY, selectedId);
+      writePref(SIM_ACTIVE_CAMERA_KEY, selectedId);
       setCamInfo("");
       return true;
     } catch (e) { setCamInfo(t("카메라 목록 실패") + ": " + e.message); }
@@ -409,7 +410,7 @@ export default function SimulatorPage() {
       // 옛 카메라의 PTZ 를 새 카메라의 것으로 물려주지 않는다. 활성만 먼저 바뀌면 그 사이의
       // 그리기가 **새 카메라의 설치방위 + 옛 카메라의 팬** 으로 조준선을 그린다.
       setLastPtz(null);
-      write(SIM_ACTIVE_CAMERA_KEY, id);
+      writePref(SIM_ACTIVE_CAMERA_KEY, id);
       invalidateScene();
       await previewRef.current?.stop();       // 이전 스트림 완전 종료 대기 후 새 카메라 시작
       if (S.current.previewRunning) previewRef.current?.start();
@@ -1279,7 +1280,7 @@ export default function SimulatorPage() {
       if (hasCamera) {
         // 프리뷰를 여는 것은 **사용자 선택**이고 그 선택만 기억한다 — 페이지를 여는 행위가
         // 카메라 점유가 되면 안 된다(시뮬은 캡처 예산이 유한하다).
-        if (read(SIM_PREVIEW_WANTED_KEY, "off") === "on") startPreview();
+        if (readPref(SIM_PREVIEW_WANTED_KEY, "off") === "on") startPreview();
         else setPreviewLabel(t("정지됨 — 시작을 누르세요"));
         await loadPtz();
       } else {
@@ -1427,7 +1428,7 @@ export default function SimulatorPage() {
           <span id="busy" className="hint sim-busy">{busyLabel}</span>
           <label style={{ margin: 0 }} title="화면 중앙 조준선 켜기/끄기">
             <input type="checkbox" id="crosshair-toggle" style={{ width: "auto" }} checked={crosshair}
-                   onChange={(e) => { setCrosshair(e.target.checked); write(SIM_CROSSHAIR_KEY, e.target.checked ? "on" : "off"); }} />
+                   onChange={(e) => { setCrosshair(e.target.checked); writePref(SIM_CROSSHAIR_KEY, e.target.checked ? "on" : "off"); }} />
             {" "}Crosshair
           </label>
           <label style={{ margin: 0 }}>

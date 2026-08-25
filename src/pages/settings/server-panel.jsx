@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { getJson, postJson, api, API_BASE, API_BASE_EXPLICIT, API_BASE_KEY, cleanApiBase, mixedContentBlocked, stripApiParamFromUrl } from "../../lib/api.mjs";
 import { t } from "../../i18n/index.mjs";
+import { removePref, writePref } from "../../lib/prefs.mjs";
 import { classifyProbeError, probeReportText } from "./actions.mjs";
 
 // 입력값 정규화. **테스트와 저장이 같은 규칙을 써야 한다** — 따로 두면 "테스트는 통과했는데
@@ -69,7 +70,7 @@ export function ApiBaseCard() {
   };
 
   const onClear = () => {
-    try { localStorage.removeItem(API_BASE_KEY); } catch { /* 저장소 사용 불가 */ }
+    removePref(API_BASE_KEY);
     stripApiParamFromUrl();
     location.reload();
   };
@@ -93,7 +94,7 @@ export function ApiBaseCard() {
         t("그래도 저장할까요? 저장 후 화면이 멈추면 주소 뒤에 ?api=reset 을 붙여 여세요."));
       if (!go) { setStatus(t("저장 취소")); return; }
     }
-    try { localStorage.setItem(API_BASE_KEY, v); } catch { /* 저장소 사용 불가 */ }
+    writePref(API_BASE_KEY, v);
     stripApiParamFromUrl(); // ?api= 잔류 쿼리가 방금 저장한 값을 덮거나 지우는 것 방지
     location.reload();
   };

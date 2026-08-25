@@ -2,6 +2,8 @@
 // localStorage 로 지속한다. 컴포넌트가 전부 var(--color-*) 토큰을 참조하므로 data-theme 하나만
 // 바꾸면 전 페이지가 런타임(무빌드)으로 교체된다. 새 테마 추가 = tailwind.css 에 블록 하나 +
 // 아래 THEMES 에 한 줄.
+import { readPref, writePref } from "../lib/prefs.mjs";
+
 const KEY = "baro-theme";
 const DEFAULT = "terminal";
 
@@ -11,13 +13,13 @@ export const THEMES = [
 ];
 
 export function getTheme() {
-  try { return localStorage.getItem(KEY) || DEFAULT; } catch { return DEFAULT; }
+  return readPref(KEY) || DEFAULT;
 }
 
 export function setTheme(name) {
   const id = THEMES.some((t) => t.id === name) ? name : DEFAULT;
   document.documentElement.dataset.theme = id;
-  try { localStorage.setItem(KEY, id); } catch { /* 무시 */ }
+  writePref(KEY, id);
   return id;
 }
 

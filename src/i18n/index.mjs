@@ -15,6 +15,7 @@
 //
 // 사전(DICT·HTML)은 ./dict.mjs 에 있다 — 900줄짜리 데이터라 규칙과 같은 파일에 두지 않는다.
 import { DICT, HTML } from "./dict.mjs";
+import { readPref, writePref } from "../lib/prefs.mjs";
 
 const LANGS = ["ko", "en", "vi"];
 const STORE_KEY = "baro_lang";
@@ -34,8 +35,8 @@ function detectLang() {
 }
 
 let lang = (() => {
-  try { const s = localStorage.getItem(STORE_KEY); if (LANGS.includes(s)) return s; } catch {}
-  return detectLang();
+  const s = readPref(STORE_KEY);
+  return LANGS.includes(s) ? s : detectLang();
 })();
 
 export function getLang() { return lang; }
@@ -85,7 +86,7 @@ export function i18nHtml(key) {
 export function setLang(l) {
   if (!LANGS.includes(l)) return;
   lang = l;
-  try { localStorage.setItem(STORE_KEY, l); } catch {}
+  writePref(STORE_KEY, l);
   document.documentElement.lang = l;
   document.title = tr(TITLE_KEY);
   // 명령형 위젯(프리뷰 모드 버튼 같은 것)은 React 트리 밖이라 이 신호로 제 문구를 고친다.

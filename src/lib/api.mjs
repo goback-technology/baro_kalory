@@ -14,6 +14,8 @@
 // 네임스페이스였을 뿐이다. 앱은 자기가 어디에 걸렸는지를 이 모듈의 URL 에서 알아내고,
 // backend 도 같은 마운트에 있다고 본다 — 루트(/)든 /barocalory/ 든 /<repo>/ 든 같은 코드가
 // 맞는 곳을 친다. 다른 오리진의 backend 를 쓰려면 base 를 명시 지정하면 그쪽이 이긴다.
+import { readPref, removePref } from "./prefs.mjs";
+
 export const API_BASE_KEY = "baro-api-base";
 
 // base 후보 정규화 — http(s) 절대주소만 채택한다. 스킴 없는 "192.0.2.10" 은 fetch 가
@@ -84,11 +86,10 @@ function resolveApiBase() {
   try {
     const q = new URLSearchParams(location.search).get("api");
     if (q === "reset") {
-      try { localStorage.removeItem(API_BASE_KEY); } catch {}
+      removePref(API_BASE_KEY);
       stripApiParamFromUrl(); // reset 은 1회성 — URL 에 남기면 이후 저장을 계속 지운다
     }
-    let stored = null;
-    try { stored = localStorage.getItem(API_BASE_KEY); } catch {}
+    const stored = readPref(API_BASE_KEY);
     const meta = document.querySelector('meta[name="baro-api-base"]')?.content;
     return resolveApiBaseInfoFrom({ search: location.search, stored, meta });
   } catch {

@@ -74,8 +74,8 @@ test("기기 전환은 자동 스냅샷 폴백을 무효화한다 (저fps 고착
   assert.match(reset, /if \(!fellBackToSnapshot\) return false;/,
     "사용자가 명시적으로 고른 스냅샷 모드는 건드리면 안 된다");
   // 저장은 명시적 선택일 때만 — 자동 폴백을 저장하면 브라우저가 영구 고착된다(.v2 키 사연).
-  assert.match(mod, /if \(keyMode && !fallback\) localStorage\.setItem\(keyMode, m\);/,
-    "폴백 저장 가드(!fallback)가 setItem 앞에 있어야 한다");
+  assert.match(mod, /if \(keyMode && !fallback\) writePref\(keyMode, m\);/,
+    "폴백 저장 가드(!fallback)가 저장 앞에 있어야 한다");
   // 이제 이 걷어내기는 화면마다 배선하지 않는다 — 프리뷰 훅이 놓아주기와 같은 자리에서 한다.
   assert.match(hook, /preview\.resetFallbackForNewDevice\(\)/,
     "카메라 전환 경로가 폴백을 걷어내야 한다");

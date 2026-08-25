@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getJson, postJson, api, API_BASE_EXPLICIT } from "../../lib/api.mjs";
 import { t } from "../../i18n/index.mjs";
+import { readPref, writePref } from "../../lib/prefs.mjs";
 import { hrefFor } from "../../app/router.mjs";
 import { keyHintText } from "./actions.mjs";
 import { DevicesPanel } from "./devices-panel.jsx";
@@ -29,10 +30,8 @@ const FALLBACK_TYPES = [
 ];
 
 function readStoredTab() {
-  try {
-    const saved = localStorage.getItem(TAB_KEY);
-    return TABS.some((x) => x.id === saved) ? saved : null;
-  } catch { return null; }
+  const saved = readPref(TAB_KEY);
+  return TABS.some((x) => x.id === saved) ? saved : null;
 }
 
 export default function SettingsPage({ sub }) {
@@ -51,7 +50,7 @@ export default function SettingsPage({ sub }) {
   // 주소로 직접 탭을 지목했으면 그 뜻을 따른다.
   const fallback = API_BASE_EXPLICIT ? (readStoredTab() || "devices") : "server";
   const tab = TABS.some((x) => x.id === sub) ? sub : fallback;
-  useEffect(() => { try { localStorage.setItem(TAB_KEY, tab); } catch { /* 저장소 사용 불가 */ } }, [tab]);
+  useEffect(() => { writePref(TAB_KEY, tab); }, [tab]);
   // 주소에 탭이 없으면 저장값으로 채워 넣는다 — 그래야 지금 보는 화면과 주소가 같은 말을 한다.
   useEffect(() => { if (!sub) location.replace(hrefFor("settings", tab)); }, [sub, tab]);
 

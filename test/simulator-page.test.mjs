@@ -57,7 +57,7 @@ test("프리뷰는 놓아주기 세 갈래를 다 건다 — 라우트 이탈·�
   // 카메라 전환 전 stop 을 **await** 한다 — 안 하면 연결이 누적돼 스트림이 저하된다.
   assert.match(src, /await previewRef\.current\?\.stop\(\); *\/\/ 이전 스트림 완전 종료 대기/);
   // 페이지를 여는 것이 곧 카메라 점유가 되면 안 된다 — 저장된 선택만 따른다.
-  assert.match(src, /if \(read\(SIM_PREVIEW_WANTED_KEY, "off"\) === "on"\) startPreview\(\);/);
+  assert.match(src, /if \(readPref\(SIM_PREVIEW_WANTED_KEY, "off"\) === "on"\) startPreview\(\);/);
   const starts = [...code(src).matchAll(/previewRef\.current\?\.start\(\)/g)]
     .filter((m) => !/previewRunning/.test(code(src).slice(Math.max(0, m.index - 200), m.index)));
   assert.deepEqual(starts.map(() => 1), [], "가드 없는 start() 가 남으면 게이트가 우회된다");

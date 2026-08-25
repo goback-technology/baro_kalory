@@ -8,18 +8,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createCameraPreview } from "./preview.mjs";
 import { useCamera } from "./provider.jsx";
-
 // 프리뷰를 여는 것은 **사용자 선택**이고 그 선택만 기억한다 — 페이지를 여는 행위가 카메라
 // 점유가 되면 안 된다(저장소 계약, 기본 꺼짐). 한 번 켜 둔 사람이 화면을 옮길 때마다 다시
 // 켜야 하면 그건 그것대로 기본값이 틀린 것이다.
-function readWanted(key) {
-  if (!key) return false;
-  try { return localStorage.getItem(key) === "on"; } catch { return false; }
-}
-function writeWanted(key, on) {
-  if (!key) return;
-  try { localStorage.setItem(key, on ? "on" : "off"); } catch { /* 저장소 사용 불가 */ }
-}
+import { readFlag, writeFlag } from "../lib/prefs.mjs";
 
 // alwaysOn — 프리뷰가 곧 작업면인 화면을 위한 것이다(주차면 탐색: 영상 위에 점을 찍는 것이
 // 본업이라 꺼져 있으면 화면이 성립하지 않는다). 그 화면에는 켬/끔 버튼도 없고 기억할 선택도
@@ -65,14 +57,14 @@ export function useCameraPreview({ storageKey, wantedKey, alwaysOn = false, log,
   const start = useCallback(() => {
     runningRef.current = true;
     setRunning(true);
-    writeWanted(wantedKey, true);
+    writeFlag(wantedKey, true);
     previewRef.current?.start();
   }, [wantedKey]);
 
   const stop = useCallback(async () => {
     runningRef.current = false;
     setRunning(false);
-    writeWanted(wantedKey, false);
+    writeFlag(wantedKey, false);
     // 전환은 이전 stop 을 await 한 뒤 — 안 하면 연결이 누적돼 스트림이 저하된다.
     await previewRef.current?.stop();
   }, [wantedKey]);
@@ -83,7 +75,7 @@ export function useCameraPreview({ storageKey, wantedKey, alwaysOn = false, log,
   useEffect(() => {
     if (!loaded || restored.current) return;
     restored.current = true;
-    if (alwaysOn || readWanted(wantedKey)) start();
+    if (alwaysOn || readFlag(wantedKey)) start();
   }, [loaded, wantedKey, alwaysOn, start]);
 
   // 카메라가 바뀌었는데 켜 둔 상태였으면 새 기기로 다시 켠다 — 전환이 사용자의
