@@ -1,0 +1,708 @@
+/* 시뮬레이터 셋업 화면의 자리잡기.
+ *
+ * SPA 에서는 방문한 화면의 CSS 가 언로드되지 않고 쌓인다. 그래서 두 가지를 지킨다:
+ *   1. 전역 선택자(html·body·header·main·*)를 쓰지 않는다 — 셸(public/index.html)이 화면
+ *      높이를 소유하고, 라우트는 그 flex 체인을 이어받는다.
+ *   2. **공유 id 를 건드리는 규칙은 전부 `#sim-main` 아래**에 둔다. `#stage`·`#view`·
+ *      `#viewbar` 는 app.css 가 소유하는 공용 컴포넌트라 CCTV 화면도 같은 이름을 쓴다 —
+ *      여기서 접두사 없이 덮으면 이 화면을 한 번 들른 뒤의 CCTV 스테이지가 860×484 로 굳는다.
+ *
+ * 색·글꼴·반경은 전부 var(--…) 토큰 참조(테마 따라 자동 교체).
+ */
+
+#sim-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 1408px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+/* 스크롤바는 이 화면 안에서만 얇게 — `*` 로 걸면 떠난 뒤에도 온 앱의 스크롤바가 이 모양이다. */
+#sim-main * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border2) var(--color-panel2);
+}
+
+#sim-main *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+#sim-main *::-webkit-scrollbar-button {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+#sim-main *::-webkit-scrollbar-track {
+  background: var(--color-panel2);
+  border: 1px solid var(--color-border);
+}
+
+#sim-main *::-webkit-scrollbar-thumb {
+  background: var(--color-border2);
+  border: 2px solid var(--color-panel2);
+}
+
+#sim-main *::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+}
+
+#sim-main *::-webkit-scrollbar-corner {
+  background: var(--color-panel2);
+}
+
+#sim-left {
+  flex: 0 0 864px;
+  width: 864px;
+  min-width: 864px;
+  max-width: 864px;
+  min-height: 0;
+  overflow: visible;
+  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+}
+
+#sim-panel {
+  flex: 0 0 528px;
+  width: 528px;
+  min-width: 528px;
+  max-width: 528px;
+  min-height: 0;
+  overflow: visible;
+  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-sizing: border-box;
+}
+
+#sim-main #cam-select {
+  min-width: 200px;
+}
+
+/* 시뮬 영상은 렌더 프레임 그대로 늘려 채운다 — 주차면 핀이 프레임 좌표의 백분율로 앉으므로,
+   레터박스가 생기면 핀과 영상이 어긋난다. */
+#sim-main #stage {
+  flex: 0 0 auto;
+  width: 860px;
+  height: 484px;
+  min-width: 860px;
+  min-height: 484px;
+  max-width: none;
+  max-height: none;
+}
+
+#sim-main #view {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: fill;
+}
+
+/* Crosshair 토글 — 화면 중앙 조준선만 숨긴다. 슬롯 마커는 '전체 슬롯' 토글이 따로 담당. */
+#sim-main #stage.crosshair-off .view-crosshair {
+  display: none;
+}
+
+#sim-main #viewbar .hint {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#sim-main #viewbar .view-help {
+  flex: 1 1 auto;
+}
+
+#sim-bottom-tabs {
+  flex: 0 0 320px;
+  height: 320px;
+  min-height: 320px;
+  max-height: 320px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+}
+
+/* 배치·컨트롤 탭일 때만 아래 칸이 커진다 — 평면도가 이 기능의 작업면이라 320px 로는 못 찍는다.
+   다른 탭(로그·설정)은 그만한 높이가 필요 없으므로 늘 키워 두면 화면만 잡아먹는다. */
+#sim-bottom-tabs.tall {
+  flex-basis: 400px;
+  height: 400px;
+  min-height: 400px;
+  max-height: 400px;
+}
+
+.sim-tabs {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sim-tab {
+  color: var(--color-muted);
+  border: 1px solid var(--color-border);
+  border-bottom: none;
+  padding: 6px 14px;
+}
+
+.sim-tab.active {
+  color: var(--color-bright);
+  background: var(--color-bg);
+  border-color: var(--color-border2);
+}
+
+.sim-tab-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+#sim-log-panel {
+  overflow: hidden;
+}
+
+#sim-bottom-tabs #log {
+  height: 100%;
+  max-height: none;
+  overflow-y: auto;
+}
+
+.sim-info-grid {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 8px 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.sim-info-label {
+  color: var(--color-label);
+  font-size: 12px;
+}
+
+.sim-info-value {
+  color: var(--color-bright);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sim-info-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.sim-info-actions button {
+  white-space: nowrap;
+}
+
+#slot-card {
+  flex: 0 0 clamp(160px, 22dvh, 220px);
+  min-height: 0;
+  max-height: clamp(160px, 22dvh, 220px);
+  display: flex;
+  flex-direction: column;
+}
+
+#sim-slots {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 4px;
+}
+
+#sim-slots .sim-slot {
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  overflow: hidden;
+}
+
+#sim-slots .slot-name,
+#sim-slots .slot-type,
+#sim-slots .slot-car,
+#sim-slots .slot-plate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#sim-slots .slot-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--color-bright);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+#sim-slots .slot-type {
+  flex: 0 0 auto;
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+#sim-slots .slot-car {
+  flex: 0 0 auto;
+  max-width: 58px;
+  color: var(--color-accent);
+  font-size: 10px;
+  font-style: normal;
+}
+
+#sim-slots .slot-plate {
+  flex: 0 0 auto;
+  max-width: 104px;
+  color: var(--color-ok);
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+#sim-panel > .card:not(#slot-card) {
+  flex: 0 0 auto;
+}
+
+.sim-status-row {
+  min-height: 18px;
+  margin-top: 6px;
+}
+
+.sim-led {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 1px solid var(--color-border2);
+  background: var(--color-danger);
+  box-shadow: 0 0 0 1px #0008;
+}
+
+.sim-led.ready {
+  background: var(--color-ok);
+  box-shadow: 0 0 7px var(--color-ok), 0 0 0 1px #0008;
+}
+
+.sim-led.warn {
+  background: var(--color-warn);
+  box-shadow: 0 0 7px var(--color-warn), 0 0 0 1px #0008;
+}
+
+.sim-led.off {
+  background: var(--color-danger);
+}
+
+#sim-rig-panel {
+  overflow: hidden;   /* 안쪽 평면도 그리드가 자기 스크롤을 갖는다 */
+}
+
+/* ---- 카메라 배치·컨트롤 탭 ----
+   평면도는 **한 장**이고 두 탭이 그 옆칸만 바꿔 단다. 예전에는 탭마다 도크를 두고 pane 을
+   appendChild 로 옮겨 앉혔는데, 그건 패널이 두 벌이던 시절의 방편이다 — 한 그리드에 두고
+   옆칸만 갈면 옮길 일 자체가 없어진다(사본을 두 장 그리는 실수도 원천봉쇄). */
+.sim-rig-layout {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 306px;
+  gap: 12px;
+}
+
+.sim-map-pane,
+.sim-rig-side {
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-panel2);
+}
+
+.sim-map-pane {
+  position: relative;
+  display: flex;
+}
+
+#sim-map {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: block;
+}
+
+/* 배치 모드에서만 커서가 조준선이 된다 — 평소엔 읽는 그림이지 찍는 그림이 아니다. */
+#sim-map.placing {
+  cursor: crosshair;
+}
+
+.sim-map-hint {
+  position: absolute;
+  left: 6px;
+  bottom: 4px;
+  right: 6px;
+  margin: 0;
+  pointer-events: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-slot {
+  fill: rgba(120, 132, 150, .18);
+  stroke: var(--color-border2);
+}
+
+.map-slot.occ {
+  fill: rgba(120, 132, 150, .42);
+}
+
+.map-slot.sel {
+  fill: rgba(255, 255, 255, .16);
+  stroke: var(--color-accent);
+}
+
+/* 시야콘은 보여 주는 그림일 뿐이다 — 클릭을 먹으면 카메라가 보고 있는 주차면이 죄다
+   선택 불가가 된다(콘이 슬롯 위에 그려지므로 정확히 관심 있는 것들이 막힌다). */
+.map-cone {
+  fill: var(--color-accent);
+  opacity: .08;
+  stroke: none;
+  pointer-events: none;
+}
+
+/* 지금 보고 있는 카메라의 시야만 뚜렷하다. 나머지는 배경으로 물러난다 — 콘 넷이 같은
+   밝기로 겹치면 어느 것이 어느 카메라의 것인지 알 수 없다. */
+.map-cone.sel {
+  fill: var(--color-ok);
+  opacity: .22;
+}
+
+/* 광축 — 부채꼴 한가운데를 지나는 붉은 선. 부채꼴(얼마나 넓게)과 다른 축의 정보(어디를)라
+   색과 모양이 모두 달라야 한다. 고른 카메라의 것만 굵다. */
+.map-view-axis {
+  fill: none;
+  stroke: var(--color-danger);
+  stroke-width: 1;
+  opacity: .55;
+  pointer-events: none;
+}
+
+.map-view-axis.sel {
+  stroke-width: 2;
+  opacity: 1;
+}
+
+/* 시선 막대 끝의 조준 앵커. 끌면 카메라가 그쪽을 본다 — 잡는 것이라 커서가 손이어야 하고,
+   막대와 같은 색이어야 "이 막대의 끝"으로 읽힌다. */
+.map-aim-handle {
+  fill: var(--color-danger);
+  stroke: var(--color-bg);
+  stroke-width: 1;
+  cursor: grab;
+}
+
+.map-aim-handle:active {
+  cursor: grabbing;
+}
+
+/* 시선 막대 위의 틸트 슬라이더. 녹색 기준선 = 틸트 0(수평) — 자리에서 움직이지 않는다.
+   움직이는 것은 앵커원뿐이고, 기준선에서 카메라 쪽 = 아래(+90° 까지), 끝쪽 = 위(−20° 까지).
+   고른 카메라의 기준선만 뚜렷하다 — 나머지는 배경으로 물러난다(부채꼴과 같은 규약). */
+.map-tilt-zero {
+  stroke: var(--color-ok);
+  stroke-width: 1;
+  opacity: .45;
+  pointer-events: none;
+}
+
+.map-tilt-zero.sel {
+  stroke-width: 2;
+  opacity: .9;
+}
+
+.map-tilt-handle {
+  fill: var(--color-bg);
+  stroke: var(--color-danger);
+  stroke-width: 2;
+  cursor: grab;
+}
+
+.map-tilt-handle:active {
+  cursor: grabbing;
+}
+
+/* 부채꼴 모서리의 줌 앵커. 광축 앵커(조준)와 **다른 일**을 하므로 색이 달라야 한다 —
+   같은 색이면 어느 것을 끌면 무엇이 바뀌는지 손이 기억해야 한다. */
+.map-fov-handle {
+  fill: var(--color-ok);
+  stroke: var(--color-bg);
+  stroke-width: 1;
+  cursor: grab;
+}
+
+.map-fov-handle:active {
+  cursor: grabbing;
+}
+
+/* 조준하는 중에는 지도 전체가 겨눔면이다 — 커서가 손 모양 그대로면 자리를 끄는 줄 안다. */
+#sim-map.aiming,
+#sim-map.aiming .map-cam,
+#sim-map.aiming .map-aim-handle,
+#sim-map.aiming .map-fov-handle {
+  cursor: crosshair;
+}
+
+.map-cam {
+  fill: var(--color-accent);
+  stroke: var(--color-bg);
+}
+
+/* 커서가 곧 "여기서 무엇을 할 수 있는가" 다. 스폰 카메라는 누르면 골라지고 그대로 끌린다.
+   레벨 저작 카메라(.authored)는 자세가 레벨의 것이라 커서가 바뀌지 않는다. */
+.map-cam.movable {
+  cursor: grab;
+}
+
+.map-cam.movable:active {
+  cursor: grabbing;
+}
+
+/* 레벨에 저작된 카메라 — 이 화면에서 옮기거나 지울 수 없는 부류라 색이 달라야 한다. */
+.map-cam.authored {
+  fill: var(--color-muted);
+}
+
+/* 고른 카메라는 색만으로 가리지 않는다 — 마커가 커지고 테두리가 붙는다. 평면도가 작을수록
+   색 차이 하나로는 "지금 이것" 이 안 읽힌다. */
+.map-cam.sel {
+  fill: var(--color-ok);
+  stroke: var(--color-bright);
+  stroke-width: 2;
+}
+
+.map-cam-label {
+  fill: var(--color-muted);
+  dominant-baseline: middle;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.map-ghost {
+  fill: none;
+  stroke: var(--color-ok);
+  stroke-dasharray: 14 10;
+  pointer-events: none;
+}
+
+.map-ghost-dot {
+  fill: var(--color-ok);
+  pointer-events: none;
+}
+
+.sim-rig-side {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 7px;
+  overflow-y: auto;
+}
+
+.sim-rig-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sim-rig-actions button {
+  white-space: nowrap;
+}
+
+/* 상태줄은 평면도 pane 안에 산다(두 탭이 함께 본다) — 힌트 위에 겹치지 않게 한 줄 위로. */
+.sim-rig-status {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 22px;
+  margin: 0;
+  min-height: 16px;
+  pointer-events: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sim-cam-edit-title {
+  margin: 0 0 6px;
+  color: var(--color-label);
+}
+
+/* 두 줄이 같은 3열 격자다 — 그래서 P·T 가 x·y 밑에 그대로 선다. 줄마다 칸 수에 맞춰
+   늘리면(flex) 두 번째 줄만 넓어져서, 값이 아니라 격자가 먼저 눈에 든다. */
+.sim-cam-place-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.sim-cam-place-cell {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  color: var(--color-label);
+  font-size: 11px;
+}
+
+/* 이름표는 한 글자라 폭을 고정한다 — 안 그러면 글자 폭 차이만큼 입력칸 왼쪽이 들쭉날쭉해진다. */
+.sim-cam-place-cell > span {
+  flex: 0 0 1em;
+  text-align: right;
+}
+
+/* 포트·MJPEG 처럼 이름표가 긴 칸. */
+.sim-cam-place-cell.wide > span {
+  flex: 0 0 2.4em;
+}
+
+/* 별명은 숫자 격자에 끼지 않는다 — 한 줄을 다 쓰는 유일한 글자 칸이다. */
+.sim-cam-name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 6px;
+  color: var(--color-label);
+  font-size: 11px;
+}
+
+.sim-cam-name > span {
+  flex: 0 0 2.4em;
+  text-align: right;
+}
+
+.sim-cam-name input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 한 칸에 블록이 둘이다: 위가 박힌 자세, 아래가 지금 겨눈 곳. 이름표가 없으면 숫자 다섯 줄이
+   한 덩어리로 보이고, 그게 곧 "무엇이 무엇인지 모르겠다" 가 된다. */
+.sim-rig-group {
+  margin: 0 0 5px;
+  color: var(--color-bright);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* 조작 중이라는 사실은 어느 탭에 있든 보여야 한다 — 조작 중에는 모든 버튼이 잠기므로,
+   이 표시가 안 보이는 탭에서는 화면이 그냥 굳은 것처럼 보인다. */
+.sim-busy {
+  min-width: 7em;
+  color: var(--color-warn);
+}
+
+.sim-cam-place-cell input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.sim-scene-snapshot {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.sim-scene-save {
+  display: flex;
+  gap: 6px;
+}
+
+.sim-scene-save input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sim-scene-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 한 줄 = 저장본 하나. 이름은 늘어나고 요약은 줄어들지 않는다 — 이름이 길다고 「카메라 3대」가
+   잘리면 어느 저장본인지는 알아도 무엇이 든 저장본인지를 모른다. */
+.sim-scene-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-panel2);
+}
+
+.sim-scene-row .name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sim-scene-row .meta {
+  flex: 0 0 auto;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 설정 탭은 시뮬레이터(월드)의 주소와 계정 하나다. 카메라는 씬에서 파생되므로 목록을
+   여기 두지 않는다 — 아무 힘도 없는 세 번째 사본이 될 뿐이다. */
+.sim-scene-endpoint {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-panel2);
+}
+
+.sim-pane-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.sim-pane-head strong {
+  color: var(--color-bright);
+}
+
+.sim-mode-badge {
+  padding: 2px 6px;
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  font-size: 10px;
+}

@@ -4,7 +4,7 @@
 // 있다 — 판정 문구는 전부 actions.mjs 가 들고 여기서는 그리기와 왕복만 한다.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getJson, postJson, api } from "../../api.mjs";
-import { t } from "../../i18n.mjs";
+import { t, i18nHtml } from "../../i18n.mjs";
 import { useCamera } from "../../app/camera-provider.jsx";
 import { useCameraPreview } from "../../app/hooks/use-camera-preview.mjs";
 import { useJobPoll } from "../../app/hooks/use-job-poll.mjs";
@@ -184,7 +184,9 @@ export default function HeightPage() {
               {/* 새 측정이 시작되면 지난 결과를 지운다 — 안 지우면 "측정 중"이라고 쓰면서
                   이전 잡의 숫자를 그대로 보여 줘, 방금 끝난 측정의 답으로 읽힌다. */}
               {!summary ? (
-                <p id="hgt-note" data-i18n-html="height.normalRefusal">이 축은 <b>답을 못 내는 것이 정상 출력</b>입니다. 합격한 측정만 발행할 수 있고, 게이트를 우회하는 문은 없습니다 — 조용히 틀린 높이는 없느니만 못하기 때문입니다.</p>
+                /* 문장 안에 <b> 가 박혀 있어 사전이 마크업째 든다 — 조각으로 쪼개 t() 로
+                   이으면 어순이 다른 언어에서 문장이 무너진다. */
+                <p id="hgt-note" dangerouslySetInnerHTML={{ __html: i18nHtml("height.normalRefusal") }} />
               ) : (
                 <>
                   <Kv k={t("측정값")} v={summary.heightText} big />

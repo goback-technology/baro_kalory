@@ -134,8 +134,15 @@ async function srcModules() {
   return out;
 }
 
-test("페이지 인라인 모듈에 선언 없이 읽는 식별자가 없다", async () => {
-  for (const [where, src, name] of await pageModules()) {
+// 인라인 모듈은 이제 하나도 없어야 한다 — 화면이 전부 라우트로 옮겨 갔고, 셸은 모듈을
+// **src 로만** 참조한다. 인라인 코드가 다시 생기면 번들러의 모듈 그래프 밖에 서게 되고,
+// 그러면 위 그물(src 전수)도 다음 그물(커버리지 불변식)도 그 코드를 못 본다.
+// (그래도 파서는 남겨 둔다 — 하나라도 생기면 그때는 같은 그물에 걸린다.)
+test("페이지에 인라인 모듈이 남아 있지 않다", async () => {
+  const mods = await pageModules();
+  assert.deepEqual(mods.map(([where]) => where), [],
+    "인라인 <script type=\"module\"> 은 모듈 그래프 밖이라 그물이 못 본다");
+  for (const [where, src, name] of mods) {
     assert.deepEqual(undeclaredIn(src, name), [], `${where}: strict mode 에서 읽는 즉시 ReferenceError 다`);
   }
 });
@@ -146,18 +153,14 @@ test("src 모듈(.mjs·.jsx)에도 같은 그물을 친다", async () => {
   }
 });
 
-// 개수 가드(`mods.length >= 5`)를 이것으로 갈았다. 개수는 **SPA 전환 중에 반드시 줄어든다** —
-// 페이지가 라우트로 옮겨 가면 인라인 모듈이 사라지기 때문이다. 그때 가드를 낮추는 손질을
-// 하게 되면 그물이 비어 가는 것을 가드가 승인해 주는 꼴이 된다. 그래서 세는 대신 **페이지마다
-// 그물에 걸린 코드가 하나라도 있는지**를 묻는다. 인라인이든 src/pages/<id>/ 든 상관없고,
-// 전환이 끝나면 자연히 후자로 옮겨 간다.
-test("페이지마다 그물에 걸린 모듈이 하나는 있다 — 전환이 진행돼도 그물이 비지 않는다", async () => {
-  const inline = new Set((await pageModules()).map(([where]) => where.split("#")[0]));
+// 개수 가드(`mods.length >= 5`)를 이것으로 갈았다. 개수는 **SPA 전환 중에 반드시 줄어들었다** —
+// 화면이 라우트로 옮겨 가면 인라인 모듈이 사라지기 때문이다. 그때 가드를 낮추는 손질을
+// 하게 되면 그물이 비어 가는 것을 가드가 승인해 주는 꼴이 된다. 그래서 세는 대신 **화면마다
+// 그물에 걸린 코드가 하나라도 있는지**를 묻는다. 전환이 끝난 지금은 전부 src/pages/<id>/ 다.
+test("화면마다 그물에 걸린 모듈이 하나는 있다 — 화면이 그물 밖으로 빠지지 않는다", async () => {
   const src = (await srcModules()).map(([where]) => where);
   for (const p of PAGES) {
-    const hasInline = inline.has(`public/${p.id}.html`);
-    const hasSrc = src.some((f) => f.startsWith(`src/pages/${p.id}/`));
-    assert.ok(hasInline || hasSrc,
-      `${p.id}: 이 페이지의 코드가 그물에 하나도 안 걸렸다 — public/${p.id}.html 의 인라인 모듈도, src/pages/${p.id}/ 의 파일도 없다`);
+    assert.ok(src.some((f) => f.startsWith(`src/pages/${p.id}/`)),
+      `${p.id}: 이 화면의 코드가 그물에 하나도 안 걸렸다 — src/pages/${p.id}/ 에 파일이 없다`);
   }
 });

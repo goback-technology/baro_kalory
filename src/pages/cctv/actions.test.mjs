@@ -79,8 +79,15 @@ test("detectorResultCard: 3D 는 픽셀이 아니라 미터를 적는다", () =>
   assert.match(card.lines[0], /12\.3/);
   assert.doesNotMatch(card.lines[0], /\[\d+,\d+/, "픽셀 좌표는 이 검출기의 답이 아니다");
   // 값이 없으면 "0" 이 아니라 "?" 다 — 0 m 도 방위 0° 도 측정값처럼 보인다.
+  //
+  // **조각이 아니라 전체 사전 키로 문는다.** 조각을 t() 에 넘기면 그것은 키가 아니므로 번역
+  // 없이 그대로 돌아오고, 다른 언어에서는 그 단언이 아무것도 안 지킨다(2026-08-25 로컬
+  // 초록·CI 빨강의 부류). 여기서는 아예 값으로 조립해 통째로 맞춘다.
   const missing = detectorResultCard("vpd_3d", { ok: true, boxes3d: [{ label: "car" }] });
-  assert.match(missing.lines[0], new RegExp(t("· 앞 \\? m")), "모르는 값을 0 으로 적지 않는다");
+  assert.equal(missing.lines[0],
+    "#1 car " + t("· 앞 {x} m, 옆 {y} m · {l}×{w}×{h} m · 방위 {yaw}°",
+      { x: "?", y: "?", l: "?", w: "?", h: "?", yaw: "?" }),
+    "모르는 값을 0 으로 적지 않는다");
   // 캘리브레이션이 이 측정의 전제다 — 기준 없이 미터만 적으면 틀린 지면으로 잰 값도 그럴듯하다.
   assert.ok(card.lines.some((l) => l.includes("6.50")), "기준 줄이 있어야 한다");
 });
@@ -135,6 +142,13 @@ test("framePoint · isDrag · boxOf: 클릭과 끌기를 손떨림으로 가르�
   assert.equal(isDrag({ px: 10, py: 10 }, { px: 30, py: 10 }), true);
   assert.deepEqual(boxOf({ x: 90, y: 10 }, { x: 10, y: 90 }), { startX: 10, startY: 10, endX: 90, endY: 90 },
     "어느 방향으로 끌어도 같은 상자다");
+  // 스테이지 밖에서 손을 떼면 좌표가 프레임 밖으로 외삽된다 — 서버에 음수·초과 픽셀을 보내지 않는다.
+  assert.deepEqual(
+    boxOf({ x: -40, y: -20, nw: 1920, nh: 1080 }, { x: 2400, y: 1300 }),
+    { startX: 0, startY: 0, endX: 1920, endY: 1080 },
+  );
+  // 프레임을 모르면 위쪽은 자르지 않는다 — 모르는 한계를 지어내 멀쩡한 상자를 깎지 않는다.
+  assert.deepEqual(boxOf({ x: -5, y: -5 }, { x: 50, y: 60 }), { startX: 0, startY: 0, endX: 50, endY: 60 });
 });
 
 test("snapshotName: 언제·어느 카메라의 그림인지가 파일명에 있다", () => {

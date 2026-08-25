@@ -125,6 +125,10 @@
   .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--color-muted); margin-bottom: 10px; }
   .hint { font-size: 12px; color: var(--color-muted); margin-top: 6px; }
   .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  /* 파괴적 동작은 다르게 보여야 한다. 이 둘은 화면을 가리지 않는 **앱 공용 표피**라 여기 산다 —
+     라우트 CSS 에 두면 그 화면을 한 번 들른 뒤에야 다른 화면의 「삭제」가 붉어진다. */
+  button.danger { border-color: var(--color-danger); color: var(--color-danger); }
+  .muted { color: var(--color-muted); }
   .ptz { font-size: 16px; color: var(--color-bright); }
   .pad { display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 36px); gap: 6px; }
 

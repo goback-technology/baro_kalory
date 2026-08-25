@@ -66,13 +66,29 @@ test("번역 항목은 두 규약 중 하나를 정확히 지킨다", async () =
   assert.deepEqual(wrong, [], `\n  ${wrong.join("\n  ")}`);
 });
 
-test("식별자 키는 실제로 data-i18n-html 이 가리킨다", async () => {
-  // 식별자 키는 한국어 원문으로 찾을 수 없다 — 화면에서 그 id 로 부르지 않으면 영영 죽은
-  // 항목이 되고, 한국어 값까지 들고 있어서 살아 있는 것처럼 보인다.
+// 이 파일은 사전을 **문자열로** 읽어 형식을 검사한다(i18n.mjs 는 브라우저 ESM 이라 노드에서
+// import 하면 document 를 건드린다). 그래서 i18nHtml 의 동작만 사전 원문에서 되짚어 본다 —
+// 이 함수가 빈 문자열을 돌려주면 그 문단이 화면에서 통째로 사라지고, 아무도 오류를 안 본다.
+test("i18nHtml 은 마크업째 돌려주고, 모르는 키에는 빈 문자열을 준다", async () => {
   const src = await readFile(SRC, "utf8");
-  // 화면을 **전수로** 훑는다 — 페이지 목록을 손으로 적어 두면 React 로 옮긴 화면이 목록에서
-  // 빠지는 순간 그 화면이 부르던 키가 전부 고아로 보고된다(또는 반대로, 죽은 키를 살아 있다고
-  // 봐 준다). 대상은 페이지 HTML 과 src 의 모듈·컴포넌트 전부다.
+  const fn = src.slice(src.indexOf("export function i18nHtml("), src.indexOf("\n}", src.indexOf("export function i18nHtml(")));
+  assert.match(fn, /const e = HTML\[key\];/);
+  assert.match(fn, /if \(!e\) return "";/, "모르는 키에 undefined 를 흘리면 화면에 그대로 찍힌다");
+  assert.match(fn, /e\[lang\] != null \? e\[lang\] : e\.ko/, "번역이 없는 언어는 한국어로 떨어져야 한다");
+  // 사전의 그 항목들은 실제로 마크업을 들고 있어야 한다 — 아니라면 t() 로 충분한 문자열이다.
+  const html = src.slice(src.indexOf("const HTML = {"), src.indexOf("\n};", src.indexOf("const HTML = {")));
+  assert.match(html, /<b>|<span/, "마크업이 없으면 이 사전에 있을 이유가 없다");
+});
+
+test("식별자 키는 실제로 i18nHtml() 이 부른다", async () => {
+  // 식별자 키는 한국어 원문으로 찾을 수 없다 — 화면에서 그 이름으로 부르지 않으면 영영 죽은
+  // 항목이 되고, 한국어 값까지 들고 있어서 살아 있는 것처럼 보인다.
+  //
+  // 옛 판은 `data-i18n-html="<키>"` 표시를 찾았다. 그 표시는 DOM 워커(applyI18n)가 훑어
+  // 가라는 신호였고, 워커가 사라지면서 **부르는 쪽이 곧 참조**가 됐다.
+  const src = await readFile(SRC, "utf8");
+  // 화면을 **전수로** 훑는다 — 목록을 손으로 적어 두면 화면 하나가 목록에서 빠지는 순간
+  // 그 화면이 부르던 키가 전부 고아로 보고된다(또는 반대로, 죽은 키를 살아 있다고 봐 준다).
   const html = (await Promise.all([
     ...(await readdir(new URL("../public/", import.meta.url)))
       .filter((f) => f.endsWith(".html"))
@@ -84,6 +100,6 @@ test("식별자 키는 실제로 data-i18n-html 이 가리킨다", async () => {
   ])).join("\n");
   const orphans = [...src.matchAll(/^ {2}"([a-z][A-Za-z0-9]*\.[A-Za-z0-9]+)":/gm)]
     .map((m) => m[1])
-    .filter((id) => !html.includes(`data-i18n-html="${id}"`));
+    .filter((id) => !html.includes(`i18nHtml("${id}")`));
   assert.deepEqual(orphans, [], `화면이 부르지 않는 식별자 키: ${orphans.join(", ")}`);
 });

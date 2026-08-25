@@ -81,7 +81,10 @@ export function CameraSelect() {
   const { selectRef } = useCamera();
   return (
     <span className="header-camera" style={{ marginLeft: 10, fontWeight: 400 }}>
-      <select ref={selectRef} data-i18n-skip style={{ width: "auto", padding: "4px 6px", fontSize: 12 }} />
+      {/* 위젯이 <option> 을 채운다. i18n 이 DOM 을 훑던 시절에는 이 자리에 data-i18n-skip
+          이 있었다 — 기기 이름은 사람이 지은 값이라 번역 대상이 아니어서다. 워커가 사라진
+          지금은 아무도 이 안을 건드리지 않으므로 표시가 필요 없다. */}
+      <select ref={selectRef} style={{ width: "auto", padding: "4px 6px", fontSize: 12 }} />
     </span>
   );
 }

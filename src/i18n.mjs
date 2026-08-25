@@ -1,12 +1,17 @@
-// Tiny i18n for the no-build control UI. Keyed by the KOREAN source string (the app's
-// original language), so most static HTML needs no markup: applyI18n() walks text nodes
-// + placeholder/title attrs and swaps them. Dynamic JS strings call t("한국어"). Elements
-// with inline markup carry data-i18n-html="<key>" and are swapped via innerHTML.
+// Tiny i18n, keyed by the KOREAN source string (the app's original language) — so a screen
+// written in Korean needs no extra markup: wrap the literal in t() and it is already keyed.
+// Paragraphs that carry inline markup (<b> inside a sentence) live in HTML{} and are pulled
+// by key with i18nHtml(), because splitting them into fragments breaks word order in other
+// languages.
 //
-//   import { initI18n, applyI18n, setLang, getLang, t } from "./web/i18n.mjs";
-//   initI18n();                       // detect + translate static DOM on load
-//   el.textContent = t("대기 중");     // dynamic string
-//   applyI18n(container);             // after rendering a list/card with Korean literals
+//   import { initI18n, setLang, getLang, t, i18nHtml } from "./web/i18n.mjs";
+//   initI18n();                                   // <html lang> + document.title
+//   <span>{t("대기 중")}</span>                     // every string, static or dynamic
+//   <p dangerouslySetInnerHTML={{ __html: i18nHtml("height.normalRefusal") }} />
+//
+// There is no DOM walker. Screens are drawn by React, and a walker that edits text nodes
+// from outside fights the next render (and edits nodes React owns). Changing the language
+// re-renders the tree; t() is then called with the new language in place.
 
 const LANGS = ["ko", "en", "vi"];
 const STORE_KEY = "baro_lang";
@@ -1061,60 +1066,35 @@ export function t(s, params) {
   return lead + out + trail;
 }
 
-const ORIG = new WeakMap();      // text node -> original ko value
-const ORIG_ATTR = new WeakMap(); // element -> { placeholder, title }
-
-function inSkippedSubtree(node) {
-  for (let p = node.parentNode; p; p = p.parentNode) {
-    const n = p.nodeName;
-    if (n === "SCRIPT" || n === "STYLE" || n === "NOSCRIPT" || n === "TEXTAREA") return true;
-    if (p.nodeType === 1 && p.hasAttribute && (p.hasAttribute("data-i18n-html") || p.hasAttribute("data-i18n-skip"))) return true;
-  }
-  return false;
+/**
+ * 인라인 마크업이 든 문단 — 키로 부르고 innerHTML 로 심는다(`dangerouslySetInnerHTML`).
+ *
+ * 여기만 문자열이 아니라 마크업인 이유는 문장 안에 `<b>` 가 박혀 있기 때문이다. 조각으로
+ * 쪼개 t() 로 잇는 방법도 있지만, 그러면 어순이 다른 언어에서 문장이 무너진다.
+ */
+export function i18nHtml(key) {
+  const e = HTML[key];
+  if (!e) return "";
+  return e[lang] != null ? e[lang] : e.ko;
 }
 
-export function applyI18n(root) {
-  root = root || document.body;
-  // 1) text nodes
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-    acceptNode: (n) => (!inSkippedSubtree(n) && n.nodeValue.trim()) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT,
-  });
-  const nodes = [];
-  while (walker.nextNode()) nodes.push(walker.currentNode);
-  for (const n of nodes) {
-    let o = ORIG.get(n);
-    if (o === undefined) { o = n.nodeValue; ORIG.set(n, o); }
-    const v = t(o);
-    if (n.nodeValue !== v) n.nodeValue = v;
-  }
-  // 2) placeholder / title attributes
-  const scope = root.querySelectorAll ? root : document;
-  scope.querySelectorAll("[placeholder],[title]").forEach((el) => {
-    let saved = ORIG_ATTR.get(el);
-    if (!saved) { saved = { placeholder: el.getAttribute("placeholder"), title: el.getAttribute("title") }; ORIG_ATTR.set(el, saved); }
-    for (const a of ["placeholder", "title"]) {
-      if (saved[a] != null) { const v = tr(saved[a].trim()); if (el.getAttribute(a) !== v) el.setAttribute(a, v); }
-    }
-  });
-  // 3) inline-markup elements
-  scope.querySelectorAll("[data-i18n-html]").forEach((el) => {
-    const e = HTML[el.getAttribute("data-i18n-html")];
-    if (e) el.innerHTML = e[lang] != null ? e[lang] : e.ko;
-  });
-}
-
+// ── 문서 수준 상태: 제목과 <html lang> ─────────────────────────────────────────
+//
+// **DOM 워커(applyI18n)는 없다.** 텍스트 노드를 찾아다니며 고치던 그 함수는 화면이 정적
+// HTML 이던 시절의 것이고, 지금은 화면 전부를 React 가 그린다 — 워커가 고쳐 놓은 텍스트를
+// 다음 렌더가 되돌리고, React 가 소유한 노드를 밖에서 갈아 끼우는 일 자체가 위험하다.
+// 언어가 바뀌면 셸이 상태를 갈아 트리를 다시 그리고, 그때 t() 가 제 값으로 불린다.
 export function setLang(l) {
   if (!LANGS.includes(l)) return;
   lang = l;
   try { localStorage.setItem(STORE_KEY, l); } catch {}
   document.documentElement.lang = l;
   document.title = tr(TITLE_KEY);
-  applyI18n(document.body);
+  // 명령형 위젯(프리뷰 모드 버튼 같은 것)은 React 트리 밖이라 이 신호로 제 문구를 고친다.
   window.dispatchEvent(new CustomEvent("langchange", { detail: l }));
 }
 
 export function initI18n() {
   document.documentElement.lang = lang;
   document.title = tr(TITLE_KEY);
-  applyI18n(document.body);
 }

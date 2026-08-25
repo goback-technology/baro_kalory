@@ -56,7 +56,7 @@ function GateBanner({ pageId, kind, base, detail }) {
       <span>{headline} — {guide}</span>
       {base && <span style={{ opacity: 0.7 }}>API {base}{detail ? ` (${detail})` : ""}</span>}
       {pageId !== "settings" && (
-        <a className="navlink" href={pageHref("settings", { fromShell: true })}>{t("설정으로 이동")}</a>
+        <a className="navlink" href={pageHref("settings")}>{t("설정으로 이동")}</a>
       )}
     </div>
   );
@@ -77,7 +77,7 @@ export function BackendGate({ pageId, children }) {
             <h2>{gateText(kind).headline}</h2>
             <p className="hint">{gateText(kind).guide}</p>
             <div className="row" style={{ marginTop: 10, gap: 8 }}>
-              <a className="navlink" href={pageHref("settings", { fromShell: true })}>{t("설정으로 이동")}</a>
+              <a className="navlink" href={pageHref("settings")}>{t("설정으로 이동")}</a>
               <button onClick={retry}>{t("다시 확인")}</button>
             </div>
           </div>
