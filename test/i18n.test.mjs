@@ -6,7 +6,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile, readdir } from "node:fs/promises";
 
-const SRC = new URL("../src/i18n.mjs", import.meta.url);
+// 사전과 규칙은 다른 파일이다(2026-08-25 분리) — 사전이 900줄이라 t() 한 줄을 보려고 그것까지
+// 열게 만들 이유가 없었다. 검사도 그에 맞춰 갈라진다: 형식은 사전에서, 동작은 규칙에서 본다.
+const DICT_SRC = new URL("../src/i18n/dict.mjs", import.meta.url);
+const LOGIC_SRC = new URL("../src/i18n/index.mjs", import.meta.url);
 
 // 사전 항목은 두 칸 들여쓴 `"키":` 한 줄로 시작한다. 값이 다음 줄로 이어지는 항목도 있으므로
 // 키 줄만 센다(파서를 들이지 않는 이유: 이 파일은 브라우저 ESM 이고 노드에서 import 하면
@@ -31,7 +34,7 @@ function dictEntries(src) {
 }
 
 test("i18n 사전에 중복 키가 없다", async () => {
-  const src = await readFile(SRC, "utf8");
+  const src = await readFile(DICT_SRC, "utf8");
   const seen = new Map();
   const dups = [];
   for (const m of src.matchAll(KEY_LINE)) {
@@ -52,7 +55,7 @@ const ID_KEY = /^[a-z][A-Za-z0-9]*\.[A-Za-z0-9]+$/;
 test("번역 항목은 두 규약 중 하나를 정확히 지킨다", async () => {
   // 한 언어만 채우면 그 언어에서만 한국어가 새어 나오고, 화면을 그 언어로 열어 보기 전에는
   // 아무도 모른다.
-  const src = await readFile(SRC, "utf8");
+  const src = await readFile(DICT_SRC, "utf8");
   const wrong = [];
   // 값은 한 줄일 수도, 여러 줄일 수도 있다. 정규식으로 괄호를 세려 들면 다음 항목까지 삼킨다
   // (실제로 그렇게 오탐이 났다) — 다음 키 줄 전까지를 값으로 본다.
@@ -66,18 +69,28 @@ test("번역 항목은 두 규약 중 하나를 정확히 지킨다", async () =
   assert.deepEqual(wrong, [], `\n  ${wrong.join("\n  ")}`);
 });
 
-// 이 파일은 사전을 **문자열로** 읽어 형식을 검사한다(i18n.mjs 는 브라우저 ESM 이라 노드에서
-// import 하면 document 를 건드린다). 그래서 i18nHtml 의 동작만 사전 원문에서 되짚어 본다 —
-// 이 함수가 빈 문자열을 돌려주면 그 문단이 화면에서 통째로 사라지고, 아무도 오류를 안 본다.
+// 이 파일은 소스를 **문자열로** 읽어 검사한다(둘 다 브라우저 ESM 이라 노드에서 import 하면
+// document 를 건드린다). 그래서 i18nHtml 의 동작을 함수 원문에서 되짚어 본다 — 이 함수가 빈
+// 문자열을 돌려주면 그 문단이 화면에서 통째로 사라지고, 아무도 오류를 안 본다.
 test("i18nHtml 은 마크업째 돌려주고, 모르는 키에는 빈 문자열을 준다", async () => {
-  const src = await readFile(SRC, "utf8");
+  const src = await readFile(LOGIC_SRC, "utf8");
   const fn = src.slice(src.indexOf("export function i18nHtml("), src.indexOf("\n}", src.indexOf("export function i18nHtml(")));
   assert.match(fn, /const e = HTML\[key\];/);
   assert.match(fn, /if \(!e\) return "";/, "모르는 키에 undefined 를 흘리면 화면에 그대로 찍힌다");
   assert.match(fn, /e\[lang\] != null \? e\[lang\] : e\.ko/, "번역이 없는 언어는 한국어로 떨어져야 한다");
-  // 사전의 그 항목들은 실제로 마크업을 들고 있어야 한다 — 아니라면 t() 로 충분한 문자열이다.
-  const html = src.slice(src.indexOf("const HTML = {"), src.indexOf("\n};", src.indexOf("const HTML = {")));
+  // 함수는 규칙 쪽에, 그 함수가 읽는 사전은 데이터 쪽에 있다 — 마크업 여부는 데이터에서 본다.
+  const dict = await readFile(DICT_SRC, "utf8");
+  const html = dict.slice(dict.indexOf("const HTML = {"), dict.indexOf("\n};", dict.indexOf("const HTML = {")));
   assert.match(html, /<b>|<span/, "마크업이 없으면 이 사전에 있을 이유가 없다");
+});
+
+// 가른 것이 다시 붙는 것을 막는다. 사전이 규칙 파일로 되돌아오면 「t() 한 줄 보려고 900줄」이
+// 그대로 돌아온다 — 그때는 아무도 오류를 안 보고, 파일이 조금씩 다시 부푼다.
+test("규칙 파일은 사전을 품지 않는다", async () => {
+  const src = await readFile(LOGIC_SRC, "utf8");
+  const keyLines = [...src.matchAll(KEY_LINE)].map((m) => m[1]);
+  assert.deepEqual(keyLines, [], "사전 항목이 index.mjs 에 들어왔다 — 데이터는 dict.mjs 다");
+  assert.match(src, /^import \{ DICT, HTML \} from "\.\/dict\.mjs";$/m, "사전은 import 로만 들어온다");
 });
 
 test("식별자 키는 실제로 i18nHtml() 이 부른다", async () => {
@@ -86,7 +99,7 @@ test("식별자 키는 실제로 i18nHtml() 이 부른다", async () => {
   //
   // 옛 판은 `data-i18n-html="<키>"` 표시를 찾았다. 그 표시는 DOM 워커(applyI18n)가 훑어
   // 가라는 신호였고, 워커가 사라지면서 **부르는 쪽이 곧 참조**가 됐다.
-  const src = await readFile(SRC, "utf8");
+  const src = await readFile(DICT_SRC, "utf8");
   // 화면을 **전수로** 훑는다 — 목록을 손으로 적어 두면 화면 하나가 목록에서 빠지는 순간
   // 그 화면이 부르던 키가 전부 고아로 보고된다(또는 반대로, 죽은 키를 살아 있다고 봐 준다).
   const html = (await Promise.all([

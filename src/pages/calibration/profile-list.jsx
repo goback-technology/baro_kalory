@@ -3,7 +3,7 @@
 // 이 카메라 것인가"와 그 줄을 눌렀을 때 열리는 창뿐이다. 쓰기는 전부 오른쪽 창구를 지난다
 // (여기서 따로 부르지 않는다 — 두 벌이 되면 한쪽만 고쳐진다).
 import React from "react";
-import { t } from "../../i18n.mjs";
+import { t } from "../../i18n/index.mjs";
 import { fmtWhen } from "../../format.mjs";
 import { provText } from "./actions.mjs";
 

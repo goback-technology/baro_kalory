@@ -8,7 +8,7 @@
 // 가 값으로 답하고 node 테스트가 그것을 문다. 여기 있는 것은 **왕복과 그리기**뿐이다.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getJson, postJson, reqJson, api, fmtPtz as fmt } from "../../api.mjs";
-import { t } from "../../i18n.mjs";
+import { t } from "../../i18n/index.mjs";
 import { toNum } from "../../format.mjs";
 import { createCameraPreview } from "../../camera-preview.mjs";
 import { useJobPoll } from "../../app/hooks/use-job-poll.mjs";

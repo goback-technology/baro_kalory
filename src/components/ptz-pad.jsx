@@ -5,7 +5,7 @@
 // 방식이고, React 에서는 그 카드를 무대 안에 그리면 그만이라 옮길 일 자체가 없다.
 import { useCallback, useState } from "react";
 import { postJson, fmtPtz, api } from "../api.mjs";
-import { t } from "../i18n.mjs";
+import { t } from "../i18n/index.mjs";
 import { normalizeSpeed, absoluteMove } from "../pages/cctv/actions.mjs";
 
 // 조작의 상태와 동작. 두 카드가 같은 step·speed 를 쓰므로 훅이 그것을 든다.

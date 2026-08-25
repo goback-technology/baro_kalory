@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { appliedSuffix, opticsSig, retireEffect, provText, installedLine } from "./actions.mjs";
-import { t } from "../../i18n.mjs";
+import { t } from "../../i18n/index.mjs";
 
 // 이 테스트가 존재할 수 있다는 것 자체가 React 전환의 산물이다 — 인라인 <script> 시절에는
 // 이 판정 로직을 node 로 물 수 없어서, 회귀 그물이 HTML 정규식뿐이었다.

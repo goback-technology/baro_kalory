@@ -2,7 +2,7 @@
 // React 전환(2026-08-22)에서 인라인 스크립트로부터 분리했다: 이 층은 node 로 직접
 // 테스트할 수 있고, 뷰 계층이 무엇이든 그대로 산다.
 import { getJson, postJson, api } from "../../api.mjs";
-import { t } from "../../i18n.mjs";
+import { t } from "../../i18n/index.mjs";
 import { fmtWhen } from "../../format.mjs";
 
 // 백엔드 0.17.0 부터 드라이버가 광학을 **읽는 시점에** 해결한다 — 발행하면 다음 조준이 새

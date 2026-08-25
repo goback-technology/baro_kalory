@@ -4,7 +4,7 @@
 // 특히 「그린 쪽이 센다」는 규칙(화면은 비었는데 개수를 말하는 상태 방지)이 그쪽에 있다.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getJson, postJson, api, fmtPtz } from "../../api.mjs";
-import { t } from "../../i18n.mjs";
+import { t } from "../../i18n/index.mjs";
 import { useCamera } from "../../app/camera-provider.jsx";
 import { useCameraPreview } from "../../app/hooks/use-camera-preview.mjs";
 import { useJobPoll } from "../../app/hooks/use-job-poll.mjs";

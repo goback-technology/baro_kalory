@@ -6,7 +6,7 @@
 // 않고 라우트만 부른다 — 복사·수입·적용·퇴역이 전부 한 창구를 지나야 어긋남이 생기지 않는다.
 import React, { useEffect, useRef, useState } from "react";
 import { postJson, api } from "../../api.mjs";
-import { t } from "../../i18n.mjs";
+import { t } from "../../i18n/index.mjs";
 import { fmtNum, fmtWhen } from "../../format.mjs";
 import { chartFigure } from "../../profile-chart.mjs";
 import { provText, appliedSuffix } from "./actions.mjs";

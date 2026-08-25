@@ -6,7 +6,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getJson, postJson, reqJson, api } from "../../api.mjs";
 import { useCamera } from "../../app/camera-provider.jsx";
 import { createCameraPreview } from "../../camera-preview.mjs";
-import { t } from "../../i18n.mjs";
+import { t } from "../../i18n/index.mjs";
 import "./calibration.css";
 import { SweepOverlay } from "./sweep-overlay.jsx";
 import { StatusCard } from "./status-card.jsx";

@@ -6,7 +6,7 @@
 // 저장값으로 떨어지고, 저장값도 없으면 기기 탭이다.
 import { useCallback, useEffect, useState } from "react";
 import { getJson, postJson, api, API_BASE_EXPLICIT } from "../../api.mjs";
-import { t } from "../../i18n.mjs";
+import { t } from "../../i18n/index.mjs";
 import { hrefFor } from "../../app/router.mjs";
 import { keyHintText } from "./actions.mjs";
 import { DevicesPanel } from "./devices-panel.jsx";

@@ -6,7 +6,7 @@
 // 코드(a.home-card 의 href 대조)가 통째로 사라졌다 — 카드가 상태를 직접 읽는다.
 import { useEffect, useState } from "react";
 import { getPage, pageHref } from "../pages.mjs";
-import { languages } from "../i18n.mjs";
+import { languages } from "../i18n/index.mjs";
 import { getTheme, setTheme, THEMES } from "../theme.mjs";
 import { useBackend } from "./backend-gate.jsx";
 
@@ -49,7 +49,7 @@ export function useOwnVersions() {
   return own;
 }
 
-// 언어 목록의 정본은 i18n.mjs 다 — 여기서는 표시 이름만 붙인다. 사전에 없는 언어가
+// 언어 목록의 정본은 i18n/index.mjs 다 — 여기서는 표시 이름만 붙인다. 사전에 없는 언어가
 // 셀렉터에 서면 고르는 순간 전 화면이 원문으로 되돌아간다.
 const LANG_LABEL = { ko: "한국어", en: "English", vi: "Tiếng Việt" };
 

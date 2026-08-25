@@ -12,7 +12,7 @@ import { coneOf, aimTargetFor, deviceForCamera, tiltposOf } from "./actions.mjs"
 import {
   toMap, tipAt, conePathD, spreadClusters, slotBoxCm, cameraHeightM, tiltSliderPos, CONE_LEN_RATIO,
 } from "./geometry.mjs";
-import { t } from "../../i18n.mjs";
+import { t } from "../../i18n/index.mjs";
 
 const rad = (deg) => deg * Math.PI / 180;
 

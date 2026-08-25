@@ -4,7 +4,7 @@
 // 아니라 저장 버튼일 뿐이다(백엔드는 빈 값을 저장된 값으로 대신한다).
 import { useState } from "react";
 import { postJson, api } from "../../api.mjs";
-import { t } from "../../i18n.mjs";
+import { t } from "../../i18n/index.mjs";
 import { llmConfigOf, probeDetectorText, probeLprText, probeLlmText, runLlmText } from "./actions.mjs";
 
 // id 를 유지한다 — 이 넷은 각각 다른 사실을 말하는 칸이고, 그 구분이 화면의 계약이다

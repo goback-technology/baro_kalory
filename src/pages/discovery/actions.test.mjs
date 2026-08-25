@@ -5,7 +5,7 @@ import {
   pointHomeStatus, dotPosition, plateRect, maskPolygons, homeSummary,
   replayCaption, replayBoxes, pushThought, EMPTY_THOUGHTS, FRAME_W, FRAME_H,
 } from "./actions.mjs";
-import { t } from "../../i18n.mjs";
+import { t } from "../../i18n/index.mjs";
 
 // 이 화면의 값어치는 「그 점이 어떻게 됐는가」를 정확히 말하는 데 있다. 성공·확인 불가·
 // 보류·실패는 네 가지 다른 사실이고, 뭉치면 다음에 무엇을 해야 할지가 사라진다.

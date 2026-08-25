@@ -5,7 +5,7 @@
 // 캘리브레이션 결과가 엉뚱한 기기에 저장되는 최악의 결함이 되므로, 반드시 서버만 믿는다.
 // 그 대가로 다른 창이 전환하면 이쪽 표시가 낡는다 — refreshOnVisible 이 그 완화책이다.
 import { api, getJson, postJson } from "./api.mjs";
-import { t } from "./i18n.mjs";
+import { t } from "./i18n/index.mjs";
 
 // beforeChange(previous, next): 서버 활성을 바꾸기 **전에** 이전 카메라를 놓아줄 기회.
 //   반드시 await 된다. 이걸 안 하고 활성만 먼저 바꾸면 이전 카메라로 열린 MJPEG 스트림이

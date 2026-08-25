@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { gateKind, gateText, backendVersionOf, openWithoutBackend } from "./gate.mjs";
-import { t } from "../i18n.mjs";
+import { t } from "../i18n/index.mjs";
 
 // 이 테스트는 page-chrome.mjs 를 정규식으로 읽던 두 블록의 승격판이다. 소스에 그 문자열이
 // 있는지가 아니라, 값을 넣었을 때 어떤 판정이 나오는지를 묻는다.

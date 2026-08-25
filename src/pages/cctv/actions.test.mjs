@@ -5,7 +5,7 @@ import {
   fmtWithHeight, ptzErrorText, mountHeightFrom, framePoint, isDrag, boxOf,
   snapshotName, normalizeSpeed, absoluteMove,
 } from "./actions.mjs";
-import { t } from "../../i18n.mjs";
+import { t } from "../../i18n/index.mjs";
 
 // 이 화면의 그물은 오래 HTML 정규식뿐이었다 — 좌표 계산과 판정이 DOM 조립에 섞여 있어
 // node 로 물 수가 없었다. 여기 있는 규칙 대부분은 「화면이 말하는 것과 화면에 있는 것이

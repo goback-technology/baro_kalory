@@ -4,7 +4,7 @@ import {
   pct, extrinsicRows, mergeReady, readyText, phaseLine, jobSummary,
   gateRows, resultSummary, statusErrorText, startErrorText, manualHeightError,
 } from "./actions.mjs";
-import { t } from "../../i18n.mjs";
+import { t } from "../../i18n/index.mjs";
 
 // 이 축은 **답을 못 내는 것이 정상 출력**이다. 그래서 여기서 지키는 것은 대부분 「모르는
 // 것을 아는 척하지 않는다」는 규칙이고, 인라인 <script> 시절에는 HTML 정규식으로만 물렸다.

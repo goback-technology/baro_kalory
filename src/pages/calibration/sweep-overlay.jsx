@@ -6,7 +6,7 @@
 // 좌표계는 언제나 1920x1080 논리 프레임이다(저장소 계약) — 프리뷰가 1280 이든 640 이든
 // 화각이 같으므로 viewBox 하나로 정확히 겹친다. naturalWidth 를 읽지 않는다.
 import React from "react";
-import { t } from "../../i18n.mjs";
+import { t } from "../../i18n/index.mjs";
 import { toNum, fmtClock, elapsedMs } from "../../format.mjs";
 
 export const FRAME_W = 1920, FRAME_H = 1080;

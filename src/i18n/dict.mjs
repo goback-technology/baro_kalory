@@ -1,24 +1,12 @@
-// Tiny i18n, keyed by the KOREAN source string (the app's original language) — so a screen
-// written in Korean needs no extra markup: wrap the literal in t() and it is already keyed.
-// Paragraphs that carry inline markup (<b> inside a sentence) live in HTML{} and are pulled
-// by key with i18nHtml(), because splitting them into fragments breaks word order in other
-// languages.
+// 번역 사전 — **데이터만** 있는 파일이다. 읽고 쓰는 규칙은 ./index.mjs 에 있다.
 //
-//   import { initI18n, setLang, getLang, t, i18nHtml } from "./web/i18n.mjs";
-//   initI18n();                                   // <html lang> + document.title
-//   <span>{t("대기 중")}</span>                     // every string, static or dynamic
-//   <p dangerouslySetInnerHTML={{ __html: i18nHtml("height.normalRefusal") }} />
+// 둘을 가른 이유는 크기다. 사전은 900줄 가까이 되고 t() 하나를 고치려고 그것까지 열게
+// 만들 이유가 없다. 반대로 번역 한 줄을 고치는 사람은 여기만 열면 된다.
 //
-// There is no DOM walker. Screens are drawn by React, and a walker that edits text nodes
-// from outside fights the next render (and edits nodes React owns). Changing the language
-// re-renders the tree; t() is then called with the new language in place.
-
-const LANGS = ["ko", "en", "vi"];
-const STORE_KEY = "baro_lang";
-const TITLE_KEY = typeof document === "undefined" ? "Baro Calory · CCTV 제어" : document.title;
-
+// 키는 **한국어 원문 그 자체**다(이 앱의 원어). 그래서 화면은 리터럴을 t() 로 감싸는
+// 것만으로 이미 키를 가진다 — 따로 키를 짓고 관리하는 표가 없다.
 // ko source -> { en, vi }. ko is the key itself (returned as-is for lang "ko").
-const DICT = {
+export const DICT = {
   // 백엔드 미연결 게이트 (page-chrome) — 이 UI 는 백엔드와 분리 배포되므로 첫 방문자가
   // "왜 아무것도 안 보이나"를 알 수 있어야 한다.
   "백엔드 API 주소가 설정되지 않았습니다":
@@ -912,7 +900,7 @@ const DICT = {
 };
 
 // Elements with inline markup: key -> full innerHTML per language (data-i18n-html="<key>").
-const HTML = {
+export const HTML = {
   "replay.legend": {
     ko: '흰 박스=후보 LP · <span style="color:#16d05a">녹색=선택</span> · 빨강 십자=중앙',
     en: 'White box=candidate LP · <span style="color:#16d05a">green=selected</span> · red cross=center',
@@ -924,81 +912,3 @@ const HTML = {
     vi: 'Với trục này, <b>không đưa ra câu trả lời là kết quả bình thường</b>. Chỉ phép đo đạt ngưỡng mới được phát hành và không có cửa nào đi vòng — một chiều cao sai một cách âm thầm còn tệ hơn là không có.',
   },
 };
-
-function detectLang() {
-  // 브라우저 밖(노드 테스트·빌드 도구)에서는 **기계의 로케일을 따라가지 않는다.**
-  // node 24 부터 navigator.language 가 있어서, 같은 코드가 개발기(ko-KR)에서는 한국어를,
-  // CI 러너(en-US)에서는 영어를 냈다 — t() 의 출력을 문는 테스트가 기계마다 다른 답을
-  // 물게 되고, 2026-08-25 실제로 로컬 초록·CI 빨강이 났다. 이 제품의 기준 언어는 한국어다.
-  try {
-    if (typeof process !== "undefined" && process.versions && process.versions.node) return "ko";
-  } catch { /* 브라우저 */ }
-  const n = (navigator.language || "").toLowerCase();
-  if (n.startsWith("vi")) return "vi";
-  if (n.startsWith("en")) return "en";
-  return "ko";
-}
-
-let lang = (() => {
-  try { const s = localStorage.getItem(STORE_KEY); if (LANGS.includes(s)) return s; } catch {}
-  return detectLang();
-})();
-
-export function getLang() { return lang; }
-export function languages() { return LANGS.slice(); }
-
-// Translate a trimmed ko key. Returns ko itself when lang is ko or no entry exists.
-function tr(ko) {
-  if (lang === "ko") return ko;
-  const e = DICT[ko];
-  return e && e[lang] != null ? e[lang] : ko;
-}
-
-// Public: translate a (possibly space-padded) dynamic string, preserving surrounding
-// whitespace. Supports {name} placeholders: t("점 {n}개", { n: 3 }). The ko key itself is
-// the ko-language template, so params are substituted in every language (including ko).
-export function t(s, params) {
-  if (s == null) return s;
-  const str = String(s);
-  const core = str.trim();
-  if (!core) return s;
-  const lead = str.match(/^\s*/)[0];
-  const trail = str.match(/\s*$/)[0];
-  const e = DICT[core];
-  let out = (lang === "ko" || !e || e[lang] == null) ? core : e[lang];
-  if (params) out = out.replace(/\{(\w+)\}/g, (m, k) => (params[k] != null ? String(params[k]) : m));
-  return lead + out + trail;
-}
-
-/**
- * 인라인 마크업이 든 문단 — 키로 부르고 innerHTML 로 심는다(`dangerouslySetInnerHTML`).
- *
- * 여기만 문자열이 아니라 마크업인 이유는 문장 안에 `<b>` 가 박혀 있기 때문이다. 조각으로
- * 쪼개 t() 로 잇는 방법도 있지만, 그러면 어순이 다른 언어에서 문장이 무너진다.
- */
-export function i18nHtml(key) {
-  const e = HTML[key];
-  if (!e) return "";
-  return e[lang] != null ? e[lang] : e.ko;
-}
-
-// ── 문서 수준 상태: 제목과 <html lang> ─────────────────────────────────────────
-//
-// **DOM 워커(applyI18n)는 없다.** 텍스트 노드를 찾아다니며 고치던 그 함수는 화면이 정적
-// HTML 이던 시절의 것이고, 지금은 화면 전부를 React 가 그린다 — 워커가 고쳐 놓은 텍스트를
-// 다음 렌더가 되돌리고, React 가 소유한 노드를 밖에서 갈아 끼우는 일 자체가 위험하다.
-// 언어가 바뀌면 셸이 상태를 갈아 트리를 다시 그리고, 그때 t() 가 제 값으로 불린다.
-export function setLang(l) {
-  if (!LANGS.includes(l)) return;
-  lang = l;
-  try { localStorage.setItem(STORE_KEY, l); } catch {}
-  document.documentElement.lang = l;
-  document.title = tr(TITLE_KEY);
-  // 명령형 위젯(프리뷰 모드 버튼 같은 것)은 React 트리 밖이라 이 신호로 제 문구를 고친다.
-  window.dispatchEvent(new CustomEvent("langchange", { detail: l }));
-}
-
-export function initI18n() {
-  document.documentElement.lang = lang;
-  document.title = tr(TITLE_KEY);
-}

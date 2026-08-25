@@ -5,7 +5,7 @@ import {
   stageDeviceList, nextDeviceId, moveInList, describeIntrinsics, deviceWhere,
   stageHeight, llmConfigOf, classifyProbeError, probeReportText,
 } from "./actions.mjs";
-import { t } from "../../i18n.mjs";
+import { t } from "../../i18n/index.mjs";
 
 // 이 테스트의 본론은 **빈칸의 세 갈래 뜻**이다(plan §0 보존 계약). 인라인 <script> 시절에는
 // 이 규칙이 DOM 읽기와 섞여 있어 HTML 정규식으로만 지켰다.

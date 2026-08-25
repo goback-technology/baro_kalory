@@ -4,7 +4,7 @@
 // 있다 — 판정 문구는 전부 actions.mjs 가 들고 여기서는 그리기와 왕복만 한다.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getJson, postJson, api } from "../../api.mjs";
-import { t, i18nHtml } from "../../i18n.mjs";
+import { t, i18nHtml } from "../../i18n/index.mjs";
 import { useCamera } from "../../app/camera-provider.jsx";
 import { useCameraPreview } from "../../app/hooks/use-camera-preview.mjs";
 import { useJobPoll } from "../../app/hooks/use-job-poll.mjs";

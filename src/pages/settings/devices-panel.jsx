@@ -6,7 +6,7 @@
 // 실패하면 서버가 진실이므로 로컬 상태도 바꾸지 않는다.
 import { useEffect, useRef, useState } from "react";
 import { getJson, postJson, api } from "../../api.mjs";
-import { t } from "../../i18n.mjs";
+import { t } from "../../i18n/index.mjs";
 import {
   toSaveEntry, deviceFormToEntry, vptzError, stageDeviceList, nextDeviceId, moveInList,
   deviceWhere, stageHeight, needsHostOf, modeHintText, calibHintText, calibOptions,

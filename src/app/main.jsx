@@ -5,7 +5,7 @@
 // 두 URL 로 평가될 수 있어 모듈 스코프가 두 벌이 된다. createRoot 를 두 번 부르면 React 가
 // 경고를 내므로 루트만 전역에 한 번 만들어 재사용한다.
 import { createRoot } from "react-dom/client";
-import { initI18n } from "../i18n.mjs";
+import { initI18n } from "../i18n/index.mjs";
 import { setTheme, getTheme } from "../theme.mjs";
 import { App } from "./app.jsx";
 

@@ -11,7 +11,7 @@ import {
   compareOracle, doomedCameraCount, restoreSummaryText, sceneMetaText, saveSceneText,
   MOVE_SPEED,
 } from "./actions.mjs";
-import { t } from "../../i18n.mjs";
+import { t } from "../../i18n/index.mjs";
 
 const views = (rows) => new Map(rows.map((r) => [r.port, r]));
 const cam = (over = {}) => ({

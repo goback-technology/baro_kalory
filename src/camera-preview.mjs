@@ -10,7 +10,7 @@
 import { api } from "./api.mjs";
 import { createMjpegPlayer } from "./mjpeg-player.mjs";
 import { createMotionSettleTracker } from "./motion-settle.mjs";
-import { t } from "./i18n.mjs";
+import { t } from "./i18n/index.mjs";
 
 const STREAM_RETRY_LIMIT = 12;
 // 서버가 "이 기기엔 프리뷰 스트림이 없다"고 답하는 상태코드(proxyMjpeg). 재시도 대상이 아니다.

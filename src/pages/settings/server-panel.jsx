@@ -5,7 +5,7 @@
 // backend 를 미리 지정하는 경우). 탈출구는 주소창 ?api=reset.
 import { useEffect, useState } from "react";
 import { getJson, postJson, api, API_BASE, API_BASE_EXPLICIT, API_BASE_KEY, cleanApiBase, mixedContentBlocked, stripApiParamFromUrl } from "../../api.mjs";
-import { t } from "../../i18n.mjs";
+import { t } from "../../i18n/index.mjs";
 import { classifyProbeError, probeReportText } from "./actions.mjs";
 
 // 입력값 정규화. **테스트와 저장이 같은 규칙을 써야 한다** — 따로 두면 "테스트는 통과했는데

@@ -3,7 +3,7 @@
 // 라우트는 lazy import 다. 화면 하나가 통째로 들어 있는 시뮬레이터(3,800줄)까지 한 번들에
 // 넣으면 대문을 여는 데 그 코드를 전부 내려받게 된다 — 커미셔닝 현장의 첫 화면이 그만큼 늦다.
 import { Suspense, lazy, useState } from "react";
-import { getLang, setLang } from "../i18n.mjs";
+import { getLang, setLang } from "../i18n/index.mjs";
 import { getPage } from "../pages.mjs";
 import { useHashRoute } from "./router.mjs";
 import { AppShell } from "./shell.jsx";
