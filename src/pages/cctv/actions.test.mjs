@@ -79,8 +79,15 @@ test("detectorResultCard: 3D 는 픽셀이 아니라 미터를 적는다", () =>
   assert.match(card.lines[0], /12\.3/);
   assert.doesNotMatch(card.lines[0], /\[\d+,\d+/, "픽셀 좌표는 이 검출기의 답이 아니다");
   // 값이 없으면 "0" 이 아니라 "?" 다 — 0 m 도 방위 0° 도 측정값처럼 보인다.
+  //
+  // **조각이 아니라 전체 사전 키로 문는다.** 조각을 t() 에 넘기면 그것은 키가 아니므로 번역
+  // 없이 그대로 돌아오고, 다른 언어에서는 그 단언이 아무것도 안 지킨다(2026-08-25 로컬
+  // 초록·CI 빨강의 부류). 여기서는 아예 값으로 조립해 통째로 맞춘다.
   const missing = detectorResultCard("vpd_3d", { ok: true, boxes3d: [{ label: "car" }] });
-  assert.match(missing.lines[0], new RegExp(t("· 앞 \\? m")), "모르는 값을 0 으로 적지 않는다");
+  assert.equal(missing.lines[0],
+    "#1 car " + t("· 앞 {x} m, 옆 {y} m · {l}×{w}×{h} m · 방위 {yaw}°",
+      { x: "?", y: "?", l: "?", w: "?", h: "?", yaw: "?" }),
+    "모르는 값을 0 으로 적지 않는다");
   // 캘리브레이션이 이 측정의 전제다 — 기준 없이 미터만 적으면 틀린 지면으로 잰 값도 그럴듯하다.
   assert.ok(card.lines.some((l) => l.includes("6.50")), "기준 줄이 있어야 한다");
 });

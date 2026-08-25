@@ -242,24 +242,27 @@ test("spawnRequestFrom: 자리·높이·이름·포트·지면 — 하나라도 
 
   // 대역이 꽉 차서 빈 것과 사람이 지운 것은 다른 사실이다.
   const bandFull = { cameraPortRange: { httpFrom: 8030, httpTo: 8040, mjpegFrom: 8130, mjpegTo: 8140 } };
-  assert.match(spawnRequestFrom({ location: at, form: { ...ok, httpPort: "" }, portInfo: bandFull, ...scene }).error, /8030/);
+  assert.equal(spawnRequestFrom({ location: at, form: { ...ok, httpPort: "" }, portInfo: bandFull, ...scene }).error,
+    bandFullNotice(bandFull));
   assert.equal(spawnRequestFrom({ location: at, form: { ...ok, httpPort: "" }, ...scene }).error, t("포트를 입력하세요."));
 
   // 대역 검증은 제출 전에 — 자리·높이까지 다 정한 뒤에 받는 409 는 비싸다.
+  const withNext = { ...bandFull, nextFree: { httpPort: 8031, mjpegPort: 8131 } };
   const outOfBand = spawnRequestFrom({
-    location: at, form: { ...ok, httpPort: "8200", mjpegPort: "8135" },
-    portInfo: { ...bandFull, nextFree: { httpPort: 8031, mjpegPort: 8131 } }, ...scene,
+    location: at, form: { ...ok, httpPort: "8200", mjpegPort: "8135" }, portInfo: withNext, ...scene,
   });
-  assert.match(outOfBand.error, /8200/);
+  assert.equal(outOfBand.error,
+    t("포트 {p} 는 이 인스턴스의 허용 범위({from}~{to}) 밖입니다.", { p: 8200, from: 8030, to: 8040 }));
   assert.equal(outOfBand.body, null);
   const outOfMjpeg = spawnRequestFrom({
-    location: at, form: { ...ok, httpPort: "8031", mjpegPort: "8300" },
-    portInfo: { ...bandFull, nextFree: { httpPort: 8031, mjpegPort: 8131 } }, ...scene,
+    location: at, form: { ...ok, httpPort: "8031", mjpegPort: "8300" }, portInfo: withNext, ...scene,
   });
-  assert.match(outOfMjpeg.error, /MJPEG/);
+  assert.equal(outOfMjpeg.error,
+    t("MJPEG 포트 {p} 는 이 인스턴스의 허용 범위({from}~{to}) 밖입니다.", { p: 8300, from: 8130, to: 8140 }));
 
   // 지면을 모르면 세우지 않는다 — 0 으로 가정하면 그 차이가 통째로 높이 오차가 된다.
-  assert.match(spawnRequestFrom({ location: at, form: ok, cameras: [], slots: [] }).error, /지면 높이/);
+  assert.equal(spawnRequestFrom({ location: at, form: ok, cameras: [], slots: [] }).error,
+    t("이 씬의 지면 높이를 알 수 없습니다 — 주차면이나 카메라가 하나는 있어야 합니다."));
 
   // 통과하면 z = 높이×100 + 지면.
   const good = spawnRequestFrom({ location: at, form: ok, ...scene });
@@ -321,7 +324,9 @@ test("installPatchFrom: 바뀐 칸만, 자리는 셋을 함께", () => {
   const raised = installPatchFrom({ cam: c, form: { ...same, heightM: "8" }, tiltpos: 1500, ...scene });
   assert.deepEqual(raised.patch, { location: { x: 100, y: 200, z: 810 } });
   // 지면을 모르면 옮기지 않는다.
-  assert.match(installPatchFrom({ cam: c, form: { ...same, heightM: "8" }, tiltpos: 1500, cameras: [{ ...c, groundReference: null }], slots: [] }).error, /지면 높이/);
+  assert.equal(
+    installPatchFrom({ cam: c, form: { ...same, heightM: "8" }, tiltpos: 1500, cameras: [{ ...c, groundReference: null }], slots: [] }).error,
+    t("이 씬의 지면 높이를 알 수 없습니다 — 주차면이나 카메라가 하나는 있어야 합니다."));
 
   // 설치 자세: 0.05° 는 toFixed(1) 표시 반올림 아래라 안 고친 칸이 새어 나가지 않는다.
   assert.deepEqual(installPatchFrom({ cam: c, form: { ...same, bearing: "45.03" }, tiltpos: 1500, ...scene }).error,
@@ -448,7 +453,10 @@ test("compareOracle: 해상도가 다르면 배율로 맞추고, 프레임 밖�
   assert.equal(r.truthPins.get("s1").x, 100);
   assert.equal(r.truthPins.get("s2").d, 2);
   assert.equal(r.truthPins.has("s3"), false, "카메라 뒤는 견줄 값이 아니다");
-  assert.match(r.summary, /2/);
+  // 문구는 **전체 사전 키**로 문는다 — 조각을 t() 에 넘기면 그것은 키가 아니라 번역 없이
+  // 그대로 돌아오고, 다른 언어에서 그 단언이 아무것도 안 지킨다.
+  assert.equal(r.summary, t("프레임 안 {n}면 · 중앙 {med} px · 최대 {max} px (밖 {o} · 뒤 {b}) — 프레임 {w}×{h}",
+    { n: 2, med: "1.0", max: "2.0", o: 0, b: 1, w: 1920, h: 1080 }));
 
   // 프레임 안에 든 것이 하나도 없으면 숫자를 짓지 않고 무엇을 해야 하는지 말한다.
   const outside = compareOracle({
@@ -456,7 +464,9 @@ test("compareOracle: 해상도가 다르면 배율로 맞추고, 프레임 밖�
     truth: { resolution: frame, points: [{ x: -500, y: -500 }] },
     targets: [{ id: "s1" }], frame,
   });
-  assert.match(outside.summary, /프레임 안에 든 주차면이 없습니다/);
+  assert.equal(outside.summary,
+    t("프레임 안에 든 주차면이 없습니다 — 카메라를 주차면 쪽으로 돌리고 다시 재세요. (뒤 {b} · 밖 {o})",
+      { b: 0, o: 1 }));
 });
 
 // ── 저장된 씬 ──────────────────────────────────────────────────────────────────
