@@ -1,0 +1,63 @@
+/* settings 화면의 자리잡기. SPA 에서는 방문한 화면의 CSS 가 언로드되지 않고 쌓이므로,
+   접두사 없는 선택자(main·body 같은 것)를 쓰면 떠난 화면의 규칙이 다음 화면을 망가뜨린다.
+   전역 규칙은 셸(public/index.html)이 갖고, 공유 base/컴포넌트/토큰은 app.css 에서 온다. */
+/* 기기 목록 — 행 자체가 선택 버튼이다(행마다 붙어 있던 '편집' 버튼을 없앴다: 이름이 길면
+   줄바꿈이 나면서 버튼이 세로로 찌그러졌고, 선택과 편집이 다른 조작인 것처럼 보였다).
+   이름·식별자·주소를 세 줄로 나눠 행 높이를 일정하게 만든다. */
+/* 목록은 높이를 고정하고 넘치면 스크롤한다 — 기기가 늘어도 아래의 조작 줄과 편집 폼이
+   화면 밖으로 밀리지 않게. 테두리를 둬서 어디까지가 목록인지 보이게 한다(없으면 잘린
+   마지막 행이 조작 줄에 붙어 깨진 것처럼 읽힌다). */
+#dev-list { display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow-y: auto;
+            border: 1px solid var(--color-border); padding: 4px; }
+.dev-row { display: block; width: 100%; text-align: left; padding: 6px 8px; font: inherit;
+           color: inherit; background: none; border: 1px solid var(--color-border); cursor: pointer; }
+.dev-row:hover { border-color: var(--color-accent); }
+.dev-row.sel { border-color: var(--color-accent); background: #12160f; }
+.dev-row .dev-name { display: block; font-weight: bold; }
+.dev-row .dev-meta { display: block; font-size: 12px; opacity: .7; }
+/* 끌어서 순서 바꾸기 — 끌고 있는 행은 흐리게, 놓을 자리는 파선으로 표시한다. */
+.dev-row.dragging { opacity: .45; }
+.dev-row.drop-into { border-style: dashed; border-color: var(--color-accent); }
+/* 탭 — 설정 항목을 한 줄로 늘어놓으면 무엇이 어디 있는지 찾는 데 스크롤이 필요해진다.
+   선택 표시는 기기 목록의 선택된 행과 같은 시각 언어를 쓴다(테두리 + 강조색). */
+.tabs { display: flex; gap: 6px; }
+/* 탭은 링크다 — 주소에 실리므로 「이 탭을 보세요」를 링크 하나로 말할 수 있다.
+   그래서 버튼 모양을 링크에 다시 입힌다(밑줄 없음·블록 표시). */
+.tab { display: inline-block; text-decoration: none;
+       padding: 6px 14px; font: inherit; color: inherit; background: none;
+       border: 1px solid var(--color-border); cursor: pointer; }
+.tab:hover { border-color: var(--color-accent); }
+.tab.sel { border-color: var(--color-accent); color: var(--color-accent); background: #12160f; }
+/* 탭 줄은 화면에 고정하고, 그 아래 패널이 뷰포트 하단까지 차지하며 자기 안에서 스크롤한다.
+   페이지 전체가 늘어나던 때는 아래를 보려고 스크롤하면 탭 줄이 위로 사라져서, 탭을
+   바꾸려면 매번 맨 위로 되돌아가야 했다. 게이트 배너가 body 첫 자식으로 끼어들어도
+   같은 세로 흐름에 들어가므로 패널이 그만큼 줄어든다. */
+.set-main { flex: 1 1 auto; min-height: 0; display: flex; }
+#set-panel { min-height: 0; }
+#set-panel > .tabs { flex: 0 0 auto; }
+/* min-height:0 이 없으면 flex 아이템의 기본 min-height:auto 가 내용 높이를 바닥으로 잡아
+   넘치는 만큼 그대로 커지고, overflow 가 걸릴 자리가 생기지 않는다. */
+#set-panel > section { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; }
+
+/* 기기 탭만 2단이다. 목록에서 고르고 오른쪽에서 고친다 — 한 줄로 세워 두면 목록을 보려면
+   폼 위로, 고치려면 아래로 오가야 하고, 접속 상세가 붙은 지금은 그 거리가 화면 하나를 넘는다.
+   스크롤은 단마다 따로 흐른다: 목록을 훑는 동안 편집 중인 폼이 함께 밀려 올라가면 안 된다. */
+section[data-panel="devices"] { display: flex; flex-direction: row; gap: 14px; overflow: hidden; padding-right: 0; }
+.dev-col { display: flex; flex-direction: column; gap: 14px; min-height: 0; min-width: 0; }
+/* min-width:0 이 없으면 flex 아이템의 기본 min-width:auto 가 내용의 최소 폭을 바닥으로 잡아
+   basis 를 무시하고 벌어진다 — 목록이 300px 로 서지 않고 편집 단의 폭을 빼앗아 간다. */
+.dev-col-list { flex: 0 0 300px; }
+/* 목록 카드가 왼쪽 단의 남은 높이를 전부 먹고, 스크롤은 목록 안에서만 일어난다. 카드까지
+   함께 스크롤시키면 스크롤 막대가 둘 겹쳐 어느 것이 목록의 것인지 알 수 없게 된다. */
+.dev-card-list { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.dev-card-list #dev-list { flex: 1 1 auto; max-height: none; }
+.dev-col-edit { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding-right: 4px; }
+/* 다른 탭은 여전히 한 단이다 — 폭이 넓어졌다고 입력칸을 화면 끝까지 늘일 이유는 없다. */
+section[data-panel="server"] > .card, section[data-panel="detect"] > .card { max-width: 720px; }
+/* 좁은 화면에서는 2단이 성립하지 않는다. 다시 한 줄로 세우고 스크롤도 하나로 되돌린다. */
+@media (max-width: 900px) {
+  section[data-panel="devices"] { flex-direction: column; overflow-y: auto; padding-right: 4px; }
+  .dev-col { flex: 0 0 auto; }
+  .dev-col-edit { overflow: visible; }
+  .dev-card-list #dev-list { flex: 0 0 auto; max-height: 260px; }
+}

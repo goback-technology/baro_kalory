@@ -1,12 +1,13 @@
 // 캘리브레이션 화면의 조립부 — 데이터 로딩·폴링·쓰기 동작을 전부 여기가 소유하고,
-// 카드 컴포넌트들은 그린다. React 파일럿(plan §2, 2026-08-22)의 첫 페이지.
+// 카드 컴포넌트들은 그린다. React 파일럿(plan §2, 2026-08-22)의 첫 페이지였고,
+// 2026-08-25 SPA 셸의 첫 라우트가 됐다 — 자기 문서·자기 루트·자기 크롬을 내려놓고
+// 셸이 주는 것을 쓴다. 헤더 셀렉터도 이제 CameraProvider 소유다.
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { createRoot } from "react-dom/client";
 import { getJson, postJson, reqJson, api } from "../../api.mjs";
-import { initPageChrome } from "../../page-chrome.mjs";
-import { createCameraSelect } from "../../camera-select.mjs";
+import { useCamera } from "../../app/camera-provider.jsx";
 import { createCameraPreview } from "../../camera-preview.mjs";
 import { t } from "../../i18n.mjs";
+import "./calibration.css";
 import { SweepOverlay } from "./sweep-overlay.jsx";
 import { StatusCard } from "./status-card.jsx";
 import { ProfileCard } from "./profile-card.jsx";
@@ -22,7 +23,7 @@ const enc = encodeURIComponent;
 //
 // createCameraPreview 는 DOM 위젯이다 — img·모드버튼·fps 라벨을 ref 로 넘기고, 그 요소들의
 // 내용은 위젯이 소유한다(React 는 다시 그리지 않는다).
-function LiveStage({ st }) {
+function LiveStage({ st, registerRelease }) {
   const imgRef = useRef(null);
   const modeBtnRef = useRef(null);
   const fpsRef = useRef(null);
@@ -44,11 +45,19 @@ function LiveStage({ st }) {
     let on = false;
     try { on = localStorage.getItem(KEY) === "on"; } catch { /* 저장소 사용 불가 */ }
     if (on) { preview.start(); setRunning(true); setLabel(t("실행 중")); }
-    // 탭을 떠나면 업스트림도 끊는다 — 안 하면 유령 시청자로 남아 카메라를 점유한다(저장소 계약).
+    // 스트림을 놓아 줄 세 갈래를 전부 건다. 안 하면 유령 시청자로 남아 카메라를 점유한다.
+    //   1) 카메라 전환 전    — provider 가 활성을 바꾸기 **전에** 이 함수를 await 한다.
+    //   2) 라우트 이탈·언마운트 — SPA 에는 pagehide 가 오지 않는다. cleanup 이 그 자리다.
+    //   3) 진짜 문서 이탈    — 탭을 닫거나 다른 사이트로 갈 때.
+    const unregister = registerRelease(() => preview.stop());
     const bye = () => { preview.stop(); };
     window.addEventListener("pagehide", bye);
-    return () => { window.removeEventListener("pagehide", bye); preview.stop(); };
-  }, []);
+    return () => {
+      unregister();
+      window.removeEventListener("pagehide", bye);
+      preview.destroy();   // stop() 과 달리 document 리스너까지 거둔다(왕복 누수 방지)
+    };
+  }, [registerRelease]);
 
   const start = () => {
     try { localStorage.setItem(KEY, "on"); } catch { /* 저장소 사용 불가 */ }
@@ -83,7 +92,8 @@ function LiveStage({ st }) {
   );
 }
 
-function App({ cam }) {
+export default function CalibrationPage() {
+  const cam = useCamera();
   // 카메라 전환 → 카드 재구성 (실기 ↔ 시뮬 검증전용). undefined = 셀렉터 로드 전 —
   // 그때 initCard 를 부르면 load 완료 때 또 불려 모든 GET 이 2벌 나간다(실측).
   const [cameraId, setCameraId] = useState(undefined);
@@ -108,7 +118,7 @@ function App({ cam }) {
   const setMsg = (text, kind) => setMsgState({ text: text || "", kind: kind || "" });
 
   async function currentCameraId() {
-    const id = cam.activeId();
+    const id = cam.activeId;
     if (id) return id;
     // 첫 로드에서는 셀렉터가 아직 목록을 받기 전이다 — 그 순간엔 서버에 직접 묻는다.
     try { return ((await getJson(api("/cctv/config"))).devices || {}).active || null; } catch { return null; }
@@ -235,13 +245,16 @@ function App({ cam }) {
 
   useEffect(() => { if (cameraId !== undefined) initCard(); /* 첫 로드 + 카메라 전환 */ }, [cameraId, initCard]);
 
-  // 헤더 셀렉터(React 밖 위젯)의 전환을 구독한다.
+  // 헤더 셀렉터는 CameraProvider 가 소유한다 — 여기서는 그 값의 변화만 본다.
+  // 미연결로 목록을 못 받아도 null 로 한 번은 흘려보낸다: 원본도 그 상태에서 카드
+  // 초기화를 시도했고(실패하면 카드가 숨고 카탈로그 오류가 말한다), 그래야 「아무 일도
+  // 안 일어나는 화면」이 되지 않는다. provider 의 첫 로드가 끝나기 전 undefined 로
+  // 두는 것이 그 신호다 — 그때 initCard 를 부르면 로드 완료 때 또 불려 GET 이 2벌 나간다.
   useEffect(() => {
-    cam.hooks.onChange = (id) => { setPanel(null); setMsg(""); setCameraId(id); };
-    // 미연결로 목록을 못 받아도 null 로 한 번은 흘려보낸다 — 원본도 그 상태에서 카드
-    // 초기화를 시도했다(실패하면 카드가 숨고 카탈로그 오류가 말한다).
-    cam.load().then(() => setCameraId(cam.activeId() ?? null));
-  }, [cam]);
+    if (!cam.loaded) return;
+    setPanel(null); setMsg("");
+    setCameraId(cam.activeId ?? null);
+  }, [cam.loaded, cam.activeId]);
 
   // ── 쓰기 — 백엔드는 실패를 코드로 말한다. 그 문장을 그대로 옮긴다. ──
   async function profileWrite(run, okText) {
@@ -382,14 +395,14 @@ function App({ cam }) {
 
   const id = cameraId || "";
   return (
-    <div id="cal-split">
+    <main className="cal-main"><div id="cal-split">
       <div className="cal-col cal-col-list">
         {/* 저장소에 발행돼 있는 것 전량. 줄을 누르면 오른쪽 속성창이 그 줄에 맞춰 열린다 —
             남의 것이면 복사, 이 카메라 것이면 적용. */}
         <div className="card cal-card-list">
           <h2>프로파일 목록</h2>
           <div id="profile-list">
-            <ProfileList catalog={catalog} error={catalogError} mine={cam.activeId()}
+            <ProfileList catalog={catalog} error={catalogError} mine={cam.activeId}
               onPickMine={openRevisionPanel} onPickOther={(pid) => openCopyPanel(pid)} />
           </div>
           <div className="hint" style={{ marginTop: 6 }}>줄을 누르면 오른쪽에 그 작업 창이 열립니다.</div>
@@ -399,7 +412,7 @@ function App({ cam }) {
         {cardVisible && (
           <div className="card" id="calib-card">
             <h2>카메라 캘리브레이션</h2>
-            <LiveStage st={st} />
+            <LiveStage st={st} registerRelease={cam.registerRelease} />
             <StatusCard st={st} verifyOnly={verifyOnly} installed={installed}
               onPollStart={startPolling} refresh={refresh} cameraId={currentCameraId} />
           </div>
@@ -414,28 +427,6 @@ function App({ cam }) {
           profileWrite={profileWrite} writeAndApply={writeAndApply} setMsg={setMsg}
           panelActions={{ pinToRevision, refollowProfile, applyLatestToRuntime, rollbackToRevision }} />
       </div>
-    </div>
+    </div></main>
   );
 }
-
-// ── 마운트 ──────────────────────────────────────────────────────────────────
-// dev 에서는 같은 파일이 두 URL 로 평가될 수 있다(진입 스크립트의 /web/ 별칭과 HMR 의
-// /@fs/ 정규 경로 — Vite 는 URL 이 다르면 다른 모듈로 센다). 그래서 부트는 **멱등**이어야
-// 한다: 크롬·셀렉터·루트를 전역에 캐시해 재평가가 위젯을 이중으로 만들지 않게 한다.
-// 번들에서는 모듈이 하나라 이 가드는 첫 평가 그대로 지나간다.
-if (import.meta.hot) import.meta.hot.accept(() => location.reload());
-
-const BOOT = (window.__calBoot ||= {});
-if (!BOOT.cam) {
-  initPageChrome({ page: "calibration" });
-  // createCameraSelect 는 헤더의 <select> 를 소유하는 DOM 위젯이다 — React 트리 밖에 산다.
-  // onChange 는 App 마운트 후에 배선되므로 훅 객체를 통해 늦게 잇는다.
-  const camHooks = { onChange: null };
-  BOOT.cam = createCameraSelect({
-    select: document.getElementById("header-camera-select"),
-    onChange: (id, previous) => camHooks.onChange && camHooks.onChange(id, previous),
-  });
-  BOOT.cam.hooks = camHooks;
-}
-if (!BOOT.root) BOOT.root = createRoot(document.getElementById("cal-root"));
-BOOT.root.render(<App cam={BOOT.cam} />);

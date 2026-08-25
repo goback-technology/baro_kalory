@@ -225,3 +225,125 @@ export function probeReportText(v, r) {
   if (r.kind === "unreachable") return `${t("연결 실패")} — ${t("출처가 다르면 백엔드가 이 주소를 CORS 로 허용해야 합니다")} (${r.reason})`;
   return `${v} ${t("는 baro backend 로 응답하지 않습니다")} (${r.reason})`;
 }
+
+// ── 프로브 결과 문구 ─────────────────────────────────────────────────────────
+//
+// 인라인 시절 이 결과들은 innerHTML 로 붙었다(`<b>${r.model}</b>`). 값이 상류에서 오므로
+// 그 자체가 위험하고, 무엇보다 **테스트가 물 수 없는 형태**였다. 텍스트를 돌려주고 강조가
+// 필요한 자리는 조각으로 넘긴다 — 캘리브레이션 화면의 installedLine 과 같은 규칙이다.
+
+export function probeCameraText(r) {
+  if (!r || !r.reachable) {
+    return { ok: false, parts: [{ text: t("❌ 응답 없음") + ": " + ((r && r.error) || "unreachable") }], note: null };
+  }
+  // 모델명은 강조해서 읽는다 — 이 프로브의 값어치가 「무엇이 붙어 있나」라서, 그 한 낱말이
+  // 나머지 문장보다 먼저 눈에 들어와야 한다. 문장은 번역을 지나야 하므로, 자리표시자를
+  // 본문에 없는 글자로 채운 뒤 그 자리에서 자른다.
+  const MARK = String.fromCharCode(1);
+  const line = t("✅ 응답 · 모델 {model} · FW {fw}", { model: MARK, fw: r.firmware || "?" });
+  const [head, tail = ""] = line.split(MARK);
+  const parts = [{ text: head }, { text: r.model || "?", strong: true }, { text: tail }];
+  if (r.ptz) parts.push({ text: ` · PTZ ${r.ptz.panpos}/${r.ptz.tiltpos}/${r.ptz.zoompos}` });
+  return {
+    ok: true,
+    parts,
+    // 이 프로브는 Hucoms CGI 를 평문 HTTP 로 두드린다 — 실제 드라이버가 쓰는 스킴·인증과
+    // 다르다. "응답"만 보고 화면도 나올 거라 읽으면 틀린다(IDIS 실기에서 그대로 겪었다:
+    // 테스트는 통과하는데 스냅샷은 평문 포트에 TLS 를 걸어 전부 실패). 통과했을 때만
+    // 덧붙인다 — 실패했을 때는 오해할 여지가 없다.
+    note: t("Hucoms CGI 를 평문 HTTP 로 확인한 결과입니다 — 다른 규약의 기기는 이 결과와 무관하게 스킴·RTSP 경로가 맞아야 화면이 나옵니다."),
+  };
+}
+
+export function probeDetectorText(r) {
+  const d = r && r.detector;
+  return d && d.reachable ? t("✅ 응답 (status {s})", { s: d.status }) : `❌ ${(d && d.error) || "unreachable"}`;
+}
+
+export function probeLprText(r) {
+  const l = r && r.lpr;
+  return l && l.reachable ? t("✅ 응답 (status {s})", { s: l.status }) : `❌ ${(l && l.error) || "unreachable"}`;
+}
+
+export function probeLlmText(r) {
+  const models = (r && r.models) || [];
+  const resolved = models.filter((m) => m.resolvedModel).map((m) => `${m.id} → ${m.resolvedModel}`);
+  return t("✅ 응답 · 별칭 {n}개", { n: models.length })
+    + (r.ready === false ? ` · ${t("아직 추론 준비 안 됨")}${r.readyDetail ? ` (${r.readyDetail})` : ""}` : "")
+    + (resolved.length ? ` · ${resolved.join(" · ")}` : "");
+}
+
+export function runLlmText(r) {
+  if (!r || !r.ok) return "❌ " + ((r && r.error) || t("실패")) + (r && r.status ? ` (HTTP ${r.status})` : "");
+  // 정답 여부는 **경고이지 실패가 아니다** — 여기서 재는 것은 모델의 실력이 아니라 이미지가
+  // 모델에 닿는가다. 다만 틀렸다면 그 사실을 말해야 다음 의심처가 생긴다.
+  return t("✅ 응답 {ms}ms · 스키마 준수", { ms: r.latencyMs })
+    + (r.resolvedModel ? ` · ${r.resolvedModel}` : "")
+    + (r.correct ? "" : ` · ⚠ ${t("판독이 틀렸습니다 — 이미지가 모델에 제대로 닿지 않을 수 있습니다")} (${r.answer})`);
+}
+
+// ── 편집 폼의 안내 문구 ──────────────────────────────────────────────────────
+
+// 기기 타입 표에서 needsHost 를 읽는다. 타입 이름을 하드코딩하지 않는다 — 표는 서버가 준다.
+export function needsHostOf(devTypes, type) {
+  const meta = (devTypes || []).find((dt) => dt.type === type);
+  return meta ? meta.needsHost : true;
+}
+
+// 용도는 화면 하나를 통째로 가른다 — 시뮬레이터 페이지의 카메라 목록은 이 값으로 고른다.
+export function modeHintText(mode) {
+  return mode === "sim"
+    ? t("시뮬레이터 페이지의 카메라 목록에 나타납니다.")
+    : t("시뮬레이터 페이지에는 나타나지 않습니다.");
+}
+
+// 씨앗값 셀렉트의 안내. 이 칸은 **씨앗값**을 편집한다 — 지금 조준에 쓰이는 곡선이 아니다.
+// 반환에 warn 이 붙는 이유: 「지운다」만 경고색이어야 한다.
+export function calibHintText(value, ins) {
+  if (value === "") {
+    // 지우면 조용히 망가진다 — 벤더마다 줌 눈금이 달라서(IDIS 는 배율 ×100, 100..1200)
+    // 씨앗값이 없으면 스윕이 남의 눈금으로 앵커를 양끝에 몰아 놓고도 **성공으로 끝난다.**
+    // 측정된 것처럼 보이는 표가 남으므로, 사람이 나중에 알아챌 방법이 없다.
+    return { warn: true, text: t("씨앗값을 지웁니다 — 지금 조준에 쓰는 곡선(발행본)은 그대로입니다. 다만 이 값은 스윕이 줌 앵커를 잡는 기준이라, 지우면 벤더에 따라 다음 캘리브레이션이 엉뚱한 줌 눈금으로 돌고도 성공으로 끝납니다(측정된 것처럼 보이는 표가 남습니다). 값이 있다면 「유지」를 고르세요.") };
+  }
+  if (value === "__keep") {
+    return { warn: false, text: t("지금 씨앗값을 그대로 둡니다") + " — " + describeIntrinsics(ins) };
+  }
+  return { warn: false, text: t("다른 카메라의 실측값을 이 기기의 새 리비전으로 발행합니다 — 캘리브레이션은 개체마다 다르므로, 발행한 뒤 '검증'을 돌려 이 개체에 맞는지 확인하세요.") };
+}
+
+// 씨앗값 셀렉트의 항목들. 자기 자신은 대상이 아니다 — 같은 기기로의 복사는 곡선이 그대로인
+// 리비전만 하나 더 만들고, 발행본은 지울 수 없으므로 그 한 번이 이력에 영구히 남는다.
+export function calibOptions(profiles, ins, selId) {
+  const out = [{ value: "", label: t("씨앗값 없음") }];
+  // 지금 들고 있는 값은 목록에 없을 수 있다(내장 프리셋 이름이거나 이 카메라의 실측 객체).
+  // 그래서 "건드리지 않는다"를 언제나 고를 수 있게 둔다 — 고르면 저장이 그 필드를 아예 안
+  // 보내고 백엔드가 기존 값을 보존한다.
+  if (ins) out.push({ value: "__keep", label: t("유지") + " — " + describeIntrinsics(ins) });
+  for (const p of profiles || []) {
+    if (p.profileId === selId) continue;
+    out.push({ value: `profile:${p.profileId}`, label: `${p.profileId} rev ${p.revision} ` + t("의 실측값 빌리기") });
+  }
+  return out;
+}
+
+// 설치 높이 안내 — 발행본에서 읽은 값을 말로 바꾼다. 404 는 장애가 아니라 「아직 없다」는
+// 정상 상태다: 높이는 곡선 위에 얹히는 값이라(백엔드가 그렇게 거절한다) 넣을 것이 없다.
+export function heightHintText({ known, revision, source, error, notSaved }) {
+  if (notSaved) return t("기기를 저장한 뒤에 넣을 수 있습니다.");
+  if (error) {
+    return error.status === 404
+      ? t("발행된 프로파일이 없습니다 — 캘리브레이션을 먼저 발행해야 높이를 얹을 수 있습니다.")
+      : t("설치 높이를 읽지 못했습니다") + ": " + (error.message || error);
+  }
+  return known
+    ? t("발행본 rev {rev} · {src}", { rev: revision, src: t(HEIGHT_SOURCE_LABEL[source] || source || "출처 없음") })
+    : t("아직 없습니다 — 시공 때 잰 값을 넣으면 저장할 때 새 리비전으로 발행됩니다.");
+}
+
+// API 키 등록 여부 한 줄. 값 자체는 서버가 절대 돌려주지 않는다 — 등록 여부와 끝 몇 자뿐이다.
+export function keyHintText(apikey) {
+  const ak = apikey || {}, ah = ak.anthropic || {}, oh = ak.openai || {};
+  const one = (h) => (h.set ? t("등록됨") + " ···" + (h.hint || "") : t("미등록"));
+  return `Anthropic: ${one(ah)} · OpenAI: ${one(oh)}`;
+}

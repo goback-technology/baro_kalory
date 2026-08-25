@@ -15,17 +15,11 @@
 
 @import "tailwindcss";
 
-/* 주의: @source 는 글로브가 아니라 파일 나열이다 — 새 페이지를 빠뜨리면 그 페이지의
-   유틸리티 클래스가 app.css 에 안 실려 무스타일로 뜬다. */
-@source "../public/home.html";
-@source "../public/simulator.html";
-@source "../public/cctv.html";
-@source "../public/discovery.html";
-@source "../public/settings.html";
-@source "../public/calibration.html";
-@source "../public/height.html";
-@source "../src/*.mjs";
-@source "../src/pages/calibration/*.jsx";
+/* 스캔 대상은 디렉터리로 준다. 파일을 손으로 나열하던 동안에는 새 화면을 빠뜨리면 그
+   화면만 무스타일로 떴고, 빠뜨렸다는 사실을 알려 주는 것이 아무것도 없었다 — SPA 전환은
+   화면 코드를 public/ 에서 src/ 로 옮기는 일이라 그 미러가 매번 흔들린다. */
+@source "../public";
+@source "../src";
 
 /* ── 기본 테마: 80s 유닉스 쉘 / CRT 터미널 (phosphor green, 심플·차분) ── */
 @theme {

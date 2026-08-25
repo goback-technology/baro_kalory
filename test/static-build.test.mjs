@@ -11,7 +11,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { PAGE_FILES, STATIC_MARKER, rewriteForStaticHost } from "../pack.mjs";
-import { PAGES, pageHref, isStaticBuild } from "../src/pages.mjs";
+import { PAGES, MPA_PAGES, pageFileOf, pageHref, isStaticBuild } from "../src/pages.mjs";
+import { redirectShell, SPA_REDIRECTS } from "../build/vite-kalory.mjs";
 
 const repo = new URL("../", import.meta.url);
 
@@ -28,19 +29,41 @@ function withDom({ pathname, marker }, fn) {
 }
 
 test("dist 페이지 목록은 pages.mjs 에서 파생된다 — 손으로 베낀 미러가 아니다", async () => {
-  assert.deepEqual(PAGE_FILES, PAGES.map((p) => (p.slug ? `${p.slug}.html` : "home.html")));
+  assert.deepEqual(PAGE_FILES, MPA_PAGES.map(pageFileOf));
   for (const f of PAGE_FILES) {
     await readFile(new URL(`public/${f}`, repo)); // 없으면 여기서 던진다
   }
+  // SPA 로 옮긴 페이지는 반대다 — 실파일이 있으면 리다이렉트 셸이 그것을 덮어써 버린다.
+  for (const p of PAGES.filter((x) => x.spa)) {
+    await assert.rejects(readFile(new URL(`public/${pageFileOf(p)}`, repo)),
+      `public/${pageFileOf(p)} 가 남아 있다 — 옮긴 페이지의 실파일은 지워야 한다`);
+  }
+});
+
+// 옛 주소를 잃지 않는 것이 이 전환의 최소 조건이다. 작업자의 북마크는 <slug>.html 형태로
+// 존재하고, 그 주소가 404 가 되는 것은 「화면이 사라졌다」로 읽힌다.
+test("SPA 로 옮긴 페이지의 옛 주소는 리다이렉트 셸이 받는다", () => {
+  for (const p of PAGES.filter((x) => x.spa)) {
+    assert.ok(SPA_REDIRECTS[`/${pageFileOf(p)}`], `${pageFileOf(p)} 옛 주소가 표에 없다`);
+    if (p.slug) assert.ok(SPA_REDIRECTS[`/${p.slug}`], `/${p.slug} 가 표에 없다`);
+  }
+  const shell = redirectShell("#/settings", "설정");
+  // 쿼리를 넘기는 것이 이 셸의 본론이다 — ?api=reset 은 잘못 저장한 API base 로 벽돌이 된
+  // 화면의 탈출구라, 리다이렉트에서 증발하면 정확히 필요한 순간에 실패한다.
+  assert.match(shell, /location\.replace\("\.\/index\.html" \+ location\.search \+ "#\/settings"\)/);
+  assert.match(shell, /<noscript><meta http-equiv="refresh"/, "JS 가 꺼져 있어도 넘어가야 한다");
+  assert.match(shell, /<a href="\.\/index\.html#\/settings">/, "그마저 막히면 손으로 누를 링크");
 });
 
 test("정적 호스트 재작성: 확장자 없는 링크와 / 진입을 실파일로 바꾼다", () => {
-  const html = '<head></head><a href="./">홈</a><a href="./cctv">CCTV</a><a href="./settings">설정</a>';
+  // 재작성 대상은 **아직 SPA 로 안 옮긴** 페이지의 링크뿐이다. 옮긴 페이지의 링크는
+  // 해시라 재작성이 손댈 것이 없다(그 자리는 리다이렉트 셸이 받는다).
+  const html = '<head></head><a href="./">홈</a><a href="./cctv">CCTV</a><a href="./height">높이</a>';
   const out = rewriteForStaticHost(html);
   assert.match(out, /href="\.\/index\.html"/);
   assert.match(out, /href="\.\/cctv\.html"/);
-  assert.match(out, /href="\.\/settings\.html"/);
-  assert.doesNotMatch(out, /href="\.\/(cctv|settings)"/);
+  assert.match(out, /href="\.\/height\.html"/);
+  assert.doesNotMatch(out, /href="\.\/(cctv|height)"/);
 });
 
 test("재작성은 정적 빌드 표식을 심고, 두 번 돌려도 하나뿐이다", () => {
@@ -65,17 +88,28 @@ test("정적 빌드 판정: 표식이 있으면 디렉터리 URL(`/<repo>/`)에�
   assert.equal(withDom({ pathname: "/public/cctv.html", marker: false }, isStaticBuild), true);
 });
 
-test("게이트의 설정 판정이 대문 카드의 href 와 일치한다 (설정 카드 잠금 회귀)", async () => {
-  // page-chrome 의 showBackendGate 는 `a.home-card` 중 href 가 pageHref("settings") 와
-  // 다른 것을 전부 잠근다. 대문 카드는 pack 이 재작성하므로, 판정이 URL 추측이면 대문에서만
-  // 둘이 어긋나 설정 카드가 잠기고 주소를 넣을 길이 사라진다.
-  const home = rewriteForStaticHost(await readFile(new URL("public/home.html", repo), "utf8"));
-  const href = withDom({ pathname: "/baro_kalory/", marker: true }, () => pageHref("settings"));
-  assert.ok(home.includes(`href="${href}"`), `대문 카드에 ${href} 가 없다 — 게이트가 설정 카드를 잠근다`);
-  assert.equal(href, "./settings.html");
+// 옛 대문은 카드의 href 문자열과 게이트의 판정이 **문자열로** 맞아야 했고, 대문에서만 그
+// 둘이 어긋나 설정 카드까지 잠기는 사고가 두 번 났다. 이제 잠금은 페이지 id 로 판정하므로
+// (cards.test.mjs 가 값으로 문다) 그 부류가 구조적으로 사라졌다. 여기 남는 계약은 하나 —
+// **대문에서 설정으로 가는 링크가 실제로 열리는 주소인가.**
+test("대문에서 설정으로 가는 링크는 배포 형태를 가리지 않고 실주소다", () => {
+  // 미연결에서 유일하게 열린 문이다. 이 링크가 404 면 백엔드 주소를 넣을 길이 사라져
+  // 첫 방문이 곧 벽돌이 된다(두 번 물린 부류).
+  const shell = (pathname, marker) => withDom({ pathname, marker }, () => pageHref("settings", { fromShell: true }));
+  assert.equal(shell("/baro_kalory/", true), "#/settings", "셸 안에서는 같은 문서의 해시다");
+  assert.equal(shell("/", false), "#/settings");
+  // 셸 밖(아직 안 옮긴 페이지의 헤더·게이트)에서는 셸 문서까지 가야 한다. 정적 배포에서
+  // "./" 로 가리키면 디렉터리 URL 에서 404 이므로 index.html 을 명시한다.
+  assert.equal(withDom({ pathname: "/baro_kalory/cctv.html", marker: true }, () => pageHref("settings")), "./index.html#/settings");
+  assert.equal(withDom({ pathname: "/cctv", marker: false }, () => pageHref("settings")), "./#/settings");
 });
 
-test("정적 빌드에서 홈 링크는 index.html 을 가리킨다 (디렉터리 URL 404 회귀)", () => {
-  assert.equal(withDom({ pathname: "/baro_kalory/cctv.html", marker: true }, () => pageHref("home")), "./index.html");
-  assert.equal(withDom({ pathname: "/cctv", marker: false }, () => pageHref("home")), "./");
+// 홈은 SPA 라우트다. 아직 안 옮긴 페이지에서는 셸 문서로 가야 하고(문서 로드), 셸 안에서는
+// 해시만 바꾸면 된다(같은 문서). 정적 빌드에서 셸 문서를 "./" 로 가리키면 디렉터리 URL 에서
+// 404 가 나므로 index.html 을 명시한다.
+test("홈 링크: 레거시 페이지에서는 셸 문서로, 셸 안에서는 해시로", () => {
+  assert.equal(withDom({ pathname: "/baro_kalory/cctv.html", marker: true }, () => pageHref("home")), "./index.html#/");
+  assert.equal(withDom({ pathname: "/cctv", marker: false }, () => pageHref("home")), "./#/");
+  assert.equal(withDom({ pathname: "/baro_kalory/", marker: true }, () => pageHref("home", { fromShell: true })), "#/");
+  assert.equal(withDom({ pathname: "/", marker: false }, () => pageHref("home", { fromShell: true })), "#/");
 });

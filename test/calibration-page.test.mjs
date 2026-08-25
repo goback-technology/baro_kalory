@@ -4,11 +4,14 @@ import test from "node:test";
 
 const read = (rel) => readFile(new URL(rel, import.meta.url), "utf8");
 
-// calibration 은 React 페이지다(파일럿, plan §2) — HTML 은 셸이고 로직은 소스 파일들에 있다.
-// 단언은 파일까지 지정한다(어느 파일에 있어도 통과하는 뭉친 검사보다 좁다).
+// (설정 화면의 계약은 test/settings-page.test.mjs 로 갈라져 나갔다 — 라우트로 옮기면서
+//  파일 하나가 두 화면을 물고 있을 이유가 없어졌다.)
+// calibration 은 SPA 셸의 라우트다(2026-08-25) — 자기 HTML 문서가 없고, 헤더·크롬은 셸이,
+// 카메라 셀렉터는 CameraProvider 가 준다. 단언은 파일까지 지정한다(어느 파일에 있어도
+// 통과하는 뭉친 검사보다 좁다).
 const CAL = {
-  shell: "../public/calibration.html",
-  app: "../src/pages/calibration/app.jsx",
+  css: "../src/pages/calibration/calibration.css",
+  app: "../src/pages/calibration/page.jsx",
   actions: "../src/pages/calibration/actions.mjs",
   overlay: "../src/pages/calibration/sweep-overlay.jsx",
   status: "../src/pages/calibration/status-card.jsx",
@@ -16,137 +19,20 @@ const CAL = {
   list: "../src/pages/calibration/profile-list.jsx",
 };
 
-test("설정 페이지 — DOM 계약과 부트스트랩", async () => {
-  const html = await read("../public/settings.html");
-  // 각 탭이 소유한 요소 — 하나라도 빠지면 이식 중 유실된 것이다.
-  for (const id of [
-    "set-current",                                                              // 기기 탭: 현재 연결
-    "dev-active", "dev-list", "set-cam-id", "dev-name", "dev-type", "dev-mode",  // 기기 탭: 목록·폼
-    "dev-host-fields", "set-cam-host", "set-cam-port", "set-cam-user", "set-cam-pass",
-    "dev-scheme", "dev-advanced", "dev-rtsp-path", "dev-rtsp-port", "dev-stream-fps",
-    "dev-mjpeg-port", "dev-timeout", "dev-insecure-tls",
-    "dev-fwmodid", "dev-portid", "dev-ptzportid", "dev-streamindex",
-    "dev-vptz", "dev-vptz-on", "dev-vptz-hfov", "dev-vptz-maxmag", "dev-vptz-w", "dev-vptz-h",
-    "dev-add", "dev-save", "dev-del", "dev-cancel", "set-probe",                // 기기 탭: 조작 한 줄
-    "dev-editor", "dev-edit-title", "dev-msg", "set-probe-out",
-    "apibase-input", "apibase-save", "apibase-clear", "apibase-status",         // 서버 탭: API 서버
-    "st-backend", "st-camera", "st-detector", "st-lpr", "st-llm",               // 서버 탭: 서비스 상태
-    "set-refresh-status",
-    "set-detector", "set-probe-det", "set-det-out",                             // 검출·판독 탭: 검출기
-    "set-lpr", "set-probe-lpr", "set-lpr-out",                                  // 검출·판독 탭: LPR
-    "set-llm-url", "set-llm-model", "set-llm-timeout", "set-llm-aliases",       // 검출·판독 탭: LLM
-    "set-llm-note", "set-probe-llm", "set-run-llm", "set-llm-out",
-    "set-key-anthropic", "set-key-openai", "set-key-hint",                      // 검출·판독 탭: API 키
-    "set-save", "set-save-out",
-  ]) {
-    assert.match(html, new RegExp(`id="${id}"`), `${id} 누락`);
-  }
-  assert.match(html, /loadCctvSettings\(\);/, "부트에서 설정을 로드해야 한다");
-  // 탭 — 설정을 한 줄로 늘어놓지 않는다. 버튼과 패널은 짝이 맞아야 한다(한쪽만 고치면
-  // 눌리지 않는 탭 또는 열 수 없는 패널이 남는다).
-  for (const name of ["devices", "server", "detect"]) {
-    assert.match(html, new RegExp(`data-tab="${name}"`), `탭 버튼 ${name} 누락`);
-    assert.match(html, new RegExp(`data-panel="${name}"`), `탭 패널 ${name} 누락`);
-  }
-  assert.match(html, /function showTab\(/, "탭 전환기가 있어야 한다");
-
-  // 기기 CRUD 는 그 자리에서 서버에 반영된다. 예전에는 확정 버튼이 브라우저 배열만 고치고
-  // 화면 밖 맨 아래 '저장'을 따로 눌러야 했는데, 그 버튼 이름이 '적용'이라 누른 사람은
-  // 저장된 줄 알고 나갔다. 바로 옆 활성 기기 드롭다운은 즉시 반영이라 규칙도 섞여 있었다.
-  assert.doesNotMatch(html, /id="dev-apply"/, "'이 기기 적용'은 아무것도 확정하지 않던 버튼이다");
-  assert.match(html, /async function commitDevices\([\s\S]{0,400}postJson\(api\("\/cctv\/config"\)/,
-    "기기 변경은 그 자리에서 서버로 가야 한다");
-  // 삭제는 되돌릴 수 없고 즉시 반영된다 — 목록에서 사라지는 것만으로는 그 사실이 전달되지 않는다.
-  assert.match(html, /confirm\(t\("기기 '\{id\}' 를 삭제합니다/, "삭제는 확인을 받아야 한다");
-  // 작성 취소는 '삭제'가 겸하지 않는다 — 그만두려는 사람에게 삭제밖에 없는 화면이었다.
-  assert.match(html, /function cancelEditor\(/, "취소는 삭제와 별개 조작이어야 한다");
-
-  // 하단 저장은 자기 탭(검출기·LPR·키)만 보낸다. 기기까지 실어 보내면 즉시 반영과 두 벌이 되고,
-  // 화면에서 지운 기기가 이 경로로 되살아난다.
-  const saveHandler = html.slice(html.indexOf('getElementById("set-save")'));
-  assert.doesNotMatch(saveHandler.slice(0, 1200), /devices:/,
-    "이 탭 저장은 기기 목록을 보내지 않아야 한다");
-
-  // LLM 은 이 탭이 저장한다 — 카드를 그려 놓고 payload 에서 빠뜨리면 화면은 고쳐지는데
-  // 아무것도 안 바뀐다(값이 config 에 안 닿는다).
-  assert.match(saveHandler.slice(0, 1200), /llm: \(\(\) =>/, "이 탭 저장이 llm 을 실어야 한다");
-
-  // 두 테스트는 **다른 것을 묻는다.** 연결은 mode 를 안 보내 별칭 목록만 읽고(추론 슬롯 0),
-  // 동작은 mode:"run" 으로 추론을 1회 쓴다. 이 구분이 무너지면 둘 중 하나가 거짓말이 된다 —
-  // 연결이 추론을 쓰면 상태 카드가 진짜 판정을 밀어내고, 동작이 안 쓰면 "붙는데 못 쓰는"
-  // 상태(별칭 오타·vision 미지원·스키마 거절)를 통과로 읽는다.
-  const connectHandler = html.slice(html.indexOf('getElementById("set-probe-llm")'),
-                                    html.indexOf('getElementById("set-run-llm")'));
-  assert.doesNotMatch(connectHandler, /mode:/, "연결 테스트는 추론을 돌리면 안 된다");
-  const runHandler = html.slice(html.indexOf('getElementById("set-run-llm")'));
-  assert.match(runHandler.slice(0, 1400), /mode: "run"/, "동작 테스트는 실제로 한 번 돌려야 한다");
-  // 게이트웨이는 한 번에 하나만 돌린다 — 연타가 대기열을 채우면 진짜 판정이 밀린다.
-  assert.match(runHandler.slice(0, 1400), /btn\.disabled = true/, "동작 테스트는 도는 동안 잠겨야 한다");
-  // 상태 칩은 셋으로 갈린다: 못 붙음 · 붙었지만 warmup 중 · 준비됨. 둘로 뭉개면 화면이
-  // "왜 안 되는지"를 말할 수 없다(게이트웨이는 warmup 전에 추론을 거절한다).
-  assert.match(html, /r\.ready === false[\s\S]{0,200}LLM ⏳/, "준비 안 된 상태를 따로 말해야 한다");
-
-  // 목록 행 자체가 선택이다 — 행마다 붙던 '편집' 버튼은 이름이 길면 세로로 찌그러졌다.
-  assert.match(html, /row\.onclick = \(\) => selectDevice\(x\.id\)/, "행을 누르면 선택되어야 한다");
-  assert.match(html, /dev-name[\s\S]{0,600}dev-meta/, "행 정보는 이름·식별자·주소로 나뉘어야 한다");
-  assert.match(html, /#dev-list[^}]*overflow-y: auto/, "기기 목록은 높이를 제한하고 스크롤해야 한다");
-
-  // 기기 탭은 2단이다 — 왼쪽 목록, 오른쪽 편집. 두 단은 각자 스크롤한다(목록을 훑는 동안
-  // 편집 중인 폼이 함께 밀려 올라가면 안 된다).
-  assert.match(html, /section\[data-panel="devices"\][^}]*flex-direction: row/, "기기 탭은 2단이어야 한다");
-  assert.match(html, /\.dev-card-list[^}]*min-height: 0/, "목록 단은 자기 안에서 스크롤해야 한다");
-  assert.match(html, /\.dev-col-edit[^}]*overflow-y: auto/, "편집 단은 따로 스크롤해야 한다");
-
-  // 접속 옵션은 전부 편집기가 다뤄야 한다. 프론트가 못 채우는 필드가 있으면 그 기기는
-  // "연결 테스트는 통과하는데 화면은 안 나오는" 상태로 등록된다(IDIS 실기에서 그대로 겪었다:
-  // scheme 이 없어 평문 포트에 TLS, rtspPath 가 없어 프리뷰 501).
-  for (const key of ["scheme", "mjpegPort", "timeoutMs", "rtspPath", "rtspPort",
-                     "streamFps", "insecureTls", "fwModId", "portId", "ptzPortId", "streamIndex"]) {
-    assert.match(html, new RegExp(`DEV_CONN_KEYS[\\s\\S]{0,400}"${key}"`), `${key} 를 저장 payload 가 실어야 한다`);
-  }
-  // 시뮬레이터 주소는 예외다 — 카메라의 값이 아니라 월드 하나의 값이라 기기 편집기가 다루지
-  // 않는다(백엔드가 400 으로 거절한다). 시뮬레이터 화면의 「시뮬레이터 주소」가 그 자리다.
-  assert.doesNotMatch(html, /id="dev-scene-port"/);
-  assert.doesNotMatch(html, /"scenePort"|"controlPort"/);
-  assert.match(html, /for \(const k of DEV_CONN_KEYS\) if \(x\[k\] !== undefined\) e\[k\] = x\[k\]/,
-    "접속 필드는 명시로 되돌려보내야 한다 — 흘리면 조용히 옛 값에 묶인다");
-  // 빈칸의 뜻이 둘로 갈린다: 원래 있던 값을 지우는 것과, 화면이 그 값을 모르는 것. 백엔드가
-  // 안 보낸 필드를 보존하므로, 모르는 값을 빈칸이라는 이유로 "" 로 지워서는 안 된다.
-  assert.match(html, /function putField\(out, base, key, value\)[\s\S]{0,320}base\[key\] !== undefined/,
-    "빈칸이 '지움'인지 '모름'인지를 원래 값으로 갈라야 한다");
-  // 용도(mode)는 타입과 다른 축이다 — 시뮬레이터 페이지가 이 값으로 기기를 고른다.
-  assert.match(html, /mode: document\.getElementById\("dev-mode"\)\.value === "sim" \? "sim" : "real"/,
-    "용도는 편집기가 정해야 한다");
-  // 가상 PTZ 는 타입 바깥이다(백엔드도 타입을 보지 않는다) — host 필드 안에 두면 접속 대상이
-  // 없는 타입에서 통째로 숨어 편집할 길이 사라진다.
-  const hostFields = html.slice(html.indexOf('id="dev-host-fields"'), html.indexOf('id="dev-vptz"'));
-  assert.doesNotMatch(hostFields, /id="dev-vptz-on"/, "가상 PTZ 는 host 필드 밖에 있어야 한다");
-  // 나쁜 화각은 백엔드에서 400 이 되고 부팅 시 드라이버 생성자를 던지게 한다. 여기서 먼저 막는다.
-  assert.match(html, /가상 PTZ 소스 화각은 0~180 사이여야 합니다/, "가상 PTZ 화각을 저장 전에 검증해야 한다");
-
-  // 목록 순서는 사용자가 정한다 — 백엔드가 배열을 정렬하지 않고 받은 차례 그대로 저장하므로
-  // 화면에서 끌어 놓은 차례가 곧 저장되는 차례다.
-  assert.match(html, /row\.draggable = true/, "행을 끌 수 있어야 한다");
-  assert.match(html, /async function moveDevice\([\s\S]{0,700}commitDevices\(/,
-    "순서 변경도 그 자리에서 서버에 저장되어야 한다");
-  assert.match(html, /"dragover"[\s\S]{0,160}preventDefault\(\)/,
-    "dragover 에서 preventDefault 하지 않으면 drop 이 발생하지 않는다");
-
-  // 캘리브레이션은 이 페이지 소관이 아니다 — 링크만 남는다.
-  assert.doesNotMatch(html, /initCalibCard/);
-  assert.match(html, /href="\.\/calibration"/);
-  // 페이지 헤더 카메라 셀렉터 없음 — 활성 전환은 '활성 기기' 드롭다운(dev-active)이 담당.
-  assert.doesNotMatch(html, /header-camera-select/);
-});
-
 // 캘리브레이션 페이지는 2단이다 — 왼쪽은 저장소에 발행된 것 전량(카메라와 무관한 카탈로그),
 // 오른쪽은 지금 고른 카메라의 작업면. 한 단에 세로로 쌓으면 목록에서 고른 것과 오른쪽에 뜬
 // 것이 한 화면에 함께 보이지 않아 비교가 성립하지 않는다.
 test("캘리브레이션 페이지 — 2단 배치와 프로파일 카탈로그", async () => {
-  const shell = await read(CAL.shell);
-  assert.match(shell, /#cal-split[^}]*flex-direction: row/, "2단이어야 한다");
-  assert.match(shell, /\.cal-card-list[^}]*min-height: 0/, "목록 단은 자기 안에서 스크롤해야 한다");
-  assert.match(shell, /\.cal-col-detail[^}]*overflow-y: auto/, "작업면은 따로 스크롤해야 한다");
+  const css = await read(CAL.css);
+  assert.match(css, /#cal-split[^}]*flex-direction: row/, "2단이어야 한다");
+  assert.match(css, /\.cal-card-list[^}]*min-height: 0/, "목록 단은 자기 안에서 스크롤해야 한다");
+  assert.match(css, /\.cal-col-detail[^}]*overflow-y: auto/, "작업면은 따로 스크롤해야 한다");
+  // SPA 에서는 방문한 화면의 CSS 가 언로드되지 않고 쌓인다 — 접두사 없는 선택자를 남기면
+  // 떠난 화면의 규칙이 다음 화면을 망가뜨린다. 전역 규칙은 셸(public/index.html)의 몫이다.
+  for (const global of ["html", "body", "main", ":root", "header", "h1"]) {
+    assert.doesNotMatch(css, new RegExp(`^${global}\\b[^{]*\\{`, "m"),
+      `전역 선택자 "${global}" 가 라우트 CSS 에 남아 있다`);
+  }
   // 쓰기는 전부 오른쪽 창구를 지난다 — 목록이 자기 몫의 복사/적용을 따로 부르면 두 벌이 되고,
   // 두 벌은 언젠가 한쪽만 고쳐진다.
   const list = await read(CAL.list);
@@ -162,29 +48,32 @@ test("캘리브레이션 페이지 — 2단 배치와 프로파일 카탈로그"
 });
 
 
-test("캘리브레이션 페이지 — 독립 실행 계약", async () => {
-  const shell = await read(CAL.shell);
+test("캘리브레이션 페이지 — 라우트 계약", async () => {
   const app = await read(CAL.app);
   const status = await read(CAL.status);
-  // 셸이 갖는 것: 헤더 셀렉터와 마운트 지점.
-  for (const id of ["header-camera-select", "cal-root"]) {
-    assert.match(shell, new RegExp(`id="${id}"`), `${id} 누락(셸)`);
-  }
   // 카드가 갖는 것 — 하나라도 빠지면 이식 중 유실된 것이다.
   assert.match(app, /id="calib-card"/, "calib-card 누락");
   for (const id of ["calib-desc", "calib-installed", "calib-verify", "calib-start",
     "calib-stop", "calib-advice", "calib-progress", "calib-bar", "calib-msg", "calib-result"]) {
     assert.match(status, new RegExp(`id="${id}"`), `${id} 누락`);
   }
-  // 이 페이지의 유일한 진입점 — 부트 모듈이 스스로 마운트해야 한다.
-  assert.match(app, /createRoot\(document\.getElementById\("cal-root"\)\)/, "부트에서 마운트해야 한다");
-  assert.match(app, /BOOT\.root\.render\(<App cam=\{BOOT\.cam\} \/>\)/, "루트는 캐시되고 렌더는 한 곳이어야 한다 — dev 이중 평가 방어");
-  // 진행 중 카메라 전환 잠금 — cctv 페이지 시절의 전역 setBusy 버튼 쓸기가 우연히 막아 주던
-  // 동작이라, 독립 페이지에서는 명시적으로 잠가야 한다(잡이 모는 카메라를 갈아타면 결과 오염).
+  // 라우트는 **스스로 마운트하지 않는다** — 셸의 라우트 표가 부른다. 자기 루트를 만들면
+  // 셸의 루트와 둘이 되어 프로바이더(카메라·잠금·게이트) 밖에서 도는 화면이 생긴다.
+  assert.doesNotMatch(app, /createRoot|initPageChrome|createCameraSelect/,
+    "라우트가 자기 문서·자기 크롬을 다시 세우면 안 된다");
+  assert.match(app, /export default function CalibrationPage\(\)/, "라우트는 기본 내보내기다");
+  assert.match(app, /useCamera\(\)/, "헤더 셀렉터는 CameraProvider 소유다");
+  // 진행 중 카메라 전환 잠금 — 잡이 모는 카메라를 갈아타면 실기 오동작 + 결과가 엉뚱한
+  // 기기에 저장된다.
   assert.match(app, /cam\.setEnabled\(!running\)/);
   // 폴링 누수 방지.
   assert.match(app, /clearInterval\(pollRef\.current\); \};\s*window\.addEventListener\("pagehide", bye\)/);
-  // 외부 의존은 api 모듈 + 공용 크롬/셀렉터뿐 — cctv 쪽 코드를 호출하지 않는다.
+  // 스트림 놓아주기 — 라우트 이탈에는 pagehide 가 오지 않는다. 셋을 전부 걸어야 한다:
+  // 카메라 전환 전(registerRelease) · 언마운트(cleanup 의 destroy) · 진짜 문서 이탈(pagehide).
+  assert.match(app, /registerRelease\(\(\) => preview\.stop\(\)\)/, "카메라 전환 전에 놓아줘야 한다");
+  assert.match(app, /preview\.destroy\(\)/, "언마운트에서 위젯을 거둬야 한다 — stop 만으로는 리스너가 남는다");
+  assert.match(app, /window\.addEventListener\("pagehide", bye\)/, "문서 이탈도 막아야 한다");
+  // 외부 의존은 api 모듈 + 셸의 프로바이더뿐 — cctv 쪽 코드를 호출하지 않는다.
   for (const src of [app, status]) {
     assert.doesNotMatch(src, /setBusy\(|showSwitching\(|controlPreview\.|discoveryPreview\./);
   }
@@ -429,24 +318,6 @@ test("캘리브레이션 페이지 — 라이브 뷰와 스윕 오버레이", as
 });
 
 
-test("설정 페이지 — 캘리브레이션 빌려오기는 백엔드 창구를 지난다", async () => {
-  const html = await read("../public/settings.html");
-  // 브라우저가 발행 문서를 뜯어 intrinsics 를 조립하던 우회로는 사라져야 한다. 그 경로는
-  // config 한 곳에만 값을 넣어, 대상 카메라에 발행본 없는 보정을 남겼다.
-  assert.doesNotMatch(html, /d\.intrinsics = \{[\s\S]{0,200}zoomHfov/, "브라우저가 곡선을 조립하면 안 된다");
-  assert.doesNotMatch(html, /에서 빌림/, "빌려온 표시를 값 안에 심지 않는다 — 출처는 발행 문서가 안다");
-  // 대신 창구를 부른다. 새 기기는 등록 전이라 422 가 되므로 저장이 끝난 뒤여야 한다.
-  assert.match(html, /\/profiles\/camera\/\$\{encodeURIComponent\(staged\.id\)\}\/copy/, "복사는 창구 라우트를 불러야 한다");
-  assert.match(html, /commitDevices\([\s\S]{0,400}staged\.borrowFrom/, "복사는 기기 저장 뒤에 와야 한다");
-  // 복사가 실패해도 기기 저장은 이미 끝났다 — 조용히 삼키면 "빌렸다고 생각하는" 상태가 남는다.
-  assert.match(html, /프로파일 복사 실패/, "복사 실패를 말해야 한다");
-  // measuredAt 만 보고 "이 카메라 실측"이라 하면 복사본에 대해 거짓말이 된다.
-  assert.match(html, /Number\.isFinite\(ins\.profileRevision\)[\s\S]{0,120}발행본 rev/, "깔린 리비전으로 말해야 한다");
-});
-
-// 게이트를 만들면서 우회로를 백엔드에만 두고 화면에는 안 만들었더니, 20분짜리 실측이 막다른
-// 길에 섰다(2026-08-05 cam-real-002: alert 하나 띄우고 끝이라 curl 없이는 방법이 없었다).
-// 거절은 정보여야지 벽이면 안 된다.
 test("캘리브레이션 페이지 — 발행 게이트 거절에 화면 안의 길이 있다", async () => {
   const status = await read(CAL.status);
   // 422 quality_gate 는 alert 이 아니라 카드 안에서 다뤄야 한다.
@@ -474,32 +345,6 @@ test("캘리브레이션 페이지 — 발행 게이트 거절에 화면 안의 
 });
 
 
-test("설정 › 기기 속성 — 설치 높이는 발행 창구로 나간다", async () => {
-  const html = await read("../public/settings.html");
-  assert.match(html, /id="dev-height"/, "높이 입력 칸이 있어야 한다");
-  assert.match(html, /id="dev-height-hint"/, "지금 발행본이 무엇인지 말해야 한다");
-
-  // 읽기는 config 가 아니라 프로파일에서 — config 왕복에는 이 값이 없다.
-  assert.match(html, /getJson\(api\(`\/profiles\/camera\/\$\{encodeURIComponent\(id\)\}`\)\)/);
-  // 404 는 장애가 아니라 "아직 발행본이 없다"는 정상 상태다.
-  assert.match(html, /e\.status === 404[\s\S]*캘리브레이션을 먼저 발행/);
-  // 쓰기는 덮어쓰기가 아니라 새 리비전 발행이라 사람이 확인해야 한다.
-  assert.match(html, /confirm\(t\("\{id\} 의 설치 높이를 \{v\} m 로 발행합니다/);
-  assert.match(html, /postJson\(api\(`\/profiles\/camera\/\$\{encodeURIComponent\(id\)\}\/extrinsic`\)/);
-  // 이 창구의 값은 사람이 잰 것이다 — measured 로 나가면 다음 사람이 근거 없는 값을 실측으로 읽는다.
-  assert.match(html, /source: "manual"/);
-  // 빈칸은 "지운다"가 아니다. 발행본은 지울 수 없다.
-  assert.match(html, /if \(raw === ""\) return "";/);
-  // 빌려온 리비전 위에 얹혀야 하므로 복사 다음이어야 한다.
-  const save = html.slice(html.indexOf("async function saveEditor()"), html.indexOf("function addDevice()"));
-  assert.ok(save.indexOf("staged.borrowFrom") < save.indexOf("publishHeightIfChanged"),
-    "높이 발행은 프로파일 빌려오기 다음이어야 한다");
-});
-
-// 20분짜리 스윕의 마지막 한 걸음을 사람에게 떠넘기면 안 된다. 백엔드 0.17.0 부터는 드라이버가
-// 광학을 **읽는 시점에** 해결하므로 발행이 곧 적용이고, 그 이전 백엔드에서는 기기 재선택이
-// 유일한 길이었다. 두 계약이 지금 **동시에** 살아 있다(개발기 0.17.0 · 배포기 0.16.2).
-// 그래서 화면은 버전을 보고 고르지 않고 백엔드가 응답에 적어 준 답을 읽는다.
 test("캘리브레이션 페이지 — 발행이 적용까지 닿는다 (버전이 아니라 응답을 읽는다)", async () => {
   const actions = await read(CAL.actions);
   const app = await read(CAL.app);

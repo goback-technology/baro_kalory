@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Baro Calory</title>
+<link rel="icon" href="./favicon.ico" sizes="any" />
+<!-- 테마는 첫 페인트 **전에** 정해야 한다 — 모듈이 로드된 뒤 정하면 밝은 배경이 한 프레임
+     번쩍인다. 이 세 줄은 SPA 여도 셸의 몫이고, React 가 잡을 수 없는 시점이다. -->
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("baro-theme")||"terminal"}catch(e){}</script>
+<link rel="stylesheet" href="./app.css" />
+<style>
+  /* 셸이 화면 높이를 소유한다 — 안쪽 라우트가 flex 체인을 이어받아 자기 레이아웃을 만든다
+     (캘리브레이션의 2단, 시뮬레이터의 도크 같은 것들). 라우트마다 body 규칙을 덧쓰는
+     방식은 SPA 에서 못 쓴다: 떠난 화면의 규칙이 남아 다음 화면을 망가뜨린다. */
+  :root { color-scheme: dark; }
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  #app-root { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+</style>
+</head>
+<body>
+<div id="app-root"></div>
+<script type="module" src="./web/app/main.jsx"></script>
+</body>
+</html>

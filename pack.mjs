@@ -15,14 +15,15 @@
 import { cpSync, rmSync, mkdirSync, readdirSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { PAGES } from "./src/pages.mjs";
+import { MPA_PAGES, pageFileOf } from "./src/pages.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
 // 페이지 목록은 pages.mjs 에서 파생시킨다 — 여기 파일명을 손으로 베껴 두면 페이지를 추가한
 // 날 그 경로만 조용히 404 가 된다(재작성 규칙 없는 호스트에서는 미러 하나가 곧 404다).
-export const PAGE_FILES = PAGES.map((p) => (p.slug ? `${p.slug}.html` : "home.html"));
-const SLUGS = PAGES.map((p) => p.slug).filter(Boolean);
+// SPA 로 옮긴 페이지는 실파일이 없다 — 그 자리에는 리다이렉트 셸이 발행된다(vite-kalory).
+export const PAGE_FILES = MPA_PAGES.map(pageFileOf);
+const SLUGS = MPA_PAGES.map((p) => p.slug).filter(Boolean);
 
 // 정적 빌드 표식 — pages.mjs 의 isStaticBuild() 가 링크 형태를 이 표식으로 정한다.
 // URL 로 추측하면 안 되는 이유: 정적 호스트는 index.html 을 **디렉터리 URL**(`/<repo>/`)로
