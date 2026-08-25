@@ -56,12 +56,14 @@ test("SPA 로 옮긴 페이지의 옛 주소는 리다이렉트 셸이 받는다
 });
 
 test("정적 호스트 재작성: 확장자 없는 링크와 / 진입을 실파일로 바꾼다", () => {
-  const html = '<head></head><a href="./">홈</a><a href="./cctv">CCTV</a><a href="./settings">설정</a>';
+  // 재작성 대상은 **아직 SPA 로 안 옮긴** 페이지의 링크뿐이다. 옮긴 페이지의 링크는
+  // 해시라 재작성이 손댈 것이 없다(그 자리는 리다이렉트 셸이 받는다).
+  const html = '<head></head><a href="./">홈</a><a href="./cctv">CCTV</a><a href="./height">높이</a>';
   const out = rewriteForStaticHost(html);
   assert.match(out, /href="\.\/index\.html"/);
   assert.match(out, /href="\.\/cctv\.html"/);
-  assert.match(out, /href="\.\/settings\.html"/);
-  assert.doesNotMatch(out, /href="\.\/(cctv|settings)"/);
+  assert.match(out, /href="\.\/height\.html"/);
+  assert.doesNotMatch(out, /href="\.\/(cctv|height)"/);
 });
 
 test("재작성은 정적 빌드 표식을 심고, 두 번 돌려도 하나뿐이다", () => {
@@ -91,12 +93,15 @@ test("정적 빌드 판정: 표식이 있으면 디렉터리 URL(`/<repo>/`)에�
 // (cards.test.mjs 가 값으로 문다) 그 부류가 구조적으로 사라졌다. 여기 남는 계약은 하나 —
 // **대문에서 설정으로 가는 링크가 실제로 열리는 주소인가.**
 test("대문에서 설정으로 가는 링크는 배포 형태를 가리지 않고 실주소다", () => {
-  const dist = withDom({ pathname: "/baro_kalory/", marker: true }, () => pageHref("settings", { fromShell: true }));
-  const dev = withDom({ pathname: "/", marker: false }, () => pageHref("settings", { fromShell: true }));
-  assert.equal(dist, "./settings.html");
-  assert.equal(dev, "./settings");
-  // 셸 밖(아직 안 옮긴 페이지의 헤더·게이트)에서도 같은 주소여야 한다.
-  assert.equal(withDom({ pathname: "/baro_kalory/cctv.html", marker: true }, () => pageHref("settings")), "./settings.html");
+  // 미연결에서 유일하게 열린 문이다. 이 링크가 404 면 백엔드 주소를 넣을 길이 사라져
+  // 첫 방문이 곧 벽돌이 된다(두 번 물린 부류).
+  const shell = (pathname, marker) => withDom({ pathname, marker }, () => pageHref("settings", { fromShell: true }));
+  assert.equal(shell("/baro_kalory/", true), "#/settings", "셸 안에서는 같은 문서의 해시다");
+  assert.equal(shell("/", false), "#/settings");
+  // 셸 밖(아직 안 옮긴 페이지의 헤더·게이트)에서는 셸 문서까지 가야 한다. 정적 배포에서
+  // "./" 로 가리키면 디렉터리 URL 에서 404 이므로 index.html 을 명시한다.
+  assert.equal(withDom({ pathname: "/baro_kalory/cctv.html", marker: true }, () => pageHref("settings")), "./index.html#/settings");
+  assert.equal(withDom({ pathname: "/cctv", marker: false }, () => pageHref("settings")), "./#/settings");
 });
 
 // 홈은 SPA 라우트다. 아직 안 옮긴 페이지에서는 셸 문서로 가야 하고(문서 로드), 셸 안에서는
