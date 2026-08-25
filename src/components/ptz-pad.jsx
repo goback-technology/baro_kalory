@@ -4,7 +4,7 @@
 // 모드에서 절대 이동 카드를 **DOM 째로 무대 안으로 옮겼다** — 재조정과 정면으로 부딪히는
 // 방식이고, React 에서는 그 카드를 무대 안에 그리면 그만이라 옮길 일 자체가 없다.
 import { useCallback, useState } from "react";
-import { postJson, fmtPtz, api } from "../api.mjs";
+import { postJson, fmtPtz, api } from "../lib/api.mjs";
 import { t } from "../i18n/index.mjs";
 import { normalizeSpeed, absoluteMove } from "../pages/cctv/actions.mjs";
 

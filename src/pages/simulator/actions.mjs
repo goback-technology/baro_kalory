@@ -7,7 +7,7 @@
 //
 // 기하(부채꼴·앵커 자리·투영)는 geometry.mjs 다. 여기 있는 것은 「무엇을 보낼 것인가」와
 // 「무엇이라고 말할 것인가」다.
-import { toNum, pad2 } from "../../format.mjs";
+import { toNum, pad2 } from "../../lib/format.mjs";
 import { t } from "../../i18n/index.mjs";
 // 지면 판정과 중앙값은 기하의 것이다 — 두 벌이 되면 세우기와 설치가 다른 지면을 본다.
 import { sceneGroundZcm as sceneGround, cameraHeightM, median } from "./geometry.mjs";

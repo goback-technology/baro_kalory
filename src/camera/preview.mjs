@@ -7,7 +7,7 @@
 //
 // Shared by the control tab and the layout editor — same code, two instances.
 
-import { api } from "../api.mjs";
+import { api } from "../lib/api.mjs";
 import { createMjpegPlayer } from "./mjpeg-player.mjs";
 import { createMotionSettleTracker } from "./motion-settle.mjs";
 import { t } from "../i18n/index.mjs";

@@ -2,7 +2,7 @@
 //
 // 왜 게이트가 있나 — 예전에는 같은 마운트에 백엔드가 있다고 추측하고 그대로 진행해서,
 // 분리 배포에서는 첫 화면이 이유 없이 비어 보였다. 추측하지 말고 확인한 뒤 안내한다.
-import { mixedContentBlocked } from "../api.mjs";
+import { mixedContentBlocked } from "../lib/api.mjs";
 import { t } from "../i18n/index.mjs";
 
 // 셋을 가른다: 주소 미설정 / 부를 수 없음(혼합 콘텐츠) / 불렀는데 응답 없음.

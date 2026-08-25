@@ -7,11 +7,11 @@
 // 판정·계산은 여기 없다. 무엇을 보낼지·왜 못 보내는지는 actions.mjs 가, 자리·각은 geometry.mjs
 // 가 값으로 답하고 node 테스트가 그것을 문다. 여기 있는 것은 **왕복과 그리기**뿐이다.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getJson, postJson, reqJson, api, fmtPtz as fmt } from "../../api.mjs";
+import { getJson, postJson, reqJson, api, fmtPtz as fmt } from "../../lib/api.mjs";
 import { t } from "../../i18n/index.mjs";
-import { toNum } from "../../format.mjs";
+import { toNum } from "../../lib/format.mjs";
 import { createCameraPreview } from "../../camera/preview.mjs";
-import { useJobPoll } from "../../app/hooks/use-job-poll.mjs";
+import { useJobPoll } from "../../lib/use-job-poll.mjs";
 import { useStagePointer } from "../../components/use-stage-pointer.mjs";
 import { RigMap } from "./map.jsx";
 import {

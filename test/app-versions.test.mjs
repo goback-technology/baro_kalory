@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { PAGES } from "../src/pages.mjs";
+import { PAGES } from "../src/app/routes.mjs";
 
 const webUiDir = new URL("../", import.meta.url);
 
-// 앱 목록은 **손으로 베끼지 않는다** — pages.mjs 가 정본이고, 여기서 다시 적으면 그 순간
+// 앱 목록은 **손으로 베끼지 않는다** — app/routes.mjs 가 정본이고, 여기서 다시 적으면 그 순간
 // 세 번째 미러다. 이렇게 두면 이 단언은 「내가 적은 목록과 맞나」가 아니라 「페이지 표와
 // 버전 파일이 서로 맞나」를 묻는 진짜 대조가 된다.
 const APPS = PAGES.map((p) => p.versionKey).filter(Boolean).sort();

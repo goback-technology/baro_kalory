@@ -1,7 +1,7 @@
 // Vite 호환 플러그인 — 무빌드 시절의 정적 서버·패커가 하던 일 중 Vite 내장이 안 덮는 몫.
 //
 // 정본은 둘이고 전부 재사용이다 — 여기서 목록·규칙을 다시 쓰면 그 순간 미러 드리프트다:
-//   화면 목록  → src/pages.mjs 의 PAGES
+//   화면 목록  → src/app/routes.mjs 의 PAGES
 //   /web/ 규약 → 셸이 "./web/app/main.jsx" 를 import 하는데 public/ 에 web/ 폴더가 없다.
 //                옛 정적 서버가 /web/ → src/ 로 매핑하던 것을 resolveId 가 잇는다.
 //
@@ -11,7 +11,7 @@
 import { cpSync, writeFileSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PAGES, pageFileOf } from "../src/pages.mjs";
+import { PAGES, pageFileOf } from "../src/app/routes.mjs";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const srcDir = join(repo, "src");
@@ -24,7 +24,7 @@ export const hashOf = (p) => (p.slug ? `#/${p.slug}` : "#/");
 // **쿼리는 반드시 넘긴다** — ?api=reset 은 잘못 저장한 API base 로 벽돌이 된 화면의
 // 탈출구라, 리다이렉트에서 증발하면 정확히 필요한 순간에 실패한다.
 //
-// "/v0" 은 cctv 의 옛 주소라 pages.mjs 에 없다(화면이 아니라 별칭이다). 여기만 안다.
+// "/v0" 은 cctv 의 옛 주소라 app/routes.mjs 에 없다(화면이 아니라 별칭이다). 여기만 안다.
 export const SPA_REDIRECTS = {};
 for (const p of PAGES) {
   if (p.slug) SPA_REDIRECTS[`/${p.slug}`] = hashOf(p);

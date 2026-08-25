@@ -4,7 +4,7 @@
 // "이 페이지가 보는 카메라"와 "실제 스트리밍/캘리브레이션되는 카메라"가 조용히 갈라져
 // 캘리브레이션 결과가 엉뚱한 기기에 저장되는 최악의 결함이 되므로, 반드시 서버만 믿는다.
 // 그 대가로 다른 창이 전환하면 이쪽 표시가 낡는다 — refreshOnVisible 이 그 완화책이다.
-import { api, getJson, postJson } from "../api.mjs";
+import { api, getJson, postJson } from "../lib/api.mjs";
 import { t } from "../i18n/index.mjs";
 
 // beforeChange(previous, next): 서버 활성을 바꾸기 **전에** 이전 카메라를 놓아줄 기회.

@@ -4,7 +4,7 @@
 // 무관하게 항상 뜸). 저장 전 /api/version 프로브로 경고하되 강행은 허용(아직 안 뜬
 // backend 를 미리 지정하는 경우). 탈출구는 주소창 ?api=reset.
 import { useEffect, useState } from "react";
-import { getJson, postJson, api, API_BASE, API_BASE_EXPLICIT, API_BASE_KEY, cleanApiBase, mixedContentBlocked, stripApiParamFromUrl } from "../../api.mjs";
+import { getJson, postJson, api, API_BASE, API_BASE_EXPLICIT, API_BASE_KEY, cleanApiBase, mixedContentBlocked, stripApiParamFromUrl } from "../../lib/api.mjs";
 import { t } from "../../i18n/index.mjs";
 import { classifyProbeError, probeReportText } from "./actions.mjs";
 

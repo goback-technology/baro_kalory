@@ -3,7 +3,7 @@
 // 주소에서 못 빠져나온다(?api=reset 탈출구).
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveApiBaseFrom } from "../src/api.mjs";
+import { resolveApiBaseFrom } from "../src/lib/api.mjs";
 
 test("우선순위: 쿼리 > localStorage > meta > 미설정", () => {
   assert.equal(resolveApiBaseFrom({}), "");
@@ -45,7 +45,7 @@ test("base 의 경로는 보존한다 — backend 가 마운트 아래 있는 �
 // 출처 구분 — 분리 배포에서 "설정된 주소"와 "같은 마운트에 있겠거니 한 추측"은 다른 사실이다.
 // 화면이 둘을 구분하지 못하면 "연결 안 됨"의 원인(미설정인가, 백엔드가 죽었나)을 말할 수 없다.
 test("base 의 출처를 함께 돌려준다", async () => {
-  const { resolveApiBaseInfoFrom } = await import("../src/api.mjs");
+  const { resolveApiBaseInfoFrom } = await import("../src/lib/api.mjs");
   assert.deepEqual(resolveApiBaseInfoFrom({ search: "?api=http://q" }), { base: "http://q", source: "query" });
   assert.deepEqual(resolveApiBaseInfoFrom({ stored: "http://s" }), { base: "http://s", source: "stored" });
   assert.deepEqual(resolveApiBaseInfoFrom({ meta: "http://m" }), { base: "http://m", source: "meta" });
@@ -61,7 +61,7 @@ test("base 의 출처를 함께 돌려준다", async () => {
 // 화면이 이걸 CORS 로 안내하던 동안 멀쩡히 200 을 내는 백엔드를 두고 cors.origins 를 고치며
 // 시간을 버렸다(2026-08-13). 그래서 계약으로 못 박는다.
 test("혼합 콘텐츠 판정 — https 페이지 + http base 만 참", async () => {
-  const { mixedContentBlocked } = await import("../src/api.mjs");
+  const { mixedContentBlocked } = await import("../src/lib/api.mjs");
   assert.equal(mixedContentBlocked("http://h:22038/calory", "https:"), true);
   assert.equal(mixedContentBlocked("https://h/calory", "https:"), false);  // 둘 다 https
   assert.equal(mixedContentBlocked("http://h:22038/calory", "http:"), false); // 페이지도 http
@@ -69,7 +69,7 @@ test("혼합 콘텐츠 판정 — https 페이지 + http base 만 참", async ()
 });
 
 test("혼합 콘텐츠 판정 — 빈 값·대문자 스킴에서 오탐하지 않는다", async () => {
-  const { mixedContentBlocked } = await import("../src/api.mjs");
+  const { mixedContentBlocked } = await import("../src/lib/api.mjs");
   assert.equal(mixedContentBlocked("", "https:"), false);         // 미설정은 이 문제가 아니다
   assert.equal(mixedContentBlocked(null, "https:"), false);
   assert.equal(mixedContentBlocked("http://h", undefined), false); // 브라우저 밖(node)

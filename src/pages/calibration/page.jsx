@@ -3,7 +3,7 @@
 // 2026-08-25 SPA 셸의 첫 라우트가 됐다 — 자기 문서·자기 루트·자기 크롬을 내려놓고
 // 셸이 주는 것을 쓴다. 헤더 셀렉터도 이제 CameraProvider 소유다.
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { getJson, postJson, reqJson, api } from "../../api.mjs";
+import { getJson, postJson, reqJson, api } from "../../lib/api.mjs";
 import { useCamera } from "../../camera/provider.jsx";
 import { createCameraPreview } from "../../camera/preview.mjs";
 import { t } from "../../i18n/index.mjs";

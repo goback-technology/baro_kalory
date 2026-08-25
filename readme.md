@@ -15,7 +15,7 @@ PTZ CCTV **커미셔닝 콘솔 웹 UI**. 카메라를 현장에 붙일 때 필�
 - [정적 배포 (GitHub Pages)](#정적-배포-github-pages)
 - [백엔드 주소 지정](#백엔드-주소-지정)
 - [화면](#화면)
-- [브라우저 모듈](#브라우저-모듈)
+- [src 의 구조](#src-의-구조)
 - [테마](#테마)
 - [지켜야 하는 계약](#지켜야-하는-계약)
 
@@ -186,10 +186,10 @@ https://<사이트>/?api=reset          # 저장된 주소를 지우는 탈출�
 에서 읽으므로 해시 안의 쿼리는 그 파서에 닿지 않는다 — 벽돌 탈출구가 정확히 필요한 순간에
 조용히 사라지는 모양이 된다.
 
-옛 주소(`…/cctv.html`, `…/v0.html`)는 **리다이렉트 셸**이 받는다. 빌드가 `src/pages.mjs` 에서
-파생해 발행하고, 쿼리를 그대로 넘긴다 — 북마크가 404 가 되지 않고 `?api=reset` 도 살아 있다.
+옛 주소(`…/cctv.html`, `…/v0.html`)는 **리다이렉트 셸**이 받는다. 빌드가 `src/app/routes.mjs`
+에서 파생해 발행하고, 쿼리를 그대로 넘긴다 — 북마크가 404 가 되지 않고 `?api=reset` 도 살아 있다.
 
-화면 목록의 단일 출처는 `src/pages.mjs` 다 — 헤더 nav·버전 배지·홈 카드·라우트 표·리다이렉트
+화면 목록의 단일 출처는 `src/app/routes.mjs` 다 — 헤더 nav·버전 배지·홈 카드·라우트 표·리다이렉트
 셸이 전부 이 표에서 파생된다. 손으로 맞춰야 하는 미러는 하나도 없다.
 
 각 화면은 `page.jsx`(그리기) · `actions.mjs`(판정·문구, node 테스트) · `<id>.css` 로 나뉜다.
@@ -199,30 +199,35 @@ https://<사이트>/?api=reset          # 저장된 주소를 지우는 탈출�
  2. `#stage`·`#view`·`#viewbar` 처럼 **app.css 가 소유하는 공유 id** 를 접두사 없이 덮는 것.
     두 화면이 같은 이름을 쓰므로, 한쪽을 들른 뒤 다른 쪽이 그 치수로 굳는다.
 
-## 브라우저 모듈
+## src 의 구조
 
-`src/*.mjs` → `/web/` 로 서빙된다.
+`src/**` → `/web/` 로 서빙된다(셸이 `./web/app/main.jsx` 를 부르고 플러그인이 이어 준다).
 
-| 모듈 | 역할 |
-|---|---|
-| `api.mjs` | fetch 계약 + API base 주입 체인 |
-| `pages.mjs` | 화면 레지스트리 — nav·배지·카드·라우트·리다이렉트 셸의 단일 출처 |
-| `camera-select.mjs` | 헤더 CCTV 셀렉터 — 서버 상태만 신뢰 |
-| `camera-preview.mjs` | 스트림/스냅샷 전환, 모션 정착, 실패 시 폴백 |
-| `mjpeg-player.mjs` | multipart MJPEG 파서 + fps 실측. `stop()` 은 **awaitable** |
-| `motion-settle.mjs` | 프레임 차분 → 움직임/정지 판정 (I/O 없는 상태기계) |
-| `format.mjs` | 표시용 숫자·시각 — 「모르는 값을 아는 값처럼 그리지 않는다」 |
-| `theme.mjs` · `i18n.mjs` | 런타임 테마 교체 · 문자열(`t()`) |
+**폴더는 「같이 고치는 것끼리」로 가른다.** 종류별(모두 훅은 hooks/, 모두 유틸은 utils/)이
+아니다 — 그렇게 가르면 기능 하나를 고치는 데 폴더 넷을 왕복하게 된다.
 
-셸·라우트·공용 훅은 `src/app/`·`src/pages/<id>/`·`src/components/` 에 있다
-(헤더 크롬은 `app/shell.jsx`, PTZ 패드는 `components/ptz-pad.jsx`).
+| 폴더 | 무엇 | 왜 한 덩어리인가 |
+|---|---|---|
+| `app/` | `main`·`app`·`shell`·`router`·`routes`·`backend-gate`·`gate`·`busy-provider`·`theme` | 화면을 감싸는 껍데기. `routes.mjs` 가 화면 레지스트리, `theme.mjs` 는 셸의 테마 select 만 쓴다 |
+| `camera/` | `provider`·`select`·`preview`·`use-preview`·`mjpeg-player`·`motion-settle` | 활성 카메라(서버 전역 상태)와 프리뷰 스트림. 밖으로 나가는 의존은 `lib/api`·`i18n` 둘뿐이라 **통째로 읽거나 통째로 안 읽어도 된다** |
+| `i18n/` | `index`(규칙 98줄) · `dict`(데이터 913줄) | 사전이 커서 갈랐다. `t()` 를 보러 900줄을 열 이유가 없다 |
+| `components/` | `ptz-pad` · `use-stage-pointer` | 여러 화면이 쓰는 React 부품 |
+| `lib/` | `api` · `format` · `use-job-poll` | 어느 화면에도 속하지 않는 것. `api` 는 fetch 계약 + API base 주입, `format` 은 「모르는 값을 아는 값처럼 그리지 않는다」, `use-job-poll` 은 폴링 4중 가드 |
+| `pages/<id>/` | `page.jsx` · `actions.mjs` · `<id>.css` | 화면 하나. 그 화면만 쓰는 것은 전부 여기 안이다(예: 캘리브레이션의 `profile-chart.mjs`) |
+
+`src` 최상위에는 **파일을 두지 않는다.** 루트에 낱개로 놓이면 「누가 쓰나」를 위치가 말해
+주지 못한다 — 실제로 `mjpeg-player`·`motion-settle` 은 소비자가 `camera/preview` 하나뿐인데도
+공용 유틸과 동급으로 서 있었다.
+
+**단위 테스트는 대상 옆에**(`src/**/*.test.mjs`), 여러 화면을 가로지르는 구조 그물만
+`test/` 에 둔다. 둘 다 `pnpm test` 한 번에 돈다.
 
 ## 테마
 
 `styles/tailwind.css` 의 `@theme`(기본 `terminal` 그린) + `:root[data-theme="amber"]` 오버라이드.
-컴포넌트는 전부 `var(--color-*)` 토큰을 참조하므로 `theme.mjs` 가 런타임에 무빌드로 교체한다.
+컴포넌트는 전부 `var(--color-*)` 토큰을 참조하므로 `app/theme.mjs` 가 런타임에 무빌드로 교체한다.
 
-**새 테마 = tailwind.css 블록 1개 + theme.mjs `THEMES` 한 줄.** 색·글꼴·반경을 하드코딩하면
+**새 테마 = tailwind.css 블록 1개 + `app/theme.mjs` 의 `THEMES` 한 줄.** 색·글꼴·반경을 하드코딩하면
 교체가 깨진다.
 
 ## 지켜야 하는 계약

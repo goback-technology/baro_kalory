@@ -1,9 +1,9 @@
 // 캘리브레이션 화면의 **비-DOM 로직** — 계약 해석과 문장 조립만 있고 화면이 없다.
 // React 전환(2026-08-22)에서 인라인 스크립트로부터 분리했다: 이 층은 node 로 직접
 // 테스트할 수 있고, 뷰 계층이 무엇이든 그대로 산다.
-import { getJson, postJson, api } from "../../api.mjs";
+import { getJson, postJson, api } from "../../lib/api.mjs";
 import { t } from "../../i18n/index.mjs";
-import { fmtWhen } from "../../format.mjs";
+import { fmtWhen } from "../../lib/format.mjs";
 
 // 백엔드 0.17.0 부터 드라이버가 광학을 **읽는 시점에** 해결한다 — 발행하면 다음 조준이 새
 // 문서를 본다. 재시작도 재선택도 없다. 그 이전 백엔드는 부팅과 기기 재선택 때만 읽으므로 같은

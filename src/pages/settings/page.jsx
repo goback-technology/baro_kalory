@@ -5,7 +5,7 @@
 // 보세요" 라고 말하려면 「설정 열고 두 번째 탭」이라고 설명해야 했다. 주소가 없는 상태는
 // 저장값으로 떨어지고, 저장값도 없으면 기기 탭이다.
 import { useCallback, useEffect, useState } from "react";
-import { getJson, postJson, api, API_BASE_EXPLICIT } from "../../api.mjs";
+import { getJson, postJson, api, API_BASE_EXPLICIT } from "../../lib/api.mjs";
 import { t } from "../../i18n/index.mjs";
 import { hrefFor } from "../../app/router.mjs";
 import { keyHintText } from "./actions.mjs";

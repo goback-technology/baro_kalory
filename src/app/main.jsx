@@ -6,7 +6,7 @@
 // 경고를 내므로 루트만 전역에 한 번 만들어 재사용한다.
 import { createRoot } from "react-dom/client";
 import { initI18n } from "../i18n/index.mjs";
-import { setTheme, getTheme } from "../theme.mjs";
+import { setTheme, getTheme } from "./theme.mjs";
 import { App } from "./app.jsx";
 
 initI18n();

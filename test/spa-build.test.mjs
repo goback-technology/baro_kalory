@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { PAGES, pageFileOf, pageHref } from "../src/pages.mjs";
+import { PAGES, pageFileOf, pageHref } from "../src/app/routes.mjs";
 import { redirectShell, SPA_REDIRECTS, hashOf } from "../build/vite-kalory.mjs";
 
 const repo = new URL("../", import.meta.url);

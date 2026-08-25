@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { parseHash, hrefFor } from "./router.mjs";
-import { PAGES } from "../pages.mjs";
+import { PAGES } from "./routes.mjs";
 
 test("해시는 PAGES 의 slug 로 푼다 — 라우트 표를 따로 적지 않는다", () => {
   for (const p of PAGES) {

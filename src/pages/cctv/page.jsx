@@ -3,11 +3,11 @@
 // 좌표 계산과 검출 판정은 전부 actions.mjs 가 값으로 든다. 여기서는 그리기와 왕복만 한다 —
 // 특히 「그린 쪽이 센다」는 규칙(화면은 비었는데 개수를 말하는 상태 방지)이 그쪽에 있다.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getJson, postJson, api, fmtPtz } from "../../api.mjs";
+import { getJson, postJson, api, fmtPtz } from "../../lib/api.mjs";
 import { t } from "../../i18n/index.mjs";
 import { useCamera } from "../../camera/provider.jsx";
 import { useCameraPreview } from "../../camera/use-preview.mjs";
-import { useJobPoll } from "../../app/hooks/use-job-poll.mjs";
+import { useJobPoll } from "../../lib/use-job-poll.mjs";
 import { usePtzControls, PtzPad, AbsoluteMove } from "../../components/ptz-pad.jsx";
 import { useStagePointer } from "../../components/use-stage-pointer.mjs";
 import {

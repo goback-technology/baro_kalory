@@ -5,10 +5,10 @@
 // 관리 창구: 백엔드가 두 곳(불변 문서 + 런타임 적용본)을 함께 쓴다. 브라우저는 곡선을 만지지
 // 않고 라우트만 부른다 — 복사·수입·적용·퇴역이 전부 한 창구를 지나야 어긋남이 생기지 않는다.
 import React, { useEffect, useRef, useState } from "react";
-import { postJson, api } from "../../api.mjs";
+import { postJson, api } from "../../lib/api.mjs";
 import { t } from "../../i18n/index.mjs";
-import { fmtNum, fmtWhen } from "../../format.mjs";
-import { chartFigure } from "../../profile-chart.mjs";
+import { fmtNum, fmtWhen } from "../../lib/format.mjs";
+import { chartFigure } from "./profile-chart.mjs";
 import { provText, appliedSuffix } from "./actions.mjs";
 
 const cellR = { textAlign: "right", padding: "2px 8px" };

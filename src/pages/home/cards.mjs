@@ -1,9 +1,9 @@
 // 대문 카드의 **내용**. 그리는 일은 page.jsx 가 한다.
 //
 // 목록은 PAGES 에서 파생한다 — 카드를 손으로 늘어놓으면 페이지를 추가한 날 그 카드만 빠지고,
-// 그 사실을 아무도 모른다. 설명 문구만 여기 있다: pages.mjs 는 라우팅·버전·링크의 표이지
+// 그 사실을 아무도 모른다. 설명 문구만 여기 있다: app/routes.mjs 는 라우팅·버전·링크의 표이지
 // 홍보 문구의 표가 아니고, 그 표를 읽는 곳(빌드·플러그인·테스트)에 문장을 얹으면 무거워진다.
-import { PAGES, pageHref } from "../../pages.mjs";
+import { PAGES, pageHref } from "../../app/routes.mjs";
 import { openWithoutBackend } from "../../app/gate.mjs";
 
 const BLURB = {

@@ -4,11 +4,11 @@
 // 곧 작업면이라(영상 위에 점을 찍는 것이 본업) 열면 켠다 — 제어 콘솔의 「열자마자 켜지
 // 않는다」는 그쪽 계약이고 여기서는 반대가 맞다.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getJson, postJson, reqJson, api, asset, fmtPtz } from "../../api.mjs";
+import { getJson, postJson, reqJson, api, asset, fmtPtz } from "../../lib/api.mjs";
 import { t, i18nHtml } from "../../i18n/index.mjs";
 import { useCamera } from "../../camera/provider.jsx";
 import { useCameraPreview } from "../../camera/use-preview.mjs";
-import { useJobPoll } from "../../app/hooks/use-job-poll.mjs";
+import { useJobPoll } from "../../lib/use-job-poll.mjs";
 import { ptzErrorText } from "../cctv/actions.mjs";
 import {
   framePoint, ptzNear, homeStatusColor, homeStatusLabel, pointHomeStatus, dotPosition,

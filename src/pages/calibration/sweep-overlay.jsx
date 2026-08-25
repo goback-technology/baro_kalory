@@ -7,7 +7,7 @@
 // 화각이 같으므로 viewBox 하나로 정확히 겹친다. naturalWidth 를 읽지 않는다.
 import React from "react";
 import { t } from "../../i18n/index.mjs";
-import { toNum, fmtClock, elapsedMs } from "../../format.mjs";
+import { toNum, fmtClock, elapsedMs } from "../../lib/format.mjs";
 
 export const FRAME_W = 1920, FRAME_H = 1080;
 const CX = FRAME_W / 2, CY = FRAME_H / 2;

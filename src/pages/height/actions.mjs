@@ -2,7 +2,7 @@
 //
 // 이 축은 **답을 못 내는 것이 정상 출력**이다. 그래서 화면의 값어치가 숫자가 아니라
 // 「왜 못 냈는가」에 있고, 그 판정들이 여기 모인다.
-import { toNum, fmtWhen, elapsedMs, splitMinSec, pad2 } from "../../format.mjs";
+import { toNum, fmtWhen, elapsedMs, splitMinSec, pad2 } from "../../lib/format.mjs";
 import { t } from "../../i18n/index.mjs";
 
 // 빈 값은 0 이 아니라 **없음**이다 — 그 규칙은 format.mjs 의 toNum 이 갖는다.

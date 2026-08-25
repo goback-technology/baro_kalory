@@ -5,7 +5,7 @@
 // '적용'이라 눌렀으면 저장된 줄 알았다. 지금은 추가·저장·삭제·순서가 각자 서버를 두드리고,
 // 실패하면 서버가 진실이므로 로컬 상태도 바꾸지 않는다.
 import { useEffect, useRef, useState } from "react";
-import { getJson, postJson, api } from "../../api.mjs";
+import { getJson, postJson, api } from "../../lib/api.mjs";
 import { t } from "../../i18n/index.mjs";
 import {
   toSaveEntry, deviceFormToEntry, vptzError, stageDeviceList, nextDeviceId, moveInList,

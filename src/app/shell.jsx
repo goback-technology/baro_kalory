@@ -5,9 +5,9 @@
 // 셸이 화면을 소유하고 라우트가 그 안에 들어온다. 그래서 링크를 문자열로 비교해 잠그던
 // 코드(a.home-card 의 href 대조)가 통째로 사라졌다 — 카드가 상태를 직접 읽는다.
 import { useEffect, useState } from "react";
-import { getPage, pageHref } from "../pages.mjs";
+import { getPage, pageHref } from "./routes.mjs";
 import { languages } from "../i18n/index.mjs";
-import { getTheme, setTheme, THEMES } from "../theme.mjs";
+import { getTheme, setTheme, THEMES } from "./theme.mjs";
 import { useBackend } from "./backend-gate.jsx";
 
 // 아이콘은 인라인 SVG — currentColor 를 쓰므로 테마와 링크 색을 그대로 따라간다.

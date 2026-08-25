@@ -4,7 +4,7 @@
 // 넣으면 대문을 여는 데 그 코드를 전부 내려받게 된다 — 커미셔닝 현장의 첫 화면이 그만큼 늦다.
 import { Suspense, lazy, useState } from "react";
 import { getLang, setLang } from "../i18n/index.mjs";
-import { getPage } from "../pages.mjs";
+import { getPage } from "./routes.mjs";
 import { useHashRoute } from "./router.mjs";
 import { AppShell } from "./shell.jsx";
 import { BackendProvider, BackendGate } from "./backend-gate.jsx";

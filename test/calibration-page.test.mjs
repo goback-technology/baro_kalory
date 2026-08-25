@@ -96,7 +96,7 @@ test("캘리브레이션 페이지 — 발행된 프로파일 가시화", async 
 
 
 test("API 오류는 본문을 잃지 않는다", async () => {
-  const src = await readFile(new URL("../src/api.mjs", import.meta.url), "utf8");
+  const src = await readFile(new URL("../src/lib/api.mjs", import.meta.url), "utf8");
   // 거절이 언제나 문장 하나인 것은 아니다 — 발행 게이트는 왜·어디를 구조로 준다.
   // 여기서 message 만 뽑으면 화면은 그걸 되살릴 방법이 없다.
   assert.match(src, /err\.body = j/, "오류 응답 본문을 호출부까지 넘겨야 한다");
@@ -104,7 +104,7 @@ test("API 오류는 본문을 잃지 않는다", async () => {
 });
 
 test("프로파일 차트 — 한 그림에 축은 하나", async () => {
-  const src = await readFile(new URL("../src/profile-chart.mjs", import.meta.url), "utf8");
+  const src = await readFile(new URL("../src/pages/calibration/profile-chart.mjs", import.meta.url), "utf8");
   assert.match(src, /export function miniChart/);
   assert.match(src, /export function chartFigure/);
   // 화각(도)과 조준 게인(배율)은 단위가 다르다. 한 그림에 두 축으로 겹쳐 그리면 두 곡선의

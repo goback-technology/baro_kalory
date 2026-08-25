@@ -3,7 +3,7 @@
 // 여기 모인 규칙의 대부분은 「화면이 말하는 것과 화면에 있는 것이 같아야 한다」는 한 가지다:
 // 그리는 쪽과 세는 쪽이 갈리면, 화면은 비었는데 「영상 위 박스 3개」라고 말하는 상태가
 // 성립한다(적대적 리뷰가 실제로 재현했다). 그래서 **그린 쪽이 센다.**
-import { fmtNum, UNREAD, toNum } from "../../format.mjs";
+import { fmtNum, UNREAD, toNum } from "../../lib/format.mjs";
 import { t } from "../../i18n/index.mjs";
 
 // bbox 는 [x1,y1,x2,y2] 이거나 다각형 좌표열이다. 어느 쪽이든 외접 사각형으로 접는다.

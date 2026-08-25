@@ -4,7 +4,7 @@
 // (여기서 따로 부르지 않는다 — 두 벌이 되면 한쪽만 고쳐진다).
 import React from "react";
 import { t } from "../../i18n/index.mjs";
-import { fmtWhen } from "../../format.mjs";
+import { fmtWhen } from "../../lib/format.mjs";
 import { provText } from "./actions.mjs";
 
 export function ProfileList({ catalog, error, mine, onPickMine, onPickOther }) {

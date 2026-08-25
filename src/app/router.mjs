@@ -13,7 +13,7 @@
 // 「벽돌 탈출구가 정확히 필요한 순간에 조용히 사라지는」 모양이 된다. 그래서 이 라우터는
 // 해시 안의 `?` 를 못 본 척하지 않고 **모르는 라우트로 떨군다** — 조용한 실패보다 낫다.
 import { useSyncExternalStore, useCallback } from "react";
-import { PAGES } from "../pages.mjs";
+import { PAGES } from "./routes.mjs";
 
 const HOME = "home";
 

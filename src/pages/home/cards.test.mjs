@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { homeCards } from "./cards.mjs";
-import { PAGES } from "../../pages.mjs";
+import { PAGES } from "../../app/routes.mjs";
 
 test("카드는 PAGES 에서 파생된다 — 화면을 추가한 날 그 카드만 빠지는 일이 없게", () => {
   const cards = homeCards();

@@ -3,7 +3,7 @@
 // 이 탭의 값은 **입력칸의 것을 그대로 시험한다.** 저장 전에 확인할 수 없으면 설정 화면이
 // 아니라 저장 버튼일 뿐이다(백엔드는 빈 값을 저장된 값으로 대신한다).
 import { useState } from "react";
-import { postJson, api } from "../../api.mjs";
+import { postJson, api } from "../../lib/api.mjs";
 import { t } from "../../i18n/index.mjs";
 import { llmConfigOf, probeDetectorText, probeLprText, probeLlmText, runLlmText } from "./actions.mjs";
 

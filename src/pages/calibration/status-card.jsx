@@ -1,7 +1,7 @@
 // 캘리브레이션 카드 — 검증·전체 스윕의 시작/중지, 진행, 결과(판정·저장·게이트 거절).
 import React, { useState } from "react";
-import { postJson, api } from "../../api.mjs";
-import { fmtNum, toNum, UNREAD } from "../../format.mjs";
+import { postJson, api } from "../../lib/api.mjs";
+import { fmtNum, toNum, UNREAD } from "../../lib/format.mjs";
 import { applyPublishedToRuntime, appliedSuffix } from "./actions.mjs";
 
 const cell = { textAlign: "right", padding: "2px 8px" };

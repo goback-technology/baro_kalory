@@ -3,11 +3,11 @@
 // 이 축은 답을 못 내는 것이 정상 출력이라, 화면의 값어치가 숫자가 아니라 「왜 못 냈는가」에
 // 있다 — 판정 문구는 전부 actions.mjs 가 들고 여기서는 그리기와 왕복만 한다.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getJson, postJson, api } from "../../api.mjs";
+import { getJson, postJson, api } from "../../lib/api.mjs";
 import { t, i18nHtml } from "../../i18n/index.mjs";
 import { useCamera } from "../../camera/provider.jsx";
 import { useCameraPreview } from "../../camera/use-preview.mjs";
-import { useJobPoll } from "../../app/hooks/use-job-poll.mjs";
+import { useJobPoll } from "../../lib/use-job-poll.mjs";
 import {
   extrinsicRows, mergeReady, readyText, phaseLine, jobSummary, resultSummary,
   statusErrorText, startErrorText, manualHeightError, JOB_STATE_LABEL,

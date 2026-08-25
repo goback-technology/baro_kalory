@@ -7,7 +7,7 @@
 //
 // 좌표 규약(UE): +X 가 북, +Y 가 동, yaw 0 = +X. 화면 위를 북으로 두면 mapX = worldY,
 // mapY = -worldX 이고, 그래야 yaw 0 인 카메라가 그림에서 위를 가리킨다.
-import { toNum } from "../../format.mjs";
+import { toNum } from "../../lib/format.mjs";
 
 export const toMap = (w) => ({ x: Number(w?.y) || 0, y: -(Number(w?.x) || 0) });
 export const toWorld = (m) => ({ x: -m.y, y: m.x });
