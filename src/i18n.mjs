@@ -1017,6 +1017,13 @@ const HTML = {
 };
 
 function detectLang() {
+  // 브라우저 밖(노드 테스트·빌드 도구)에서는 **기계의 로케일을 따라가지 않는다.**
+  // node 24 부터 navigator.language 가 있어서, 같은 코드가 개발기(ko-KR)에서는 한국어를,
+  // CI 러너(en-US)에서는 영어를 냈다 — t() 의 출력을 문는 테스트가 기계마다 다른 답을
+  // 물게 되고, 2026-08-25 실제로 로컬 초록·CI 빨강이 났다. 이 제품의 기준 언어는 한국어다.
+  try {
+    if (typeof process !== "undefined" && process.versions && process.versions.node) return "ko";
+  } catch { /* 브라우저 */ }
   const n = (navigator.language || "").toLowerCase();
   if (n.startsWith("vi")) return "vi";
   if (n.startsWith("en")) return "en";
