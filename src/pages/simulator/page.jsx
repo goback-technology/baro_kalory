@@ -1494,7 +1494,7 @@ export default function SimulatorPage() {
                                    value={spawnForm.heightM} onChange={(e) => onSpawnHeight(e.target.value)} /></label>
                           <label className="sim-cam-place-cell wide"><span>포트</span>
                             <input id="sim-cam-http" type="number" min={portRangeHint(portInfo).http.min} max={portRangeHint(portInfo).http.max}
-                                   title="Hucoms 제어 포트 — 기기 id 가 됩니다 (sim-cam-&lt;포트&gt;)"
+                                   title="Hucoms 제어 포트 — 기기 id 가 됩니다 (sim-cam-<포트>)"
                                    value={spawnForm.httpPort} onChange={(e) => setSpawnForm((f) => ({ ...f, httpPort: e.target.value }))} /></label>
                           <label className="sim-cam-place-cell wide"><span>MJPEG</span>
                             <input id="sim-cam-mjpeg" type="number" min={portRangeHint(portInfo).mjpeg.min} max={portRangeHint(portInfo).mjpeg.max}
