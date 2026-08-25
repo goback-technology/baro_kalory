@@ -9,7 +9,7 @@
 //
 // 라우트 전환도 같은 레지스트리를 쓴다. 페이지 이동이 곧 문서 로드이던 시절에는 pagehide
 // 가 안전망이었지만, SPA 에는 그 이벤트가 오지 않는다.
-import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createCameraSelect } from "../camera-select.mjs";
 
 const Ctx = createContext(null);
@@ -60,14 +60,18 @@ export function CameraProvider({ children, log = () => {} }) {
     return () => { widget.destroy(); widgetRef.current = null; };
   }, [releaseAll, log]);
 
-  const value = {
-    activeId, list, switching, loaded, registerRelease, releaseAll,
-    // 진행 중인 작업이 카메라를 바꾸지 못하게 잠근다(캘리브레이션 스윕 같은 것).
-    setEnabled: (on) => widgetRef.current?.setEnabled(on),
-    refresh: () => widgetRef.current?.load(),
+  // 진행 중인 작업이 카메라를 바꾸지 못하게 잠근다(캘리브레이션 스윕 같은 것).
+  const setEnabled = useCallback((on) => widgetRef.current?.setEnabled(on), []);
+  const refresh = useCallback(() => widgetRef.current?.load(), []);
+
+  // **값을 고정한다.** 매 렌더 새 객체를 내면 이 컨텍스트를 쓰는 화면의 이펙트가 전부
+  // 매번 다시 돈다 — cam 을 의존성에 적은 곳(카메라 잠금·프리뷰 재시작)이 그렇고, 그중
+  // 하나라도 부수효과가 있으면 렌더마다 그 일이 일어난다.
+  const value = useMemo(() => ({
+    activeId, list, switching, loaded, registerRelease, releaseAll, setEnabled, refresh,
     // 헤더가 이 요소를 렌더하고 위젯이 그 안을 소유한다 — React 는 children 을 넣지 않는다.
     selectRef,
-  };
+  }), [activeId, list, switching, loaded, registerRelease, releaseAll, setEnabled, refresh]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

@@ -17,6 +17,7 @@ const ROUTES = {
   home: lazy(() => import("../pages/home/page.jsx")),
   calibration: lazy(() => import("../pages/calibration/page.jsx")),
   settings: lazy(() => import("../pages/settings/page.jsx")),
+  height: lazy(() => import("../pages/height/page.jsx")),
 };
 
 function Loading() {

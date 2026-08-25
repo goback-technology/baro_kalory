@@ -19,7 +19,7 @@ export const PAGES = [
   { id: "calibration", slug: "calibration", label: "캘리브레이션",    versionKey: "calibration", badge: "CAL",  spa: true , camera: true },
   // 높이 축은 캘리브레이션 **뒤**다. 픽셀을 각으로 바꾸려면 발행된 줌→화각 곡선이 필요해서
   // 의존이 한 방향뿐이고(광학 먼저, 높이 나중), 목록 순서가 그 순서를 말한다.
-  { id: "height",      slug: "height",      label: "설치 높이",       versionKey: "height",      badge: "HGT",  spa: false, camera: true },
+  { id: "height",      slug: "height",      label: "설치 높이",       versionKey: "height",      badge: "HGT",  spa: true , camera: true },
 ];
 
 export function getPage(id) {

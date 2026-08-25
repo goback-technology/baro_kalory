@@ -63,13 +63,16 @@ test("첫 페인트는 대기가 아니라 정지 상태로 그린다", async ()
     readFile(cctvPageUrl, "utf8"),
     readFile(new URL("../public/discovery.html", import.meta.url), "utf8"),
   ]);
-  const height = await readFile(new URL("../public/height.html", import.meta.url), "utf8");
+  // height 는 SPA 라우트다 — 첫 페인트 마크업이 HTML 이 아니라 그 라우트 안에 있다.
+  const height = await readFile(new URL("../src/pages/height/page.jsx", import.meta.url), "utf8");
+  // 바닐라 페이지는 class=, 라우트는 className= 다. 계약은 같으므로 둘 다 받는다.
+  const CLS = "(?:class|className)";
   for (const [page, stageId, imgId] of [[html, "stage", "view"], [discovery, "disc-stage", "disc-view"], [height, "hgt-stage", "hgt-view"]]) {
-    assert.match(page, new RegExp(`id="${stageId}" class="preview-stage preview-paused" data-paused-label="[^"]+"`),
+    assert.match(page, new RegExp(`id="${stageId}" ${CLS}="preview-stage preview-paused" data-paused-label="[^"]+"`),
       `${stageId} 는 정지 상태 + 문구로 첫 페인트를 그려야 한다`);
-    assert.doesNotMatch(page, new RegExp(`id="${stageId}" class="preview-waiting"`),
+    assert.doesNotMatch(page, new RegExp(`id="${stageId}" ${CLS}="preview-waiting"`),
       `${stageId} 가 대기로 시작하면 안 켠 페이지가 영원히 Wait 로 남는다`);
-    assert.match(page, new RegExp(`id="${imgId}" class="preview-waiting-image"`),
+    assert.match(page, new RegExp(`id="${imgId}" ${CLS}="preview-waiting-image"`),
       `${imgId} 는 감춰진 채로 시작해야 한다(깨진 이미지 아이콘 방지)`);
   }
 });

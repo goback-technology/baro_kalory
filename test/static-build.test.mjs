@@ -58,12 +58,12 @@ test("SPA 로 옮긴 페이지의 옛 주소는 리다이렉트 셸이 받는다
 test("정적 호스트 재작성: 확장자 없는 링크와 / 진입을 실파일로 바꾼다", () => {
   // 재작성 대상은 **아직 SPA 로 안 옮긴** 페이지의 링크뿐이다. 옮긴 페이지의 링크는
   // 해시라 재작성이 손댈 것이 없다(그 자리는 리다이렉트 셸이 받는다).
-  const html = '<head></head><a href="./">홈</a><a href="./cctv">CCTV</a><a href="./height">높이</a>';
+  const html = '<head></head><a href="./">홈</a><a href="./cctv">CCTV</a><a href="./discovery">탐색</a>';
   const out = rewriteForStaticHost(html);
   assert.match(out, /href="\.\/index\.html"/);
   assert.match(out, /href="\.\/cctv\.html"/);
-  assert.match(out, /href="\.\/height\.html"/);
-  assert.doesNotMatch(out, /href="\.\/(cctv|height)"/);
+  assert.match(out, /href="\.\/discovery\.html"/);
+  assert.doesNotMatch(out, /href="\.\/(cctv|discovery)"/);
 });
 
 test("재작성은 정적 빌드 표식을 심고, 두 번 돌려도 하나뿐이다", () => {
