@@ -202,10 +202,14 @@ export function isDrag(a, b) {
   return Math.abs(b.px - a.px) > DRAG_SLOP_PX || Math.abs(b.py - a.py) > DRAG_SLOP_PX;
 }
 
+// 스테이지 **밖**에서 손을 떼면 좌표가 프레임 밖으로 외삽된다 — 그대로 보내면 서버가 받는
+// 상자에 음수·초과 픽셀이 든다. 프레임은 시작점이 들고 있으므로(nw·nh) 여기서 잘라 넣는다.
+// 시뮬레이터 화면이 이 검사를 갖고 있었고 제어 화면은 없었다 — 같은 함수를 쓰게 되면서 합친다.
 export function boxOf(a, b) {
+  const cl = (v, max) => Math.max(0, Number.isFinite(max) ? Math.min(max, v) : v);
   return {
-    startX: Math.min(a.x, b.x), startY: Math.min(a.y, b.y),
-    endX: Math.max(a.x, b.x), endY: Math.max(a.y, b.y),
+    startX: cl(Math.min(a.x, b.x), a.nw), startY: cl(Math.min(a.y, b.y), a.nh),
+    endX: cl(Math.max(a.x, b.x), a.nw), endY: cl(Math.max(a.y, b.y), a.nh),
   };
 }
 

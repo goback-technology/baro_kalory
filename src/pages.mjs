@@ -14,7 +14,7 @@ export const PAGES = [
   { id: "home",        slug: "",            label: "홈",           versionKey: null,          badge: null,   spa: true,  camera: false },
   { id: "cctv",        slug: "cctv",        label: "CCTV 제어",     versionKey: "cctv",        badge: "CCTV", spa: true , camera: true },
   { id: "discovery",   slug: "discovery",   label: "주차면 탐색",    versionKey: "discovery",   badge: "DISC", spa: true , camera: true },
-  { id: "simulator",   slug: "simulator",   label: "시뮬레이터 셋업", versionKey: "simulator",   badge: "SIM",  spa: false, camera: false },
+  { id: "simulator",   slug: "simulator",   label: "시뮬레이터 셋업", versionKey: "simulator",   badge: "SIM",  spa: true , camera: false },
   { id: "settings",    slug: "settings",    label: "설정",          versionKey: "settings",    badge: "SET",  spa: true , camera: false },
   { id: "calibration", slug: "calibration", label: "캘리브레이션",    versionKey: "calibration", badge: "CAL",  spa: true , camera: true },
   // 높이 축은 캘리브레이션 **뒤**다. 픽셀을 각으로 바꾸려면 발행된 줌→화각 곡선이 필요해서

@@ -55,14 +55,15 @@ test("SPA 로 옮긴 페이지의 옛 주소는 리다이렉트 셸이 받는다
   assert.match(shell, /<a href="\.\/index\.html#\/settings">/, "그마저 막히면 손으로 누를 링크");
 });
 
-test("정적 호스트 재작성: 확장자 없는 링크와 / 진입을 실파일로 바꾼다", () => {
-  // 재작성 대상은 **아직 SPA 로 안 옮긴** 페이지의 링크뿐이다. 옮긴 페이지의 링크는
-  // 해시라 재작성이 손댈 것이 없다(그 자리는 리다이렉트 셸이 받는다).
-  const html = '<head></head><a href="./">홈</a><a href="./simulator">시뮬</a>';
+test("정적 호스트 재작성: / 진입을 셸 문서로 바꾼다", () => {
+  // 재작성 대상은 **아직 SPA 로 안 옮긴** 페이지의 링크뿐이었고, 이제 그런 페이지가 없다.
+  // 남은 일은 디렉터리 진입("./")을 실파일로 바꾸는 것뿐이다 — 옮긴 페이지의 링크는 해시라
+  // 재작성이 손댈 것이 없고, 옛 주소는 리다이렉트 셸이 받는다.
+  const html = '<head></head><a href="./">홈</a><a href="./index.html#/simulator">시뮬</a>';
   const out = rewriteForStaticHost(html);
   assert.match(out, /href="\.\/index\.html"/);
-  assert.match(out, /href="\.\/simulator\.html"/);
-  assert.doesNotMatch(out, /href="\.\/simulator"/);
+  assert.match(out, /href="\.\/index\.html#\/simulator"/, "해시 링크는 그대로 둔다");
+  assert.deepEqual(MPA_PAGES, [], "MPA 페이지가 남아 있으면 이 기계가 아직 필요하다");
 });
 
 test("재작성은 정적 빌드 표식을 심고, 두 번 돌려도 하나뿐이다", () => {

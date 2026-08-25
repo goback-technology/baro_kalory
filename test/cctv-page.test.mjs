@@ -2,42 +2,22 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-// (CCTV 화면의 계약은 test/cctv-route.test.mjs 로 갈라져 나갔다 — 라우트로 옮기면서
-//  이 파일에는 아직 안 옮긴 화면(discovery·simulator)과 공용 모듈 계약만 남았다.)
+// (CCTV 화면의 계약은 test/cctv-route.test.mjs 로 갈라져 나갔다 — 전 화면이 라우트가 된
+//  지금 이 파일에 남은 것은 **화면들이 함께 지키는 규칙**과 공용 모듈 계약뿐이다.
+//  시뮬레이터의 프리뷰 시작/정지 게이트는 simulator-page.test.mjs 로 옮겼다.)
 const cctvRouteUrl = new URL("../src/pages/cctv/page.jsx", import.meta.url);
-
-// 2026-07-29 요구 변경: 페이지를 열자마자 스트림을 시작하지 않는다.
-// 시뮬 카메라는 캡처 예산이 유한해서(2대 동시 스트리밍 시 각 30->26fps 실측), 페이지를 여는
-// 행위가 곧 카메라 점유가 되면 안 된다. 영상을 볼 의도는 시작 버튼으로만 표현한다.
-test("시뮬레이터 페이지에도 프리뷰 시작/정지 게이트가 있다", async () => {
-  const html = await readFile(new URL("../public/simulator.html", import.meta.url), "utf8");
-  assert.match(html, /id="sim-preview-start"/, "시작 버튼이 있어야 한다");
-  assert.match(html, /id="sim-preview-stop"/, "종료 버튼이 있어야 한다");
-  // 무조건 preview.start() 하지 않는다 — 저장된 선택을 따른다
-  assert.match(html, /localStorage\.getItem\(SIM_PREVIEW_WANTED_KEY\) === "on"/);
-  assert.match(html, /if \(wanted\) startSimPreview\(\);/);
-  // preview.start() 를 무조건 부르는 경로가 남아 있으면 게이트가 우회된다.
-  // 허용되는 호출은 startSimPreview() 안의 1회뿐이고, 나머지는 실행 중이었을 때만 재개해야 한다.
-  const unguarded = [...html.matchAll(/preview\.start\(\)/g)]
-    .filter((m) => {
-      // 같은 줄만 보면 안 된다(`.` 는 개행을 안 넘는다) — 앞 200자를 줄 넘어 훑는다.
-      const before = html.slice(Math.max(0, m.index - 200), m.index);
-      return !/simPreviewRunning|wasRunning|SIM_PREVIEW_WANTED_KEY/.test(before);
-    })
-    .map((m) => html.slice(0, m.index).split("\n").length);
-  assert.deepEqual(unguarded, [], `가드 없는 preview.start() 가 남아 있다 (줄): ${unguarded.join(", ")}`);
-});
 
 // JS 로드 전 첫 페인트도 **정지**여야 한다. 예전에는 마크업이 preview-waiting 을 달고 있어,
 // 프리뷰를 켜지 않는 페이지가 "Wait..." 로 시작해 그대로 머물렀다 — 기다릴 것이 없는데
 // 기다린다고 말하는 화면이다(2026-08-04). 상태 구분: 접속 시도 중 = Wait, 안 켠 상태 = 정지.
 // (동작 자체는 camera-preview.test.mjs 가 호출을 세어 검증한다. 여기는 첫 페인트 마크업만.)
 test("첫 페인트는 대기가 아니라 정지 상태로 그린다", async () => {
-  // cctv·height 는 SPA 라우트다 — 첫 페인트 마크업이 HTML 이 아니라 그 라우트 안에 있다.
-  const [cctv, discovery, height] = await Promise.all([
+  // 전부 SPA 라우트다 — 첫 페인트 마크업이 HTML 이 아니라 그 라우트 안에 있다.
+  const [cctv, discovery, height, simulator] = await Promise.all([
     readFile(cctvRouteUrl, "utf8"),
     readFile(new URL("../src/pages/discovery/page.jsx", import.meta.url), "utf8"),
     readFile(new URL("../src/pages/height/page.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/simulator/page.jsx", import.meta.url), "utf8"),
   ]);
   // 바닐라 페이지는 class="…", 라우트는 className={…} 이고 ref·핸들러가 사이에 낀다.
   // 계약은 같으므로 **여는 태그 전체**를 잘라 그 안을 본다(속성 순서에 기대지 않는다).
@@ -46,7 +26,10 @@ test("첫 페인트는 대기가 아니라 정지 상태로 그린다", async ()
     assert.notEqual(at, -1, `${id} 요소가 없다`);
     return src.slice(at, src.indexOf(">", at));
   };
-  for (const [page, stageId, imgId] of [[cctv, "stage", "view"], [discovery, "disc-stage", "disc-view"], [height, "hgt-stage", "hgt-view"]]) {
+  for (const [page, stageId, imgId] of [
+    [cctv, "stage", "view"], [discovery, "disc-stage", "disc-view"],
+    [height, "hgt-stage", "hgt-view"], [simulator, "stage", "view"],
+  ]) {
     const stage = openTag(page, stageId);
     assert.match(stage, /preview-stage preview-paused/, `${stageId} 는 정지 상태로 첫 페인트를 그려야 한다`);
     assert.match(stage, /data-paused-label="[^"]+"/, `${stageId} 에 정지 문구가 있어야 한다`);

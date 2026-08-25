@@ -364,9 +364,12 @@ test("installFieldsOf: 모르는 값은 빈 칸 — 0 으로 채우지 않는다
   const c = cam();
   const filled = installFieldsOf(c, { tiltpos: 1500, ptz: { panpos: 9000, tiltpos: 1500, zoompos: 0 } });
   assert.deepEqual(filled, {
-    note: "", x: "100", y: "200", height: "6.00", bearing: "45.0", pitch: "-15.0",
+    note: "", x: "100", y: "200", heightM: "6.00", bearing: "45.0", pitch: "-15.0",
     pan: "9000", tilt: "1500", zoom: "0",
   });
+  // 채우는 쪽과 보내는 쪽의 이름표가 같아야 한다 — 한쪽만 고치면 그 칸이 조용히 「안 고침」이 된다.
+  const patched = installPatchFrom({ cam: c, form: { ...filled, heightM: "9" }, tiltpos: 1500, cameras: [c], slots: [] });
+  assert.deepEqual(patched.patch, { location: { x: 100, y: 200, z: 910 } });
   // PTZ 는 **지금 보고 있는 카메라**의 것이다 — 다른 카메라를 고른 폼에는 적지 않는다.
   const other = installFieldsOf(c, { tiltpos: 1500, ptz: null });
   assert.deepEqual([other.pan, other.tilt, other.zoom], ["", "", ""]);

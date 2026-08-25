@@ -463,7 +463,10 @@ export function driveChangeOf({ form = {}, now } = {}) {
 }
 
 /**
- * 설치 폼에 채울 값들. 좌표는 cm 정수로 보여 주되 저장할 때는 손대지 않은 칸의 원값을 그대로
+ * 설치 폼에 채울 값들. **키 이름은 installPatchFrom 이 읽는 이름과 같아야 한다** — 폼은 이
+ * 객체로 채워지고 그 폼이 그대로 저 함수로 들어가므로, 한쪽만 고치면 그 칸이 조용히 「안 고침」이
+ * 된다(입력은 되는데 저장이 안 나가는 모양이다).
+ * 좌표는 cm 정수로 보여 주되 저장할 때는 손대지 않은 칸의 원값을 그대로
  * 되돌려보낸다(installPatchFrom) — 반올림한 표시가 그대로 나가면 아무것도 안 고치고 저장만
  * 눌러도 카메라가 5 mm 씩 움직인다.
  *
@@ -471,7 +474,7 @@ export function driveChangeOf({ form = {}, now } = {}) {
  * 다시 앉히는 값이라(pitchDeg→tilt), 틸트가 곧 그 값의 지금 모습이다.
  */
 export function installFieldsOf(cam, { tiltpos, ptz } = {}) {
-  if (!cam) return { note: "", x: "", y: "", height: "", bearing: "", pitch: "", pan: "", tilt: "", zoom: "" };
+  if (!cam) return { note: "", x: "", y: "", heightM: "", bearing: "", pitch: "", pan: "", tilt: "", zoom: "" };
   const cm = (v) => (v === null ? "" : String(Math.round(v)));
   const loc = cam?.mount?.location;
   const heightM = cameraHeightM(cam);
@@ -482,7 +485,7 @@ export function installFieldsOf(cam, { tiltpos, ptz } = {}) {
     note: String(cam.note ?? ""),
     x: cm(toNum(loc?.x)),
     y: cm(toNum(loc?.y)),
-    height: heightM === null ? "" : heightM.toFixed(2),
+    heightM: heightM === null ? "" : heightM.toFixed(2),
     bearing: baseYaw === null ? "" : baseYaw.toFixed(1),
     pitch: camTilt === null ? "" : (-camTilt / 100).toFixed(1),
     pan: p === null ? "" : String(p.panpos),

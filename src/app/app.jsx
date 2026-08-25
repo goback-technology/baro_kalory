@@ -20,6 +20,7 @@ const ROUTES = {
   height: lazy(() => import("../pages/height/page.jsx")),
   cctv: lazy(() => import("../pages/cctv/page.jsx")),
   discovery: lazy(() => import("../pages/discovery/page.jsx")),
+  simulator: lazy(() => import("../pages/simulator/page.jsx")),
 };
 
 function Loading() {

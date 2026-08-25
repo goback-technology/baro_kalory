@@ -135,6 +135,13 @@ test("framePoint · isDrag · boxOf: 클릭과 끌기를 손떨림으로 가르�
   assert.equal(isDrag({ px: 10, py: 10 }, { px: 30, py: 10 }), true);
   assert.deepEqual(boxOf({ x: 90, y: 10 }, { x: 10, y: 90 }), { startX: 10, startY: 10, endX: 90, endY: 90 },
     "어느 방향으로 끌어도 같은 상자다");
+  // 스테이지 밖에서 손을 떼면 좌표가 프레임 밖으로 외삽된다 — 서버에 음수·초과 픽셀을 보내지 않는다.
+  assert.deepEqual(
+    boxOf({ x: -40, y: -20, nw: 1920, nh: 1080 }, { x: 2400, y: 1300 }),
+    { startX: 0, startY: 0, endX: 1920, endY: 1080 },
+  );
+  // 프레임을 모르면 위쪽은 자르지 않는다 — 모르는 한계를 지어내 멀쩡한 상자를 깎지 않는다.
+  assert.deepEqual(boxOf({ x: -5, y: -5 }, { x: 50, y: 60 }), { startX: 0, startY: 0, endX: 50, endY: 60 });
 });
 
 test("snapshotName: 언제·어느 카메라의 그림인지가 파일명에 있다", () => {
