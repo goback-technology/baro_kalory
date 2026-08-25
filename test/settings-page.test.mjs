@@ -69,8 +69,12 @@ test("설정 페이지 — 탭은 주소에 실리고, 주소가 없으면 저�
   const page = await read(SET.page);
   assert.match(page, /hrefFor\("settings", x\.id\)/, "탭은 라우트 링크여야 한다");
   assert.match(page, /TAB_KEY = "settings:tab\.v1"/, "선택은 기억한다 — 다른 화면에 다녀와도 보던 곳으로");
-  assert.match(page, /TABS\.some\(\(x\) => x\.id === sub\) \? sub : \(readStoredTab\(\) \|\| "devices"\)/,
-    "주소 > 저장값 > 기기 탭 순서여야 한다");
+  assert.match(page, /TABS\.some\(\(x\) => x\.id === sub\) \? sub : fallback/, "주소로 지목했으면 그 뜻을 따른다");
+  // 미연결에서는 서버 탭으로 연다 — 이 상태에서 다른 탭은 할 수 있는 일이 없고, 주소를
+  // 넣는 칸은 서버 탭에만 있다. 마지막 한 걸음에서 「빈 기기 목록」을 보여 주면 벗어날
+  // 문을 한 번 더 가리는 셈이다(첫 방문 벽돌로 두 번 물린 부류).
+  assert.match(page, /API_BASE_EXPLICIT \? \(readStoredTab\(\) \|\| "devices"\) : "server"/,
+    "백엔드 주소가 없으면 서버 탭이어야 한다");
   // 주소가 비어 있으면 채워 넣는다 — 그래야 지금 보는 화면과 주소가 같은 말을 한다.
   assert.match(page, /if \(!sub\) location\.replace\(hrefFor\("settings", tab\)\)/);
   for (const name of ["devices", "server", "detect"]) {

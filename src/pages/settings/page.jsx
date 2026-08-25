@@ -5,7 +5,7 @@
 // 보세요" 라고 말하려면 「설정 열고 두 번째 탭」이라고 설명해야 했다. 주소가 없는 상태는
 // 저장값으로 떨어지고, 저장값도 없으면 기기 탭이다.
 import { useCallback, useEffect, useState } from "react";
-import { getJson, postJson, api } from "../../api.mjs";
+import { getJson, postJson, api, API_BASE_EXPLICIT } from "../../api.mjs";
 import { t } from "../../i18n.mjs";
 import { hrefFor } from "../../app/router.mjs";
 import { keyHintText } from "./actions.mjs";
@@ -44,7 +44,13 @@ export default function SettingsPage({ sub }) {
   const [loadError, setLoadError] = useState("");
   const [statusTick, setStatusTick] = useState(0);
 
-  const tab = TABS.some((x) => x.id === sub) ? sub : (readStoredTab() || "devices");
+  // 백엔드 주소가 없으면 **서버 탭으로 연다.** 이 상태에서 다른 탭은 할 수 있는 일이 없고
+  // (기기 목록은 서버에서 오고, 검출·판독은 저장할 곳이 없다), 주소를 넣는 칸은 서버 탭에만
+  // 있다. 첫 방문이 곧 벽돌이 되는 경로가 이 저장소를 두 번 물었다 — 마지막 한 걸음에서
+  // 「빈 기기 목록」을 보여 주고 탭을 스스로 찾게 하면 그 문을 한 번 더 가리는 셈이다.
+  // 주소로 직접 탭을 지목했으면 그 뜻을 따른다.
+  const fallback = API_BASE_EXPLICIT ? (readStoredTab() || "devices") : "server";
+  const tab = TABS.some((x) => x.id === sub) ? sub : fallback;
   useEffect(() => { try { localStorage.setItem(TAB_KEY, tab); } catch { /* 저장소 사용 불가 */ } }, [tab]);
   // 주소에 탭이 없으면 저장값으로 채워 넣는다 — 그래야 지금 보는 화면과 주소가 같은 말을 한다.
   useEffect(() => { if (!sub) location.replace(hrefFor("settings", tab)); }, [sub, tab]);
