@@ -27,6 +27,9 @@ export function CameraProvider({ children, log = () => {} }) {
   const [activeId, setActiveId] = useState(null);
   const [list, setList] = useState([]);
   const [switching, setSwitching] = useState(false);
+  // 첫 목록이 오기 전과 「0대」는 다른 사실이다. 라우트가 그 둘을 구분하지 못하면 로드 전에
+  // 초기화를 한 번, 로드 후에 또 한 번 돌려 모든 GET 이 2벌 나간다(실측).
+  const [loaded, setLoaded] = useState(false);
 
   // 놓아주기 등록. 프리뷰 훅이 마운트 때 부르고 언마운트 때 되돌린다.
   const registerRelease = useCallback((fn) => {
@@ -50,13 +53,15 @@ export function CameraProvider({ children, log = () => {} }) {
       onSettled: () => setSwitching(false),
     });
     widgetRef.current = widget;
-    widget.load().then(() => { setActiveId(widget.activeId()); setList(widget.list()); });
+    // 목록을 못 받아도 loaded 는 세운다 — 미연결에서도 화면이 「아무 일도 안 일어나는」
+    // 상태로 굳지 않고, 자기 방식으로 그 사실을 말할 수 있어야 한다.
+    widget.load().finally(() => { setActiveId(widget.activeId()); setList(widget.list()); setLoaded(true); });
     el.addEventListener("change", () => setSwitching(true));
     return () => { widget.destroy(); widgetRef.current = null; };
   }, [releaseAll, log]);
 
   const value = {
-    activeId, list, switching, registerRelease, releaseAll,
+    activeId, list, switching, loaded, registerRelease, releaseAll,
     // 진행 중인 작업이 카메라를 바꾸지 못하게 잠근다(캘리브레이션 스윕 같은 것).
     setEnabled: (on) => widgetRef.current?.setEnabled(on),
     refresh: () => widgetRef.current?.load(),

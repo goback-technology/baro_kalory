@@ -15,6 +15,7 @@ import { CameraProvider, CameraSelect } from "./camera-provider.jsx";
 // pageHref 가 자기 HTML 파일로 보낸다(pages.mjs 의 spa 플래그).
 const ROUTES = {
   home: lazy(() => import("../pages/home/page.jsx")),
+  calibration: lazy(() => import("../pages/calibration/page.jsx")),
 };
 
 function Loading() {

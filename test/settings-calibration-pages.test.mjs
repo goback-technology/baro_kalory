@@ -4,11 +4,12 @@ import test from "node:test";
 
 const read = (rel) => readFile(new URL(rel, import.meta.url), "utf8");
 
-// calibration 은 React 페이지다(파일럿, plan §2) — HTML 은 셸이고 로직은 소스 파일들에 있다.
-// 단언은 파일까지 지정한다(어느 파일에 있어도 통과하는 뭉친 검사보다 좁다).
+// calibration 은 SPA 셸의 라우트다(2026-08-25) — 자기 HTML 문서가 없고, 헤더·크롬은 셸이,
+// 카메라 셀렉터는 CameraProvider 가 준다. 단언은 파일까지 지정한다(어느 파일에 있어도
+// 통과하는 뭉친 검사보다 좁다).
 const CAL = {
-  shell: "../public/calibration.html",
-  app: "../src/pages/calibration/app.jsx",
+  css: "../src/pages/calibration/calibration.css",
+  app: "../src/pages/calibration/page.jsx",
   actions: "../src/pages/calibration/actions.mjs",
   overlay: "../src/pages/calibration/sweep-overlay.jsx",
   status: "../src/pages/calibration/status-card.jsx",
@@ -143,10 +144,16 @@ test("설정 페이지 — DOM 계약과 부트스트랩", async () => {
 // 오른쪽은 지금 고른 카메라의 작업면. 한 단에 세로로 쌓으면 목록에서 고른 것과 오른쪽에 뜬
 // 것이 한 화면에 함께 보이지 않아 비교가 성립하지 않는다.
 test("캘리브레이션 페이지 — 2단 배치와 프로파일 카탈로그", async () => {
-  const shell = await read(CAL.shell);
-  assert.match(shell, /#cal-split[^}]*flex-direction: row/, "2단이어야 한다");
-  assert.match(shell, /\.cal-card-list[^}]*min-height: 0/, "목록 단은 자기 안에서 스크롤해야 한다");
-  assert.match(shell, /\.cal-col-detail[^}]*overflow-y: auto/, "작업면은 따로 스크롤해야 한다");
+  const css = await read(CAL.css);
+  assert.match(css, /#cal-split[^}]*flex-direction: row/, "2단이어야 한다");
+  assert.match(css, /\.cal-card-list[^}]*min-height: 0/, "목록 단은 자기 안에서 스크롤해야 한다");
+  assert.match(css, /\.cal-col-detail[^}]*overflow-y: auto/, "작업면은 따로 스크롤해야 한다");
+  // SPA 에서는 방문한 화면의 CSS 가 언로드되지 않고 쌓인다 — 접두사 없는 선택자를 남기면
+  // 떠난 화면의 규칙이 다음 화면을 망가뜨린다. 전역 규칙은 셸(public/index.html)의 몫이다.
+  for (const global of ["html", "body", "main", ":root", "header", "h1"]) {
+    assert.doesNotMatch(css, new RegExp(`^${global}\\b[^{]*\\{`, "m"),
+      `전역 선택자 "${global}" 가 라우트 CSS 에 남아 있다`);
+  }
   // 쓰기는 전부 오른쪽 창구를 지난다 — 목록이 자기 몫의 복사/적용을 따로 부르면 두 벌이 되고,
   // 두 벌은 언젠가 한쪽만 고쳐진다.
   const list = await read(CAL.list);
@@ -162,29 +169,32 @@ test("캘리브레이션 페이지 — 2단 배치와 프로파일 카탈로그"
 });
 
 
-test("캘리브레이션 페이지 — 독립 실행 계약", async () => {
-  const shell = await read(CAL.shell);
+test("캘리브레이션 페이지 — 라우트 계약", async () => {
   const app = await read(CAL.app);
   const status = await read(CAL.status);
-  // 셸이 갖는 것: 헤더 셀렉터와 마운트 지점.
-  for (const id of ["header-camera-select", "cal-root"]) {
-    assert.match(shell, new RegExp(`id="${id}"`), `${id} 누락(셸)`);
-  }
   // 카드가 갖는 것 — 하나라도 빠지면 이식 중 유실된 것이다.
   assert.match(app, /id="calib-card"/, "calib-card 누락");
   for (const id of ["calib-desc", "calib-installed", "calib-verify", "calib-start",
     "calib-stop", "calib-advice", "calib-progress", "calib-bar", "calib-msg", "calib-result"]) {
     assert.match(status, new RegExp(`id="${id}"`), `${id} 누락`);
   }
-  // 이 페이지의 유일한 진입점 — 부트 모듈이 스스로 마운트해야 한다.
-  assert.match(app, /createRoot\(document\.getElementById\("cal-root"\)\)/, "부트에서 마운트해야 한다");
-  assert.match(app, /BOOT\.root\.render\(<App cam=\{BOOT\.cam\} \/>\)/, "루트는 캐시되고 렌더는 한 곳이어야 한다 — dev 이중 평가 방어");
-  // 진행 중 카메라 전환 잠금 — cctv 페이지 시절의 전역 setBusy 버튼 쓸기가 우연히 막아 주던
-  // 동작이라, 독립 페이지에서는 명시적으로 잠가야 한다(잡이 모는 카메라를 갈아타면 결과 오염).
+  // 라우트는 **스스로 마운트하지 않는다** — 셸의 라우트 표가 부른다. 자기 루트를 만들면
+  // 셸의 루트와 둘이 되어 프로바이더(카메라·잠금·게이트) 밖에서 도는 화면이 생긴다.
+  assert.doesNotMatch(app, /createRoot|initPageChrome|createCameraSelect/,
+    "라우트가 자기 문서·자기 크롬을 다시 세우면 안 된다");
+  assert.match(app, /export default function CalibrationPage\(\)/, "라우트는 기본 내보내기다");
+  assert.match(app, /useCamera\(\)/, "헤더 셀렉터는 CameraProvider 소유다");
+  // 진행 중 카메라 전환 잠금 — 잡이 모는 카메라를 갈아타면 실기 오동작 + 결과가 엉뚱한
+  // 기기에 저장된다.
   assert.match(app, /cam\.setEnabled\(!running\)/);
   // 폴링 누수 방지.
   assert.match(app, /clearInterval\(pollRef\.current\); \};\s*window\.addEventListener\("pagehide", bye\)/);
-  // 외부 의존은 api 모듈 + 공용 크롬/셀렉터뿐 — cctv 쪽 코드를 호출하지 않는다.
+  // 스트림 놓아주기 — 라우트 이탈에는 pagehide 가 오지 않는다. 셋을 전부 걸어야 한다:
+  // 카메라 전환 전(registerRelease) · 언마운트(cleanup 의 destroy) · 진짜 문서 이탈(pagehide).
+  assert.match(app, /registerRelease\(\(\) => preview\.stop\(\)\)/, "카메라 전환 전에 놓아줘야 한다");
+  assert.match(app, /preview\.destroy\(\)/, "언마운트에서 위젯을 거둬야 한다 — stop 만으로는 리스너가 남는다");
+  assert.match(app, /window\.addEventListener\("pagehide", bye\)/, "문서 이탈도 막아야 한다");
+  // 외부 의존은 api 모듈 + 셸의 프로바이더뿐 — cctv 쪽 코드를 호출하지 않는다.
   for (const src of [app, status]) {
     assert.doesNotMatch(src, /setBusy\(|showSwitching\(|controlPreview\.|discoveryPreview\./);
   }
