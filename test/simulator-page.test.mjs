@@ -478,17 +478,16 @@ test("끌어서 바꾼 값은 폼에도 반영된다 — 저장이 방금 끈 �
 });
 
 test("저장된 씬은 카메라가 아니라 씬의 것이다 — 씬 탭에서 다루고 씬 상태줄에 적는다", async () => {
-  const src = await page();
-  const info = src.slice(src.indexOf('id="sim-info-panel"'), src.indexOf('id="sim-settings-panel"'));
+  const info = await read("scene-panel.jsx");
   // 저장본은 세운 카메라 + 차량 전체다. 카메라 옆에 두면 "이 카메라를 저장한다" 로 읽힌다.
   for (const id of ["sim-scene-name", "sim-scene-save", "sim-scene-list", "sim-scene-status", "sim-reset"]) {
     assert.match(info, new RegExp(`id="${id}"`), `${id} 는 씬 탭의 것이다`);
   }
   // 결과도 씬 상태줄에 적는다 — 카메라 상태줄에 적으면 씬 전체의 일이 고른 카메라 하나의
-  // 일처럼 읽힌다(버튼을 옮긴 것과 같은 이유다).
-  const scenes = src.slice(src.indexOf("const loadSavedScenes ="), src.indexOf("// ── 주소 저장/테스트"));
-  assert.ok(!scenes.includes("setCamStatus("), "저장/복원은 카메라 상태줄을 쓰지 않는다");
-  assert.ok(scenes.split("setSceneStatus(").length > 5, "씬 상태줄로 말한다");
+  // 일처럼 읽힌다(버튼을 옮긴 것과 같은 이유다). 이 패널의 setStatus 가 곧 그 줄이다.
+  assert.ok(!info.includes("setCamStatus("), "저장/복원은 카메라 상태줄을 쓰지 않는다");
+  assert.ok(info.split("setStatus(").length > 5, "씬 상태줄로 말한다");
+  assert.match(info, /<div id="sim-scene-status"[^>]*>\{status\}<\/div>/, "그 줄이 이 패널의 것이어야 한다");
 });
 
 // 이 화면의 저장은 **서버에 남는 저장**이다. 예전에는 스냅샷 JSON 을 브라우저가 내려받게
@@ -496,57 +495,68 @@ test("저장된 씬은 카메라가 아니라 씬의 것이다 — 씬 탭에서
 // 나서 되돌릴 것이 실제로 남아 있지 않았다는 뜻이다.
 test("씬 저장은 서버로 간다 — 다운로드로 떨어뜨리지 않는다", async () => {
   const src = await page();
-  const save = src.slice(src.indexOf("const putScene ="), src.indexOf("const saveSceneAs ="));
+  const scene = await read("scene-panel.jsx");
+  const save = scene.slice(scene.indexOf("const putScene ="), scene.indexOf("const saveSceneAs ="));
   assert.match(save, /reqJson\("PUT", api\(`\/simulator\/scenes\//);
   // 본문 없이 부른다 — 서버가 시뮬에서 직접 읽는다(화면이 낡은 사이 저장하면 옛 씬이 남는다).
   assert.ok(!/JSON\.stringify/.test(save), "브라우저가 씬을 실어 나르지 않는다");
-  assert.match(src, /getJson\(api\("\/simulator\/scenes"\)\)/);
-  assert.match(src, /reqJson\("DELETE", api\(`\/simulator\/scenes\//);
-  assert.match(src, /\/restore`\)/);
+  assert.match(scene, /getJson\(api\("\/simulator\/scenes"\)\)/);
+  assert.match(scene, /reqJson\("DELETE", api\(`\/simulator\/scenes\//);
+  assert.match(scene, /\/restore`\)/);
   // 내려받기 경로의 잔재가 남으면 저장이 두 곳으로 갈린다.
   for (const gone of ["createObjectURL", "sim-snap-save", "sim-snap-load", "sim-snap-file", "a.download"]) {
-    assert.ok(!src.includes(gone), `내려받기 잔재가 남아 있다: ${gone}`);
+    assert.ok(!(src + scene).includes(gone), `내려받기 잔재가 남아 있다: ${gone}`);
   }
   // 복원은 되돌릴 수 없다 — 무엇이 사라지는지 세어서 보여준 뒤에 묻는다.
-  const restore = src.slice(src.indexOf("const restoreSavedScene ="), src.indexOf("// ── 주소 저장/테스트"));
-  assert.match(restore, /doomedCameraCount\(S\.current\.cameras, snap\)/);
+  const restore = scene.slice(scene.indexOf("const restoreSavedScene ="));
+  assert.match(restore, /doomedCameraCount\(cameras, snap\)/);
   // 레벨이 다르면 409 다. 강행 여부는 사람이 정한다 — 다른 주차장의 좌표를 이 레벨에
   // 쏟아붓는 일이라 조용히 force 를 붙이면 안 된다.
   assert.match(restore, /if \(e\.status !== 409\) throw e;/);
   assert.match(restore, /r = await postJson\(path, \{ force: true \}\);/);
+  // 복원 뒤 씬을 다시 채우는 일은 부모의 몫이다 — 여기서 하면 이 탭 하나가 화면 전체를 안다.
+  assert.match(restore, /await onRestored\(\);/);
+  assert.doesNotMatch(scene, /refreshRig\(\)|loadScene\(\)/, "패널이 씬을 직접 다시 읽으면 안 된다");
+  assert.match(src, /const reloadAfterRestore = useCallback/, "부모가 그 되읽기를 들어야 한다");
 });
 
 test("탭을 열면 그 탭이 보는 것을 서버에서 다시 읽는다", async () => {
   const src = await page();
-  // 저장본은 다른 브라우저에서도 늘어나고, 리그는 밖에서 바뀐다.
-  assert.match(src, /if \(tab === "info"\) loadSavedScenes\(\);/);
+  // 리그는 이 화면 밖에서도 바뀐다.
   assert.match(src, /if \(tab === "rig" \|\| tab === "drive"\) refreshRig\(\);/);
-  // 설정 탭의 주소도 같은 규칙을 따르되, 그 패널이 스스로 읽는다 — 설정 탭에서만
+  // 주소와 저장 목록도 같은 규칙을 따르되, 각 패널이 스스로 읽는다 — 자기 탭에서만
   // 마운트되므로 마운트가 곧 「탭을 열었다」이고, 여는 쪽과 읽는 쪽을 갈라 둘 이유가 없다.
-  const panel = await read("endpoint-panel.jsx");
-  assert.match(panel, /useEffect\(\(\) => \{ load\(\); \}, \[load\]\);/, "패널이 마운트에서 주소를 읽어야 한다");
+  // (저장본은 다른 브라우저에서도 늘어나므로 열 때마다 다시 읽어야 한다.)
+  const endpoint = await read("endpoint-panel.jsx");
+  assert.match(endpoint, /useEffect\(\(\) => \{ load\(\); \}, \[load\]\);/, "패널이 마운트에서 주소를 읽어야 한다");
   assert.match(src, /\{tab === "settings" && \(\s*<EndpointPanel/, "그 패널은 설정 탭에서만 선다");
+  const scene = await read("scene-panel.jsx");
+  assert.match(scene, /useEffect\(\(\) => \{ loadSavedScenes\(\); \}, \[loadSavedScenes\]\);/,
+    "패널이 마운트에서 저장 목록을 읽어야 한다");
+  assert.match(src, /\{tab === "info" && \(\s*<ScenePanel/, "그 패널은 씬 탭에서만 선다");
 });
 
 // 이름을 고치는 것과 내용을 고치는 것은 다른 일이다. 한 버튼으로 묶으면(= 새 이름으로 저장)
 // 이름만 고치려던 사람이 그 사이 달라진 씬까지 저장본에 옮겨 담게 된다.
 test("이름 바꾸기는 서버가 파일을 옮긴다 — 새 이름으로 다시 저장하는 것이 아니다", async () => {
-  const src = await page();
-  const rename = src.slice(src.indexOf("const renameSavedScene ="), src.indexOf("const deleteSavedScene ="));
+  const scene = await read("scene-panel.jsx");
+  const rename = scene.slice(scene.indexOf("const renameSavedScene ="), scene.indexOf("const deleteSavedScene ="));
   assert.match(rename, /postJson\(api\(`\/simulator\/scenes\/\$\{enc\(scene\.name\)\}\/rename`\)/);
   assert.ok(!rename.includes("putScene("), "이름 바꾸기가 지금 씬을 저장하면 내용이 함께 바뀐다");
   assert.ok(!/reqJson\("DELETE"/.test(rename), "옮기는 것이지 지웠다 다시 만드는 것이 아니다");
   // 덮어쓰기는 반대다: 이름은 그대로 두고 지금 씬을 담는다.
-  assert.match(src, /putScene\(scene\.name\)/);
+  assert.match(scene, /putScene\(scene\.name\)/);
 });
 
 // 저장되는 것은 카메라 하나가 아니라 이 월드다. 빈 칸을 두면 눈앞의 카메라 별명을 적게 되어
 // 저장본 이름이 카메라 이름과 같아진다(실제로 그렇게 됐다).
 test("저장 이름 칸은 비어 있으면 레벨 이름으로 채운다", async () => {
-  const src = await page();
-  const load = src.slice(src.indexOf("const loadSavedScenes ="), src.indexOf("const putScene ="));
-  assert.match(load, /catalogRef\.current\?\.level/);
-  assert.match(load, /setSceneName\(\(prev\) => \(prev\.trim\(\)/);
+  const scene = await read("scene-panel.jsx");
+  assert.match(scene, /const level = catalog\?\.level \|\| "";/, "레벨은 부모가 준 카탈로그에서 온다");
+  // **사람이 적어 둔 이름은 덮지 않는다.** prev 를 보고 비었을 때만 채우는 것이 그 규칙이고,
+  // 무조건 대입으로 바꾸면 이름을 적는 도중 카탈로그가 도착하는 순간 글자가 사라진다.
+  assert.match(scene, /setName\(\(prev\) => \(prev\.trim\(\) \? prev : level\)\);/);
+  assert.match(scene, /if \(!level\) return;/, "레벨을 모르면 아무것도 하지 않는다");
 });
 
 test("씬은 주기적으로 다시 읽되, 바뀐 게 없으면 다시 그리지 않는다", async () => {
