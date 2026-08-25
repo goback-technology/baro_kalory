@@ -12,7 +12,7 @@
 // 그것을 바꾸는 문을 아무 화면에나 두지 않는다(설정·시뮬레이터는 자기 목록을 따로 쓴다).
 export const PAGES = [
   { id: "home",        slug: "",            label: "홈",           versionKey: null,          badge: null,   spa: true,  camera: false },
-  { id: "cctv",        slug: "cctv",        label: "CCTV 제어",     versionKey: "cctv",        badge: "CCTV", spa: false, camera: true },
+  { id: "cctv",        slug: "cctv",        label: "CCTV 제어",     versionKey: "cctv",        badge: "CCTV", spa: true , camera: true },
   { id: "discovery",   slug: "discovery",   label: "주차면 탐색",    versionKey: "discovery",   badge: "DISC", spa: false, camera: true },
   { id: "simulator",   slug: "simulator",   label: "시뮬레이터 셋업", versionKey: "simulator",   badge: "SIM",  spa: false, camera: false },
   { id: "settings",    slug: "settings",    label: "설정",          versionKey: "settings",    badge: "SET",  spa: true , camera: false },

@@ -25,6 +25,7 @@ export function useCameraPreview({ storageKey, wantedKey, log, ...opts } = {}) {
   const imgRef = useRef(null);
   const modeBtnRef = useRef(null);
   const fpsRef = useRef(null);
+  const intervalRef = useRef(null);   // 스냅샷 폴링 간격 입력 — 위젯이 값과 저장을 소유한다
   const previewRef = useRef(null);
   const [running, setRunning] = useState(false);
   const runningRef = useRef(false);
@@ -92,5 +93,5 @@ export function useCameraPreview({ storageKey, wantedKey, log, ...opts } = {}) {
     lastCam.current = activeId;
   }, [activeId]);
 
-  return { imgRef, modeBtnRef, fpsRef, running, start, stop, preview: () => previewRef.current };
+  return { imgRef, modeBtnRef, fpsRef, intervalRef, running, start, stop, preview: () => previewRef.current };
 }
