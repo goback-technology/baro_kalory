@@ -681,3 +681,78 @@ test("라우트는 DOM 을 직접 잡지 않는다 — ref 로 잡는 것은 명
   assert.match(src, /img: viewRef\.current/);
   assert.match(src, /modeButton: modeBtnRef\.current/);
 });
+
+// ── 오른쪽 단: 주차면 · 차량 ────────────────────────────────────────────────
+//
+// 이 단에는 그물이 **하나도 없었다**(2026-08-25 발견 — 패널을 제 파일로 떼면서, 200줄이
+// 통째로 옮겨졌는데 아무 테스트도 걸리지 않아 드러났다). 주석에 「왜」가 적혀 있는 규칙이
+// 다섯인데 그중 하나도 검증되지 않고 있었으므로 여기서 채운다.
+test("오른쪽 단 — 주차면 목록과 차량 폼이 갖는 것", async () => {
+  const setup = await read("setup-panel.jsx");
+  for (const id of ["sim-panel", "slot-card", "sim-slots", "sim-sel-slot",
+                    "sim-cartype", "sim-color", "sim-color-chip", "sim-platetype",
+                    "sim-plate-city", "sim-plate-prefix", "sim-plate-kor", "sim-plate-number",
+                    "sim-spawn", "sim-apply", "sim-delete", "sim-force", "sim-status"]) {
+    assert.match(setup, new RegExp(`id="${id}"`), `${id} 누락`);
+  }
+});
+
+// 슬롯을 고르는 자리는 하나다. 평면도와 이 목록은 같은 슬롯을 두 방식으로 그린 것이라,
+// 선택을 양쪽이 따로 들면 클릭한 자리와 켜진 자리가 갈린다.
+test("슬롯 선택은 부모가 들고, 차량 폼은 그것을 받아 읽는다", async () => {
+  const src = await page();
+  const setup = await read("setup-panel.jsx");
+  assert.match(src, /const pickSlot = useCallback\(\(slot\) => \{\s*\n\s*setSelectedSlot\(slot\.id\);\s*\n\s*setSelectedCar\(slot\.carId \|\| null\);/);
+  // 평면도와 목록이 **같은 함수**를 부른다.
+  assert.match(src, /onSlotClick=\{pickSlot\}/, "평면도가 그 선택을 써야 한다");
+  assert.match(src, /onPickSlot=\{pickSlot\}/, "오른쪽 목록도 같은 선택을 써야 한다");
+  // 고른 차가 바뀌면 그 차의 값을 읽어 폼에 올린다 — 읽는 일은 폼을 가진 쪽의 것이다.
+  assert.match(setup, /useEffect\(\(\) => \{\s*\n\s*if \(selectedCar\) loadCarIntoForm\(selectedCar\);/);
+  assert.doesNotMatch(setup, /setSelectedSlot/, "선택을 패널이 다시 들면 두 벌이 된다");
+});
+
+test("차량 폼은 마지막 요청만 이긴다 — 느린 응답이 방금 고른 차를 덮지 않게", async () => {
+  const setup = await read("setup-panel.jsx");
+  const load = setup.slice(setup.indexOf("const loadCarIntoForm ="), setup.indexOf("// 고른 차가 바뀌면"));
+  assert.match(load, /const req = \+\+reqSeq\.current;/, "요청마다 번호를 매겨야 한다");
+  // 성공·실패 **양쪽** 모두에서 확인해야 한다. 성공만 막으면, 느린 실패가 방금 고른 차의
+  // 자리에 「조회 실패」를 적는다.
+  assert.equal(load.match(/if \(req !== reqSeq\.current\) return;/g)?.length, 2,
+    "성공과 실패 양쪽에서 낡은 응답을 버려야 한다");
+  // 무언으로 삼키면 직전 차량의 값이 방금 고른 차량의 것처럼 남고, 이어지는 「적용」이
+  // 그 낡은 값으로 PATCH 한다.
+  assert.match(load, /setStatus\(t\("차량 조회 실패"\)/, "조회 실패는 말해야 한다");
+});
+
+test("차량 쓰기 셋 — 창구와 순서", async () => {
+  const setup = await read("setup-panel.jsx");
+  assert.match(setup, /postJson\(api\("\/simulator\/cars"\), \{ slotId: selectedSlot, force, \.\.\.carBody\(\) \}\)/);
+  assert.match(setup, /reqJson\("PATCH", api\("\/simulator\/cars\/"\) \+ enc\(applied\), carBody\(\)\)/);
+  assert.match(setup, /reqJson\("DELETE", api\("\/simulator\/cars\/"\) \+ enc\(id\)\)/);
+  // 2xx 인데 본문이 비면 스폰은 됐는데 화면만 「실패」라고 말한다 — 카메라 스폰과 같은 방어다.
+  assert.match(setup, /const car = r\.car \|\| null;/);
+  assert.match(setup, /car\?\.id \? t\("스폰됨: \{id\}"/, "본문이 없어도 성공은 성공이라고 말해야 한다");
+  // 씬 재적재가 상태줄을 비우므로 성공 보고는 **그 뒤**다. 순서가 뒤집히면 방금 적은 결과가
+  // 곧바로 지워져 「아무 일도 안 일어났다」로 보인다.
+  const spawn = setup.slice(setup.indexOf("const simSpawn ="), setup.indexOf("const simApply ="));
+  assert.ok(spawn.indexOf("await onSceneChanged()") < spawn.indexOf('setStatus(car?.id'),
+    "재적재가 먼저, 보고가 나중이어야 한다");
+  // 삭제는 즉시 선점을 푼다 — 재적재가 빈 슬롯에서 재확인하지만, 그 사이 「선택 차량에 적용」이
+  // 이미 없는 차를 향할 수 있다.
+  const del = setup.slice(setup.indexOf("const simDelete ="));
+  assert.ok(del.indexOf("setSelectedCar(null)") < del.indexOf("await onSceneChanged()"),
+    "선점 해제가 재적재보다 먼저여야 한다");
+});
+
+// 상태줄은 이 패널만의 것이 아니다 — 씬 재적재와 「전체 초기화」(씬 탭)도 같은 줄에 적는다.
+// 패널이 자기 상태로 들면 그 두 경로가 말할 자리를 잃는다.
+test("차량 상태줄은 부모가 든다 — 씬 재적재와 초기화도 같은 줄에 적는다", async () => {
+  const src = await page();
+  const setup = await read("setup-panel.jsx");
+  assert.match(setup, /status, setStatus, onSceneChanged,/, "상태줄은 props 로 받는다");
+  assert.doesNotMatch(setup, /useState\(""\)[\s\S]{0,40}[Ss]tatus/, "패널이 상태줄을 다시 들면 안 된다");
+  assert.match(src, /const \[carStatus, setCarStatus\] = useState\(""\);/);
+  assert.match(src, /status=\{carStatus\} setStatus=\{setCarStatus\}/);
+  // 전체 초기화(씬 탭 버튼)의 결과도 이 줄에 적힌다.
+  assert.match(src, /setCarStatus\(t\("\{n\}대 초기화됨"/);
+});
