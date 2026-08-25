@@ -64,7 +64,7 @@ export function createCameraSelect({ select, onChange, beforeChange, onSettled, 
     }
   }
 
-  select.addEventListener("change", async (event) => {
+  async function onSelectChange(event) {
     const id = event.target.value;
     const previous = activeId;
     if (!id || id === previous) return;
@@ -84,19 +84,28 @@ export function createCameraSelect({ select, onChange, beforeChange, onSettled, 
       applyDisabled();
       if (onSettled) onSettled();
     }
-  });
+  }
+  select.addEventListener("change", onSelectChange);
 
   // 다른 창/페이지가 활성 카메라를 바꾼 뒤 이 탭으로 돌아오면 표시가 낡아 있다 —
   // "헤더엔 A 라고 쓰여 있는데 화면은 B" 를 막기 위해 보일 때마다 서버 상태를 재조회.
-  if (refreshOnVisible) {
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") load();
-    });
+  function onVisibilityChange() {
+    if (document.visibilityState === "visible") load();
+  }
+  if (refreshOnVisible) document.addEventListener("visibilitychange", onVisibilityChange);
+
+  // 위젯을 버린다. document 에 건 재조회 리스너는 이 위젯보다 오래 사는 대상에 걸린
+  // 것이라, 떼지 않으면 버린 인스턴스가 탭 복귀마다 목록을 다시 불러온다 — 화면 전환이
+  // 페이지 로드 없이 일어나면(SPA) 왕복 횟수만큼 같은 요청이 겹쳐 나간다.
+  function destroy() {
+    select.removeEventListener("change", onSelectChange);
+    if (refreshOnVisible) document.removeEventListener("visibilitychange", onVisibilityChange);
   }
 
   return {
     load,
     sync,
+    destroy,
     list: () => cameras,
     activeId: () => activeId,
     setEnabled(on) { enabled = !!on; applyDisabled(); },

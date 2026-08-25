@@ -62,6 +62,17 @@ export function createCameraPreview(opts) {
   // 미러가 되어, 새 페이지를 추가할 때 한쪽만 고치면 그 페이지만 조용히 오버레이를 잃는다.
   const stage = img.closest(".preview-stage") || img.parentElement;
 
+  // 등록한 리스너를 전부 기억한다 — destroy() 가 되돌릴 수 있어야 하기 때문이다.
+  // document·window 에 건 것은 이 위젯보다 오래 사는 대상이라, 떼지 못하면 인스턴스가
+  // 죽어도 리스너가 남는다. 페이지 전체를 새로 로드하던 시절에는 그 누수가 안 보였지만,
+  // 화면 전환이 로드 없이 일어나면(SPA) 왕복할 때마다 쌓여 자동 정지·재개가 N중으로 돈다.
+  const listeners = [];
+  function on(target, type, handler) {
+    target.addEventListener(type, handler);
+    listeners.push([target, type, handler]);
+  }
+  let destroyed = false;
+
   const player = createMjpegPlayer({
     img,
     onFps: (fps) => setLabel(t("스트림") + " ≈ " + fps.toFixed(1) + " fps"),
@@ -76,14 +87,14 @@ export function createCameraPreview(opts) {
 
   if (intervalInput) {
     intervalInput.value = intervalMs;
-    intervalInput.addEventListener("change", () => {
+    on(intervalInput, "change", () => {
       intervalMs = clamp(Number(intervalInput.value) || 0, 0, 3000);
       intervalInput.value = intervalMs;
       if (keyInt) localStorage.setItem(keyInt, String(intervalMs));
     });
   }
-  if (modeButton) modeButton.addEventListener("click", () => setMode(mode === "stream" ? "snapshot" : "stream"));
-  if (modeButton) window.addEventListener("langchange", () => { modeButton.textContent = mode === "stream" ? t("프리뷰: 스트림(MJPEG)") : t("프리뷰: 스냅샷"); });
+  if (modeButton) on(modeButton, "click", () => setMode(mode === "stream" ? "snapshot" : "stream"));
+  if (modeButton) on(window, "langchange", () => { modeButton.textContent = mode === "stream" ? t("프리뷰: 스트림(MJPEG)") : t("프리뷰: 스냅샷"); });
 
   function setLabel(t) { if (fpsLabel) fpsLabel.textContent = t; }
   function setWaiting(on) {
@@ -245,6 +256,7 @@ export function createCameraPreview(opts) {
     clearTimeout(snapTimer);
     clearStreamRetry();
     await player.stop();
+    if (destroyed) return;   // 이 await 사이에 버려졌으면 새 연결을 열지 않는다
     if (modeButton) modeButton.textContent = mode === "stream" ? t("프리뷰: 스트림(MJPEG)") : t("프리뷰: 스냅샷");
     if (intervalInput) intervalInput.disabled = mode === "stream";
     if (mode === "stream") {
@@ -269,7 +281,7 @@ export function createCameraPreview(opts) {
     if (!paused) apply();
   }
 
-  img.addEventListener("load", () => {
+  on(img, "load", () => {
     if (paused) return;
     setWaiting(false);
     markFrame();
@@ -284,15 +296,15 @@ export function createCameraPreview(opts) {
     lastFrameAt = now;
     snapTimer = setTimeout(loopSnapshot, intervalMs);
   });
-  img.addEventListener("error", () => {
+  on(img, "error", () => {
     if (paused) return;                        // intentional stop — don't fall back
     setWaiting(true);
     if (mode === "stream") scheduleStreamReconnect();
     else snapTimer = setTimeout(loopSnapshot, 1500);
   });
-  img.addEventListener("dragstart", (e) => e.preventDefault());
+  on(img, "dragstart", (e) => e.preventDefault());
 
-  function start() { paused = false; clearHiddenTimer(); suspendedByHidden = false; apply(); }
+  function start() { if (destroyed) return; paused = false; clearHiddenTimer(); suspendedByHidden = false; apply(); }
   // 스트림 fetch 가 완전히 종료될 때까지 await → 호출부가 "꺼진 뒤" 전환하도록.
   async function stop() {
     paused = true;
@@ -335,7 +347,21 @@ export function createCameraPreview(opts) {
     clearHiddenTimer();
     if (suspendedByHidden) { suspendedByHidden = false; start(); }
   }
-  document.addEventListener("visibilitychange", onVisibilityChange);
+  on(document, "visibilitychange", onVisibilityChange);
+
+  // 위젯을 통째로 버린다 — 화면이 이 프리뷰를 더는 소유하지 않을 때(라우트 이탈·컴포넌트
+  // 언마운트) 부른다. stop() 과 다른 점은 **돌아올 자리가 없다**는 것이다: stop() 은 다시
+  // start() 될 것을 전제로 리스너를 남기지만, destroy() 뒤에는 이 인스턴스가 아무것에도
+  // 반응하지 않아야 한다. 특히 document 의 visibilitychange 는 이 위젯보다 오래 사는
+  // 대상에 걸린 것이라, 떼지 않으면 버린 인스턴스가 탭 복귀마다 되살아나 스트림을 다시
+  // 연다 — 화면에는 없는데 카메라는 점유하는 유령 시청자다.
+  async function destroy() {
+    destroyed = true;
+    for (const [target, type, handler] of listeners.splice(0)) {
+      try { target.removeEventListener(type, handler); } catch { /* 스텁·소멸한 노드 */ }
+    }
+    await stop();
+  }
 
   // 기기가 바뀌면 자동 폴백을 **무효화한다.** 폴백은 "직전 기기가 스트림을 못 준다"는
   // 사실이었을 뿐, 새 기기에 대한 판정이 아니다. 이걸 안 걷어내면 기준기(previewStream=null →
@@ -352,7 +378,7 @@ export function createCameraPreview(opts) {
     return true;
   }
 
-  return { start, stop, setMode, getMode: () => mode, isPaused: () => paused,
+  return { start, stop, destroy, setMode, getMode: () => mode, isPaused: () => paused,
            didFallBack: () => fellBackToSnapshot, resetFallbackForNewDevice,
            waitForNextFrame, watchDisplayedMotion, getFrameSeq: () => frameSeq };
 }

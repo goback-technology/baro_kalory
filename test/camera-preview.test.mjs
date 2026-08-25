@@ -15,15 +15,38 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // --- 최소 DOM 스텁 -----------------------------------------------------------
 // import 전에 심어야 한다(i18n 이 모듈 스코프에서 document.title 을 읽는다).
+// document·window 의 리스너는 **세어야 한다** — 이 위젯보다 오래 사는 대상에 걸리므로,
+// 떼지 못하면 버린 인스턴스가 계속 반응한다. 스텁이 등록/해제를 그대로 기록한다.
+function listenerBus() {
+  const handlers = new Map();   // type -> Set<fn>
+  return {
+    addEventListener(type, fn) {
+      if (!handlers.has(type)) handlers.set(type, new Set());
+      handlers.get(type).add(fn);
+    },
+    removeEventListener(type, fn) { handlers.get(type)?.delete(fn); },
+    count: (type) => handlers.get(type)?.size || 0,
+    async fire(type) { for (const fn of [...(handlers.get(type) || [])]) await fn(); },
+  };
+}
+
+let docBus, winBus;
 function installDom() {
+  docBus = listenerBus();
+  winBus = listenerBus();
   globalThis.document = {
     title: "test",
     hidden: false,
-    addEventListener() {},
+    visibilityState: "visible",
+    addEventListener: (...a) => docBus.addEventListener(...a),
+    removeEventListener: (...a) => docBus.removeEventListener(...a),
     querySelector: () => null,
     createElement: () => ({ getContext: () => null, width: 0, height: 0 }),
   };
-  globalThis.window = { addEventListener() {} };
+  globalThis.window = {
+    addEventListener: (...a) => winBus.addEventListener(...a),
+    removeEventListener: (...a) => winBus.removeEventListener(...a),
+  };
   globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 }
 
@@ -51,6 +74,7 @@ function makeStage({ autoLoad = true, loadDelayMs = 1 } = {}) {
     closest: () => stage,
     parentElement: stage,
     addEventListener: (ev, fn) => { handlers.set(ev, fn); },
+    removeEventListener: (ev, fn) => { if (handlers.get(ev) === fn) handlers.delete(ev); },
     removeAttribute() {},
     set src(v) {
       srcLog.push(v);
@@ -211,4 +235,49 @@ test("접속 시도 중에는 대기(Wait)로 표시한다", async () => {
   assert.equal(pausedLog.at(-1), false, "그때 정지 표시는 꺼져 있어야 한다");
   await preview.stop();
   assert.equal(pausedLog.at(-1), true, "정지하면 다시 정지 표시");
+});
+
+// --- destroy(): 라우트 이탈·언마운트 -----------------------------------------
+// 화면 전환이 페이지 로드 없이 일어나면(SPA) 위젯을 스스로 거둬야 한다. stop() 은 다시
+// start() 될 것을 전제로 리스너를 남기지만, 버린 인스턴스에는 돌아올 자리가 없다 —
+// document 의 visibilitychange 가 남으면 화면에 없는 프리뷰가 탭 복귀마다 되살아나
+// 스트림을 다시 연다. 유령 시청자가 카메라를 점유하는 그 부류다(2026-07-16 OOM).
+test("destroy 는 폴링을 끊고 document·window 리스너를 남기지 않는다", async () => {
+  const before = docBus.count("visibilitychange");
+  const { img, srcLog } = makeStage();
+  const preview = createCameraPreview({
+    img, streamUrl: "/s", snapshotUrl: "/snap",
+    modeButton: { addEventListener() {}, removeEventListener() {}, set textContent(v) {} },
+    defaultMode: "snapshot", defaultIntervalMs: 0, storageKey: null,
+  });
+  assert.equal(docBus.count("visibilitychange"), before + 1, "위젯이 살아 있는 동안엔 걸려 있어야 한다");
+  assert.ok(winBus.count("langchange") >= 1, "언어 전환 리스너도 등록된다");
+
+  preview.start();
+  await sleep(60);
+  await preview.destroy();
+
+  assert.equal(docBus.count("visibilitychange"), before, "destroy 뒤에 document 리스너가 남았다");
+  assert.equal(winBus.count("langchange"), 0, "destroy 뒤에 window 리스너가 남았다");
+
+  const after = srcLog.length;
+  await sleep(60);
+  assert.equal(srcLog.length, after, "destroy 뒤에도 폴링이 돌고 있다");
+});
+
+test("destroy 뒤에는 탭 복귀도 start() 도 스트림을 다시 열지 못한다", async () => {
+  const { img, srcLog } = makeStage();
+  const preview = createCameraPreview({
+    img, streamUrl: "/s", snapshotUrl: "/snap",
+    defaultMode: "snapshot", defaultIntervalMs: 0, storageKey: null,
+  });
+  preview.start();
+  await sleep(40);
+  await preview.destroy();
+  const after = srcLog.length;
+
+  await docBus.fire("visibilitychange");   // 살아 있는 다른 위젯이 있으면 이 이벤트는 계속 온다
+  preview.start();                         // 호스트가 실수로 다시 불러도
+  await sleep(60);
+  assert.equal(srcLog.length, after, "버린 인스턴스가 되살아나 카메라를 점유했다");
 });
