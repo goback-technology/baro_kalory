@@ -116,8 +116,8 @@ test("프로파일 차트 — 한 그림에 축은 하나", async () => {
   assert.match(src, /var\(--color-accent/, "차트 색은 테마 토큰이어야 한다");
 });
 
-test("주차면 탐색 페이지 — 독립 실행 계약", async () => {
-  const html = await read("../public/discovery.html");
+test("주차면 탐색 라우트 — 화면이 갖는 것", async () => {
+  const page = await read("../src/pages/discovery/page.jsx");
   for (const id of [
     "disc-wrap", "disc-view", "disc-stage", "disc-points", "disc-masks", "disc-home-frame",
     "disc-home-box", "disc-monologue", "disc-crosshair", "disc-preview-mode", "disc-fps",
@@ -125,19 +125,32 @@ test("주차면 탐색 페이지 — 독립 실행 계약", async () => {
     "disc-pt-label", "disc-home-status", "disc-vlm", "disc-vlm-replace", "disc-home-start",
     "disc-home-stop", "disc-clear", "disc-point-props", "disc-ptlist",
     "home-replay", "hr-img", "hr-overlay", "hr-cross", "hr-caption", "hr-prev", "hr-next", "hr-play", "hr-close",
-    "header-camera-select",
   ]) {
-    assert.match(html, new RegExp(`id="${id}"`), `${id} 누락`);
+    assert.match(page, new RegExp(`id="${id}"`), `${id} 누락`);
   }
-  // 자기 PTZ 폴링을 갖는다 — 제어 콘솔의 loopPtz 에 얹혀 있던 시절의 탭 가드는 사라져야 한다.
-  assert.match(html, /async function loopPtz\(\)/);
-  assert.doesNotMatch(html, /activeTab/);
-  // 숨겨진 탭에서 카메라를 깨우지 않는 규칙은 유지(회귀 그물: 하루 10만 건 폴링 사고).
-  assert.match(html, /if \(document\.hidden\) \{ setTimeout\(loopPtz, 800\); return; \}/);
-  // 잡 진행 중에는 카메라 전환을 잠근다 — 잡이 몰던 카메라를 갈아타면 결과가 섞인다.
-  assert.match(html, /function setBusy[\s\S]{0,220}cam\.setEnabled\(!on\)/);
-  // 스트림 누수 방지.
-  assert.match(html, /pagehide[\s\S]{0,80}discoveryPreview\.stop\(\)/);
+  // 라우트는 스스로 마운트하지 않는다 — 셸의 라우트 표가 부른다.
+  assert.doesNotMatch(page, /createRoot|initPageChrome|createCameraSelect|createCameraPreview/,
+    "라우트가 자기 문서·자기 크롬·자기 위젯을 다시 세우면 안 된다");
+  assert.match(page, /export default function DiscoveryPage\(\)/);
+  // 이 화면은 프리뷰가 곧 작업면이다 — 꺼져 있으면 점을 찍을 수 없다.
+  assert.match(page, /alwaysOn: true/);
+  // 숨겨진 탭에서 카메라를 깨우지 않는 규칙은 훅이 든다(하루 10만 건 폴링 사고의 그물).
+  assert.match(page, /useJobPoll\(readPtz, \{ intervalMs: 800 \}\)/);
+  // 잡이 카메라를 모는 동안 전환을 잠근다 — 갈아타면 결과가 다른 기기 것으로 섞인다.
+  assert.match(page, /cam\.setEnabled\(!running && !busy\)/);
+});
+
+// 리플레이 자막은 상류(VLM 의 reason·evidence)에서 온 문자열을 싣는다. 인라인 시절에는
+// innerHTML 로 붙이면서 escapeHtml 로 손수 막았고, 그 방어를 한 번 빠뜨리면 그대로 주입이다.
+test("주차면 탐색 라우트 — 서버 문자열을 마크업으로 만들지 않는다", async () => {
+  const page = await read("../src/pages/discovery/page.jsx");
+  const actions = await read("../src/pages/discovery/actions.mjs");
+  // 주석은 걷고 본다 — 왜 그러지 않는지를 설명하는 주석이 그 이름을 인용한다.
+  const code = (s) => s.replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(code(page) + code(actions), /dangerouslySetInnerHTML|innerHTML|escapeHtml/,
+    "서버 값은 텍스트로만 그린다 — 이스케이프를 손으로 하지 않는다");
+  // 자막은 조각 배열로 온다(값 판정은 actions.test.mjs 가 문다).
+  assert.match(page, /replayCaption\(replay\.steps\[replay\.i\]\)/);
 });
 
 // 백엔드 미연결 게이트 — 이 UI 는 백엔드와 분리 배포된다. 백엔드가 대답하지 않으면 첫 화면이
