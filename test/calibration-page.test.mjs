@@ -68,11 +68,17 @@ test("캘리브레이션 페이지 — 라우트 계약", async () => {
   assert.match(app, /cam\.setEnabled\(!running\)/);
   // 폴링 누수 방지.
   assert.match(app, /clearInterval\(pollRef\.current\); \};\s*window\.addEventListener\("pagehide", bye\)/);
-  // 스트림 놓아주기 — 라우트 이탈에는 pagehide 가 오지 않는다. 셋을 전부 걸어야 한다:
-  // 카메라 전환 전(registerRelease) · 언마운트(cleanup 의 destroy) · 진짜 문서 이탈(pagehide).
-  assert.match(app, /registerRelease\(\(\) => preview\.stop\(\)\)/, "카메라 전환 전에 놓아줘야 한다");
-  assert.match(app, /preview\.destroy\(\)/, "언마운트에서 위젯을 거둬야 한다 — stop 만으로는 리스너가 남는다");
-  assert.match(app, /window\.addEventListener\("pagehide", bye\)/, "문서 이탈도 막아야 한다");
+  // 프리뷰 배선은 **공용 훅의 몫**이다. 이 화면은 한때 같은 배선을 손으로 폈고, 그 사본에
+  // 카메라 전환 후 재시작과 폴백 초기화가 빠져 있었다(2026-08-25). 사본을 금지해야 그 부류가
+  // 다시 생기지 않는다.
+  assert.doesNotMatch(app, /createCameraPreview\(/, "프리뷰 생성은 훅의 몫이다");
+  assert.match(app, /useCameraPreview\(\{ storageKey: "calib", wantedKey: KEY \}\)/,
+    "저장된 선택 키를 유지해야 한다 — 바뀌면 켜 두었던 사람의 선택이 사라진다");
+  // 놓아주기 세 갈래와 전환 계약은 훅이 든다(그 자리에서 한 번만 검증한다).
+  const hook = await read("../src/camera/use-preview.mjs");
+  assert.match(hook, /registerRelease\(/, "카메라 전환 전에 놓아줘야 한다");
+  assert.match(hook, /preview\.destroy\(\)/, "언마운트에서 위젯을 거둬야 한다 — stop 만으로는 리스너가 남는다");
+  assert.match(hook, /window\.addEventListener\("pagehide", bye\)/, "문서 이탈도 막아야 한다");
   // 외부 의존은 api 모듈 + 셸의 프로바이더뿐 — cctv 쪽 코드를 호출하지 않는다.
   for (const src of [app, status]) {
     assert.doesNotMatch(src, /setBusy\(|showSwitching\(|controlPreview\.|discoveryPreview\./);
@@ -266,16 +272,24 @@ test("캘리브레이션 페이지 — 라이브 뷰와 스윕 오버레이", as
   const overlay = await read(CAL.overlay);
   const status = await read(CAL.status);
 
-  // 프리뷰는 공유 모듈을 쓴다. 두 벌째 구현을 두면 스트림 수명·폴백 규칙이 갈라진다.
-  assert.match(app, /import \{ createCameraPreview \} from "\.\.\/\.\.\/camera\/preview\.mjs"/,
-    "프리뷰는 공유 모듈이어야 한다");
+  // 프리뷰는 공용 훅을 쓴다. 두 벌째 배선을 두면 스트림 수명·폴백 규칙이 갈라진다 —
+  // 실제로 갈라졌었다(전환 후 재시작 누락 · 폴백 이월, 2026-08-25).
+  assert.match(app, /import \{ useCameraPreview \} from "\.\.\/\.\.\/camera\/use-preview\.mjs"/,
+    "프리뷰는 공용 훅이어야 한다");
   assert.doesNotMatch(app + overlay, /new EventSource|createMjpegPlayer/, "페이지가 스트림을 직접 몰면 안 된다");
 
   // 페이지를 여는 행위가 카메라 점유가 되면 안 된다 — 켜는 것은 사용자 선택이고 그것만 기억한다.
   assert.match(app, /calib:preview-on\.v1/, "프리뷰 켬/끔 선택을 기억해야 한다");
-  assert.match(app, /addEventListener\("pagehide", bye\)/, "탭을 떠나면 업스트림도 끊어야 한다 — 유령 시청자가 카메라를 점유한다");
-  assert.match(app, /const bye = \(\) => \{ preview\.stop\(\); \}/, "pagehide 가 프리뷰를 멈춰야 한다");
-  assert.match(app, /await previewRef\.current\.stop\(\)/, "정지는 await 해야 한다 — 전환마다 연결이 누적된다");
+  // 프리뷰의 pagehide 는 훅이 든다. 이 화면에 남은 pagehide 는 **폴링 정리**이고, 둘은 다른
+  // 일이다 — 하나를 다른 하나의 증거로 삼으면 프리뷰 배선이 사라져도 테스트가 통과한다.
+  const hook = await read("../src/camera/use-preview.mjs");
+  assert.match(hook, /const bye = \(\) => \{ preview\.stop\(\); \}/, "pagehide 가 프리뷰를 멈춰야 한다");
+  assert.match(app, /const bye = \(\) => \{ if \(pollRef\.current\) clearInterval\(pollRef\.current\); \}/,
+    "이 화면이 직접 거두는 것은 폴링이다");
+  // 정지는 await 해야 한다 — 안 하면 전환마다 연결이 누적돼 스트림이 저하된다. 이 화면이
+  // 훅의 stop 을 await 하고, 훅이 위젯의 stop 을 await 한다. 사슬 두 마디를 다 문다.
+  assert.match(app, /await stopPreview\(\)/, "화면은 훅의 정지를 await 해야 한다");
+  assert.match(hook, /await previewRef\.current\?\.stop\(\)/, "훅은 위젯의 정지를 await 해야 한다");
 
   // 좌표는 언제나 1920x1080 논리 프레임이다. naturalWidth 로 재면 프리뷰 해상도가 바뀔 때
   // 오버레이만 조용히 어긋난다(화각은 그대로인데 픽셀 수만 다르다).

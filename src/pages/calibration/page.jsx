@@ -5,8 +5,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getJson, postJson, reqJson, api } from "../../lib/api.mjs";
 import { useCamera } from "../../camera/provider.jsx";
-import { createCameraPreview } from "../../camera/preview.mjs";
-import { readFlag, writeFlag } from "../../lib/prefs.mjs";
+import { useCameraPreview } from "../../camera/use-preview.mjs";
 import { t } from "../../i18n/index.mjs";
 import "./calibration.css";
 import { SweepOverlay } from "./sweep-overlay.jsx";
@@ -22,53 +21,25 @@ const enc = encodeURIComponent;
 // 구분할 수 없고, 시작 전에는 카메라가 어디를 보는지도 모른 채 시작하게 된다.
 // status 의 recent[] 가 이미 그 답을 들고 온다(마지막 6표본).
 //
-// createCameraPreview 는 DOM 위젯이다 — img·모드버튼·fps 라벨을 ref 로 넘기고, 그 요소들의
-// 내용은 위젯이 소유한다(React 는 다시 그리지 않는다).
-function LiveStage({ st, registerRelease }) {
-  const imgRef = useRef(null);
-  const modeBtnRef = useRef(null);
-  const fpsRef = useRef(null);
-  const previewRef = useRef(null);
+// 프리뷰는 공용 훅이 든다. 이 화면은 한때 훅을 쓰지 않고 같은 배선을 손으로 폈는데,
+// 그 사본에는 **두 가지가 빠져 있었다**(2026-08-25 발견):
+//   · 카메라를 바꾸면 켜 두었던 프리뷰가 다시 켜지지 않았다 — 전환이 사용자의 "보고 있겠다"를
+//     지웠고, 화면은 멀쩡히 정지 상태라 고장으로도 안 보였다.
+//   · resetFallbackForNewDevice 를 부르지 않아, 스트림 없는 기기를 한 번 보면 그 뒤로 옮겨간
+//     기기까지 저fps 스냅샷으로 봤다(폴백은 그 기기에 대한 사실이지 다음 기기 판정이 아니다).
+// 복붙은 이렇게 조용히 갈라진다. 사본을 지우는 것이 곧 두 결함을 닫는 일이었다.
+function LiveStage({ st }) {
   // 프리뷰를 여는 것은 **사용자 선택**이고 그 선택만 기억한다 — 페이지를 여는 행위가 카메라
   // 점유가 되면 안 된다(저장소 계약, 기본 꺼짐).
   const KEY = "calib:preview-on.v1";
-  const [running, setRunning] = useState(false);
+  const { imgRef, modeBtnRef, fpsRef, running, start: startPreview, stop: stopPreview } =
+    useCameraPreview({ storageKey: "calib", wantedKey: KEY });
+  // "준비됨"(아직 켠 적 없음)과 "중지됨"(켰다 껐음)은 다른 말이다 — 훅은 켜짐 여부만 알고,
+  // 그 구분은 이 화면의 것이다.
   const [label, setLabel] = useState(null);
 
-  useEffect(() => {
-    const preview = createCameraPreview({
-      img: imgRef.current,
-      modeButton: modeBtnRef.current,
-      fpsLabel: fpsRef.current,
-      storageKey: "calib",
-    });
-    previewRef.current = preview;
-    if (readFlag(KEY)) { preview.start(); setRunning(true); setLabel(t("실행 중")); }
-    // 스트림을 놓아 줄 세 갈래를 전부 건다. 안 하면 유령 시청자로 남아 카메라를 점유한다.
-    //   1) 카메라 전환 전    — provider 가 활성을 바꾸기 **전에** 이 함수를 await 한다.
-    //   2) 라우트 이탈·언마운트 — SPA 에는 pagehide 가 오지 않는다. cleanup 이 그 자리다.
-    //   3) 진짜 문서 이탈    — 탭을 닫거나 다른 사이트로 갈 때.
-    const unregister = registerRelease(() => preview.stop());
-    const bye = () => { preview.stop(); };
-    window.addEventListener("pagehide", bye);
-    return () => {
-      unregister();
-      window.removeEventListener("pagehide", bye);
-      preview.destroy();   // stop() 과 달리 document 리스너까지 거둔다(왕복 누수 방지)
-    };
-  }, [registerRelease]);
-
-  const start = () => {
-    writeFlag(KEY, true);
-    previewRef.current.start();
-    setRunning(true); setLabel(t("실행 중"));
-  };
-  const stop = async () => {
-    writeFlag(KEY, false);
-    // 전환은 이전 stop 을 await 한 뒤 — 안 하면 연결이 누적돼 스트림이 저하된다(저장소 계약).
-    await previewRef.current.stop();
-    setRunning(false); setLabel(t("중지됨"));
-  };
+  const start = () => { startPreview(); setLabel(t("실행 중")); };
+  const stop = async () => { await stopPreview(); setLabel(t("중지됨")); };
 
   return (
     <>
@@ -411,7 +382,7 @@ export default function CalibrationPage() {
         {cardVisible && (
           <div className="card" id="calib-card">
             <h2>카메라 캘리브레이션</h2>
-            <LiveStage st={st} registerRelease={cam.registerRelease} />
+            <LiveStage st={st} />
             <StatusCard st={st} verifyOnly={verifyOnly} installed={installed}
               onPollStart={startPolling} refresh={refresh} cameraId={currentCameraId} />
           </div>
