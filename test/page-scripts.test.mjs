@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
-import { parseAst } from "vite";
+import { parseSync } from "vite";
+import { PAGES } from "../src/pages.mjs";
 
 const root = new URL("../", import.meta.url);
 
@@ -13,8 +14,13 @@ const root = new URL("../", import.meta.url);
 // 11일 뒤 「시뮬레이터가 연결되지 않습니다」로 보고됐다(실제로는 백엔드가 붙어 있었다).
 //
 // 문자열 검색으로는 못 잡는다(`X && X.foo` 는 어디에나 있는 정상 관용구다). 그래서 진짜
-// AST 로 바인딩과 참조를 갈라 본다. parseAst 는 vite 가 다시 내보내는 rollup 파서라
+// AST 로 바인딩과 참조를 갈라 본다. 파서는 vite 가 다시 내보내는 oxc 의 parseSync 라
 // 새 의존성이 없다 — 어차피 빌드가 같은 파서로 이 파일들을 읽는다.
+//
+// **파서를 parseAst(rollup)에서 parseSync(oxc)로 바꾼 이유는 .jsx 다.** parseAst 는 JSX
+// 문법에서 던지므로 React 로 옮긴 페이지가 그물 밖으로 빠졌다 — 전환이 진행될수록 그물이
+// 조용히 비어 가는 구조였다. 교체 전 대조로 판정 동일성을 확인했다: src 모듈 14개 + 페이지
+// 인라인 모듈 6개에서 두 파서의 결과가 한 건도 갈리지 않았다.
 
 // 바인딩 수집은 **평면(flat)** 이다: 블록 스코프를 재현하지 않고, 모듈 안 어디서든 선언된
 // 이름이면 선언된 것으로 친다. 일부러 그렇게 뒀다 — 오탐이 하나라도 나면 이 테스트는
@@ -44,32 +50,21 @@ function isReference(n, parent) {
   if (parent.type === "ImportSpecifier" && parent.imported === n) return false;
   if (parent.type === "ExportSpecifier") return false;
   if (parent.type === "LabeledStatement" || parent.type === "BreakStatement" || parent.type === "ContinueStatement") return false;
+  // import.meta — `import` 도 `meta` 도 이름이 아니라 문법이다.
+  if (parent.type === "MetaProperty") return false;
   return true;
 }
 
-function undeclaredIn(src) {
-  const ast = parseAst(src, { sourceType: "module" });
-  const binds = new Set(), refs = new Set();
-  const walk = (n, parent) => {
-    switch (n.type) {
-      case "VariableDeclarator": bindingsOf(n.id, (x) => binds.add(x)); break;
-      case "FunctionDeclaration": case "ClassDeclaration":
-      case "FunctionExpression": case "ArrowFunctionExpression":
-        if (n.id) binds.add(n.id.name); break;
-      case "CatchClause": bindingsOf(n.param, (x) => binds.add(x)); break;
-      case "ImportDefaultSpecifier": case "ImportNamespaceSpecifier": case "ImportSpecifier":
-        binds.add(n.local.name); break;
-    }
-    if (n.params) for (const p of n.params) bindingsOf(p, (x) => binds.add(x));
-    if (n.type === "Identifier" && isReference(n, parent)) refs.add(n.name);
-    for (const k of Object.keys(n)) {
-      const v = n[k];
-      if (Array.isArray(v)) { for (const c of v) if (c && typeof c.type === "string") walk(c, n); }
-      else if (v && typeof v.type === "string") walk(v, n);
-    }
-  };
-  walk(ast, null);
-  return [...refs].filter((r) => !binds.has(r) && !ALLOWED.has(r));
+// JSX 태그 이름 중 **바인딩을 읽는 것**만 골라낸다. 이것이 JSX 에서 새로 생기는 미선언
+// 부류다: `<StatusCard/>` 의 import 를 지우면 그 태그가 곧 ReferenceError 다.
+//   <div>        호스트 태그 — 문자열로 컴파일된다. 참조가 아니다.
+//   <StatusCard> 대문자 = 값 참조.
+//   <ns.Thing>   점이 있으면 대소문자와 무관하게 값 참조이고, 읽는 것은 **뿌리**뿐이다.
+function jsxTagRef(name) {
+  if (!name) return null;
+  if (name.type === "JSXMemberExpression") return jsxTagRef(name.object);
+  if (name.type !== "JSXIdentifier") return null;   // JSXNamespacedName 등
+  return /^[A-Z]/.test(name.name) ? name.name : null;
 }
 
 // 표준 내장(Array·Math·JSON·fetch·NaN·undefined…)은 node 의 전역에서 그대로 얻는다 —
@@ -84,31 +79,85 @@ const DOM_GLOBALS = [
 ];
 const ALLOWED = new Set([...Object.getOwnPropertyNames(globalThis), ...DOM_GLOBALS]);
 
+// filename 은 파서에게 문법을 알려 준다(.jsx 면 JSX 를 켠다) — 인라인 모듈은 .mjs 로 준다.
+function undeclaredIn(src, filename) {
+  const parsed = parseSync(filename, src);
+  assert.deepEqual(parsed.errors.map((e) => e.message ?? String(e)), [],
+    `${filename}: 파싱 실패 — 그물 이전에 문법이 깨졌다`);
+  const ast = parsed.program;
+  const binds = new Set(), refs = new Set();
+  const walk = (n, parent) => {
+    switch (n.type) {
+      case "VariableDeclarator": bindingsOf(n.id, (x) => binds.add(x)); break;
+      case "FunctionDeclaration": case "ClassDeclaration":
+      case "FunctionExpression": case "ArrowFunctionExpression":
+        if (n.id) binds.add(n.id.name); break;
+      case "CatchClause": bindingsOf(n.param, (x) => binds.add(x)); break;
+      case "ImportDefaultSpecifier": case "ImportNamespaceSpecifier": case "ImportSpecifier":
+        binds.add(n.local.name); break;
+      case "JSXOpeningElement": case "JSXClosingElement": {
+        const tag = jsxTagRef(n.name);
+        if (tag) refs.add(tag);
+        break;
+      }
+    }
+    if (n.params) for (const p of n.params) bindingsOf(p, (x) => binds.add(x));
+    if (n.type === "Identifier" && isReference(n, parent)) refs.add(n.name);
+    for (const k of Object.keys(n)) {
+      const v = n[k];
+      if (Array.isArray(v)) { for (const c of v) if (c && typeof c.type === "string") walk(c, n); }
+      else if (v && typeof v.type === "string") walk(v, n);
+    }
+  };
+  walk(ast, null);
+  return [...refs].filter((r) => !binds.has(r) && !ALLOWED.has(r));
+}
+
 async function pageModules() {
   const out = [];
   for (const f of (await readdir(new URL("public/", root))).filter((f) => f.endsWith(".html"))) {
     const html = await readFile(new URL(`public/${f}`, root), "utf8");
     let i = 0;
-    for (const m of html.matchAll(/<script type="module">([\s\S]*?)<\/script>/g)) out.push([`public/${f}#${i++}`, m[1]]);
+    for (const m of html.matchAll(/<script type="module">([\s\S]*?)<\/script>/g)) {
+      out.push([`public/${f}#${i}`, m[1], `${f}.${i++}.mjs`]);
+    }
   }
   return out;
 }
 
+async function srcModules() {
+  const files = (await readdir(new URL("src/", root), { recursive: true }))
+    .map((f) => f.replaceAll("\\", "/"))
+    .filter((f) => (f.endsWith(".mjs") || f.endsWith(".jsx")) && !f.endsWith(".test.mjs"));
+  const out = [];
+  for (const f of files) out.push([`src/${f}`, await readFile(new URL(`src/${f}`, root), "utf8"), f]);
+  return out;
+}
+
 test("페이지 인라인 모듈에 선언 없이 읽는 식별자가 없다", async () => {
-  const mods = await pageModules();
-  assert.ok(mods.length >= 5, "페이지 모듈을 못 찾았다 — 추출 정규식이 낡았다");
-  for (const [where, src] of mods) {
-    assert.deepEqual(undeclaredIn(src), [], `${where}: strict mode 에서 읽는 즉시 ReferenceError 다`);
+  for (const [where, src, name] of await pageModules()) {
+    assert.deepEqual(undeclaredIn(src, name), [], `${where}: strict mode 에서 읽는 즉시 ReferenceError 다`);
   }
 });
 
-test("src 모듈에도 같은 그물을 친다", async () => {
-  // .jsx 는 이 파서가 못 읽는다(JSX 문법). 번들러가 어차피 붙잡으므로 .mjs 만 본다.
-  const files = (await readdir(new URL("src/", root), { recursive: true }))
-    .filter((f) => f.endsWith(".mjs") && !f.endsWith(".test.mjs"));
-  assert.ok(files.length >= 5, "src 모듈을 못 찾았다");
-  for (const f of files) {
-    const src = await readFile(new URL(`src/${f}`, root), "utf8");
-    assert.deepEqual(undeclaredIn(src), [], `src/${f}: 선언 없이 읽는 식별자`);
+test("src 모듈(.mjs·.jsx)에도 같은 그물을 친다", async () => {
+  for (const [where, src, name] of await srcModules()) {
+    assert.deepEqual(undeclaredIn(src, name), [], `${where}: 선언 없이 읽는 식별자`);
+  }
+});
+
+// 개수 가드(`mods.length >= 5`)를 이것으로 갈았다. 개수는 **SPA 전환 중에 반드시 줄어든다** —
+// 페이지가 라우트로 옮겨 가면 인라인 모듈이 사라지기 때문이다. 그때 가드를 낮추는 손질을
+// 하게 되면 그물이 비어 가는 것을 가드가 승인해 주는 꼴이 된다. 그래서 세는 대신 **페이지마다
+// 그물에 걸린 코드가 하나라도 있는지**를 묻는다. 인라인이든 src/pages/<id>/ 든 상관없고,
+// 전환이 끝나면 자연히 후자로 옮겨 간다.
+test("페이지마다 그물에 걸린 모듈이 하나는 있다 — 전환이 진행돼도 그물이 비지 않는다", async () => {
+  const inline = new Set((await pageModules()).map(([where]) => where.split("#")[0]));
+  const src = (await srcModules()).map(([where]) => where);
+  for (const p of PAGES) {
+    const hasInline = inline.has(`public/${p.id}.html`);
+    const hasSrc = src.some((f) => f.startsWith(`src/pages/${p.id}/`));
+    assert.ok(hasInline || hasSrc,
+      `${p.id}: 이 페이지의 코드가 그물에 하나도 안 걸렸다 — public/${p.id}.html 의 인라인 모듈도, src/pages/${p.id}/ 의 파일도 없다`);
   }
 });
