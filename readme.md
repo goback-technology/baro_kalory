@@ -116,12 +116,11 @@ pnpm build:dist     # 정적 호스트용 dist/
 배포 브랜치(`gh-pages`)를 쓰지 않는 이유: `dist/` 는 gitignore 산출물이라 커밋해 두면 소스와
 배포본이 어긋난 채 굳는다.
 
-`pack.mjs` 는 **재작성 규칙이 없는 호스트**를 전제로 링크를 `.html` 실파일로 바꾸고
-`index.html` 과 `.nojekyll` 을 만든다 — 소스의 URL 정규형은 건드리지 않는다. 함께 심는
-`<meta name="baro-static-build">` 는 브라우저가 링크 형태를 고르는 근거다. **URL 로 추측하면
-안 된다** — 정적 호스트는 `index.html` 을 디렉터리 URL(`/baro_kalory/`)로 서빙해서 pathname 이
-`.html` 로 끝나지 않고, 그 오판은 링크 404 로 끝나지 않는다. 미연결 게이트가 href 비교로 설정
-카드를 가리므로 **설정 카드까지 잠겨** 백엔드 주소를 넣을 문이 사라진다.
+dist 는 **문서 하나**(`index.html`)와 옛 주소를 받는 리다이렉트 셸들, 그리고 `.nojekyll` 이다.
+링크가 전부 같은 문서의 해시라 **배포 형태를 가릴 일이 없다** — 확장자 재작성도, 정적 빌드
+표식도 필요 없다(2026-08-25 제거). 그 기계는 정적 호스트가 `index.html` 을 디렉터리 URL
+(`/baro_kalory/`)로 서빙하는 탓에 **대문에서만** 오판이 났고, 그 오판이 미연결 게이트의 href
+비교를 통해 **설정 카드까지 잠가** 백엔드 주소를 넣을 문을 없앴다(두 번 물렸다).
 
 Pages 는 순수 정적 호스트라 다음이 불가능하다.
 
@@ -181,7 +180,7 @@ https://<사이트>/?api=reset          # 저장된 주소를 지우는 탈출�
 | `#/settings` | `src/pages/settings/` | 설정 (기기·API 서버·검출기·LPR·API 키) — 탭은 `#/settings/<tab>` |
 | `#/calibration` | `src/pages/calibration/` | 카메라 캘리브레이션 (기기별 광학·조준 실측) |
 | `#/height` | `src/pages/height/` | 설치 높이 · 측량 (시공 실측 정본 + 영상 자동 측정) |
-| `/simulator` | `public/simulator.html` | 시뮬레이터 셋업 — **아직 자기 문서를 갖는 마지막 화면** |
+| `#/simulator` | `src/pages/simulator/` | 시뮬레이터 셋업 (씬·시뮬 카메라·평면도) |
 
 **쿼리는 `#` 앞에만 둔다**(`index.html?api=reset#/settings`). API base 는 `location.search`
 에서 읽으므로 해시 안의 쿼리는 그 파서에 닿지 않는다 — 벽돌 탈출구가 정확히 필요한 순간에
@@ -190,13 +189,15 @@ https://<사이트>/?api=reset          # 저장된 주소를 지우는 탈출�
 옛 주소(`…/cctv.html`, `…/v0.html`)는 **리다이렉트 셸**이 받는다. 빌드가 `src/pages.mjs` 에서
 파생해 발행하고, 쿼리를 그대로 넘긴다 — 북마크가 404 가 되지 않고 `?api=reset` 도 살아 있다.
 
-화면 목록의 단일 출처는 `src/pages.mjs` 다 — 헤더 nav·버전 배지·홈 카드·라우트 표·빌드 진입점·
-dist 파일 목록·개발 서버 라우팅·리다이렉트 셸이 전부 이 표에서 파생된다. `spa` 플래그가 옮긴
-화면과 안 옮긴 화면을 가르며, 전부 옮겨 가면 그 플래그와 분기는 통째로 사라진다.
+화면 목록의 단일 출처는 `src/pages.mjs` 다 — 헤더 nav·버전 배지·홈 카드·라우트 표·리다이렉트
+셸이 전부 이 표에서 파생된다. 손으로 맞춰야 하는 미러는 하나도 없다.
 
 각 화면은 `page.jsx`(그리기) · `actions.mjs`(판정·문구, node 테스트) · `<id>.css` 로 나뉜다.
-**라우트 CSS 에 전역 선택자를 쓰지 않는다** — SPA 에서는 방문한 화면의 CSS 가 언로드되지 않고
-쌓여서, `main`·`body` 같은 규칙을 남기면 떠난 화면이 다음 화면을 망가뜨린다(테스트가 문다).
+**라우트 CSS 에는 두 가지를 쓰지 않는다** — SPA 에서는 방문한 화면의 CSS 가 언로드되지 않고
+쌓이기 때문이다(둘 다 테스트가 문다):
+ 1. 전역 선택자(`html`·`body`·`main`·`header`·`*`) — 셸이 화면 높이를 소유한다.
+ 2. `#stage`·`#view`·`#viewbar` 처럼 **app.css 가 소유하는 공유 id** 를 접두사 없이 덮는 것.
+    두 화면이 같은 이름을 쓰므로, 한쪽을 들른 뒤 다른 쪽이 그 치수로 굳는다.
 
 ## 브라우저 모듈
 
@@ -205,14 +206,16 @@ dist 파일 목록·개발 서버 라우팅·리다이렉트 셸이 전부 이 �
 | 모듈 | 역할 |
 |---|---|
 | `api.mjs` | fetch 계약 + API base 주입 체인 |
-| `pages.mjs` | 페이지 레지스트리 — nav·배지·카드의 단일 출처 |
-| `page-chrome.mjs` | 헤더 공통 크롬(nav·테마·언어·버전 배지) + i18n/테마 부트 |
+| `pages.mjs` | 화면 레지스트리 — nav·배지·카드·라우트·리다이렉트 셸의 단일 출처 |
 | `camera-select.mjs` | 헤더 CCTV 셀렉터 — 서버 상태만 신뢰 |
 | `camera-preview.mjs` | 스트림/스냅샷 전환, 모션 정착, 실패 시 폴백 |
 | `mjpeg-player.mjs` | multipart MJPEG 파서 + fps 실측. `stop()` 은 **awaitable** |
 | `motion-settle.mjs` | 프레임 차분 → 움직임/정지 판정 (I/O 없는 상태기계) |
-| `ptz-controls.mjs` | 수동 패드 + 절대 PTZ, 영상 위 오버레이 계약 |
-| `theme.mjs` · `i18n.mjs` | 런타임 테마 교체 · 문자열 |
+| `format.mjs` | 표시용 숫자·시각 — 「모르는 값을 아는 값처럼 그리지 않는다」 |
+| `theme.mjs` · `i18n.mjs` | 런타임 테마 교체 · 문자열(`t()`) |
+
+셸·라우트·공용 훅은 `src/app/`·`src/pages/<id>/`·`src/components/` 에 있다
+(헤더 크롬은 `app/shell.jsx`, PTZ 패드는 `components/ptz-pad.jsx`).
 
 ## 테마
 

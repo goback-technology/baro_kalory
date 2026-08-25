@@ -5,7 +5,7 @@
 // 않는다」는 그쪽 계약이고 여기서는 반대가 맞다.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getJson, postJson, reqJson, api, asset, fmtPtz } from "../../api.mjs";
-import { t } from "../../i18n.mjs";
+import { t, i18nHtml } from "../../i18n.mjs";
 import { useCamera } from "../../app/camera-provider.jsx";
 import { useCameraPreview } from "../../app/hooks/use-camera-preview.mjs";
 import { useJobPoll } from "../../app/hooks/use-job-poll.mjs";
@@ -521,9 +521,10 @@ export default function DiscoveryPage() {
               <span id="hr-pos" className="pz">{replay.i + 1} / {replay.steps.length}</span>
               <button id="hr-next" onClick={() => replayNav(1)}>다음 ▶</button>
               <button id="hr-play" onClick={replayPlay}>{replay.playing ? t("⏸ 정지") : t("▶ 자동재생")}</button>
-              <span className="hint" style={{ marginLeft: "auto" }} data-i18n-html="replay.legend">
-                흰 박스=후보 LP · <span style={{ color: "#16d05a" }}>녹색=선택</span> · 빨강 십자=중앙
-              </span>
+              {/* 문장 안에 색 조각이 박혀 있어 사전이 마크업째 든다 — 조각으로 쪼개 t() 로
+                  이으면 어순이 다른 언어에서 문장이 무너진다. */}
+              <span className="hint" style={{ marginLeft: "auto" }}
+                    dangerouslySetInnerHTML={{ __html: i18nHtml("replay.legend") }} />
             </div>
           </div>
         </div>

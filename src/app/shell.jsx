@@ -94,7 +94,7 @@ export function AppShell({ pageId, lang, onLang, headerExtra, children }) {
         <h1>
           {pageId !== "home" && (
             <>
-              <a className="navlink" href={pageHref("home", { fromShell: true })} title="홈" aria-label="홈"
+              <a className="navlink" href={pageHref("home")} title="홈" aria-label="홈"
                  style={{ fontWeight: 400, display: "inline-flex", alignItems: "center", verticalAlign: -2 }}>
                 <HomeIcon />
               </a>
@@ -107,7 +107,7 @@ export function AppShell({ pageId, lang, onLang, headerExtra, children }) {
           {pageId !== "settings" && pageId !== "home" && (
             <>
               <Sep />
-              <a className="navlink" href={pageHref("settings", { fromShell: true })} style={{ fontWeight: 400 }}>설정</a>
+              <a className="navlink" href={pageHref("settings")} style={{ fontWeight: 400 }}>설정</a>
             </>
           )}
           {headerExtra}

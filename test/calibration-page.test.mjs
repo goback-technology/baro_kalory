@@ -147,33 +147,19 @@ test("주차면 탐색 라우트 — 서버 문자열을 마크업으로 만들�
   const actions = await read("../src/pages/discovery/actions.mjs");
   // 주석은 걷고 본다 — 왜 그러지 않는지를 설명하는 주석이 그 이름을 인용한다.
   const code = (s) => s.replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
-  assert.doesNotMatch(code(page) + code(actions), /dangerouslySetInnerHTML|innerHTML|escapeHtml/,
+  // 마크업으로 나갈 수 있는 유일한 출처는 **사전 상수**다(문장 안에 색 조각이 박힌 범례
+  // 한 줄). 그 형태를 먼저 걷어내고, 남은 것이 하나라도 있으면 서버 값이 마크업이 된 것이다.
+  const rest = (code(page) + code(actions))
+    .replace(/dangerouslySetInnerHTML=\{\{ __html: i18nHtml\("[\w.]+"\) \}\}/g, "");
+  assert.doesNotMatch(rest, /dangerouslySetInnerHTML|innerHTML|escapeHtml/,
     "서버 값은 텍스트로만 그린다 — 이스케이프를 손으로 하지 않는다");
   // 자막은 조각 배열로 온다(값 판정은 actions.test.mjs 가 문다).
   assert.match(page, /replayCaption\(replay\.steps\[replay\.i\]\)/);
 });
 
-// 백엔드 미연결 게이트 — 이 UI 는 백엔드와 분리 배포된다. 백엔드가 대답하지 않으면 첫 화면이
-// 이유 없이 비어 보이면 안 되고, 할 수 없는 일로 가는 바로가기가 열려 있어도 안 된다.
-// (설정과 대문만 남는다 — 설정은 주소를 정하는 곳이고 대문은 백엔드가 필요 없다.)
-test("page-chrome 이 백엔드 미연결을 감지해 안내하고 설정 외 바로가기를 잠근다", async () => {
-  const src = await readFile(new URL("../src/page-chrome.mjs", import.meta.url), "utf8");
-  assert.match(src, /showBackendGate/, "미연결 시 안내 게이트를 띄워야 한다");
-  assert.match(src, /function lockLink/, "잠금은 href 를 떼는 방식이어야 한다(감추지 않는다)");
-  // 프로브 실패 경로에서만 게이트가 뜬다 — 성공 경로에서 뜨면 정상 사용을 막는다.
-  assert.match(src, /\.catch\(\(e\)\s*=>\s*\{[\s\S]*showBackendGate/,
-    "게이트는 프로브 실패(catch)에서만 떠야 한다");
-  // 응답이 왔어도 baro 백엔드가 아니면 실패로 본다 — 엉뚱한 서버의 200 을 연결로 오인하면
-  // 화면이 열린 채 전 기능이 조용히 죽는다.
-  assert.match(src, /not a baro backend/, "버전 필드가 없는 200 응답은 연결로 치지 않아야 한다");
-  assert.match(src, /data-i18n-skip/, "게이트 배너는 i18n 워커가 덮어쓰지 않아야 한다");
-});
-
-test("대문 카드 잠금은 설정 카드를 남긴다", async () => {
-  const src = await readFile(new URL("../src/page-chrome.mjs", import.meta.url), "utf8");
-  assert.match(src, /a\.home-card/, "대문 카드도 잠금 대상이어야 한다");
-  assert.match(src, /settingsHref/, "설정 카드는 예외로 남겨야 한다 — 벗어날 길이 사라진다");
-});
+// (백엔드 미연결 게이트의 두 블록은 page-chrome.mjs 를 정규식으로 읽던 것이었다. 그 모듈이
+//  사라지면서 **값 테스트로 승격**됐다 — src/app/gate.test.mjs 가 판정 넷과 「백엔드 없이
+//  열리는 화면은 대문·설정뿐」을, src/pages/home/cards.test.mjs 가 카드 잠금을 값으로 문다.)
 
 // 캘리브레이션 데이터가 저장소로 들어오는 문은 오래 "실기 20분 스윕 → 발행" 하나뿐이었다.
 // 그래서 스윕을 못 돌리는 기기의 곡선은 갈 곳이 없었고, 설정 화면이 브라우저에서 곡선을

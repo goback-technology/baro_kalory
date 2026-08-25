@@ -36,7 +36,7 @@ export function homeCards({ own = null, backendDown = false } = {}) {
       blurb,
       versionKey: p.versionKey,
       version: `${p.badge} v${(own && own[p.versionKey]) || "—"}`,
-      href: pageHref(p.id, { fromShell: true }),
+      href: pageHref(p.id),
       locked: backendDown && !openWithoutBackend(p.id),
     };
   });
