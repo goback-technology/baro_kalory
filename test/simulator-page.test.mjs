@@ -1,8 +1,20 @@
+// 시뮬레이터 셋업 화면의 **구조**를 지키는 그물.
+//
+// 판정·계산은 이제 `src/pages/simulator/{actions,geometry}.mjs` 에 있고, 그쪽 테스트가 값으로
+// 문다(포트 세 갈래, 부채꼴의 FK 단, 지면 판정, 표시 반올림, 스폰 응답 방어…). 여기 남는 것은
+// 정규식이라야 잡히는 두 가지다:
+//   1. **화면의 뼈대** — 어느 폼에 어느 칸이 있고, 어느 탭에 무엇이 사는가.
+//   2. **배선** — 그 판정을 화면이 실제로 부르는가, 그리고 **제 손으로 다시 짜지 않았는가.**
+// 2 가 이 파일의 본론이다. 모듈로 옮겨 놓고 화면이 옛 식을 그대로 들고 있으면 계산 지점이
+// 둘로 갈라지고, 그때 갈라지는 것은 광학 모델이다(부채꼴과 영상 위 핀이 서로 다른 식이 된다).
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const simulatorPageUrl = new URL("../public/simulator.html", import.meta.url);
+const read = () => readFile(simulatorPageUrl, "utf8");
+// 주석은 걷어내고 본다 — 규칙을 설명하는 주석이 그 규칙의 예시를 인용하면 스스로 걸린다.
+const code = (s) => s.replace(/^\s*\/\/.*$/gm, "");
 
 // 설정 탭에는 **시뮬레이터 주소 하나뿐**이다.
 //
@@ -11,7 +23,7 @@ const simulatorPageUrl = new URL("../public/simulator.html", import.meta.url);
 // 늘 뿐이고 — 읽기 전용이라 고칠 수도 없고 클릭은 위 피커로 위임했다 — 320px 칸을 넘겨
 // 내용이 잘렸다(실측 203px). 옛 기기 CRUD 창이 있던 자리를 채우려다 만든 사본이었다.
 test("설정 탭은 시뮬레이터 주소 하나뿐이다 — 목록 사본을 두지 않는다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   const panel = html.slice(
     html.indexOf(`id="sim-settings-panel"`),
     html.indexOf("<!-- 우: 씬 셋업 -->"),
@@ -29,7 +41,7 @@ test("설정 탭은 시뮬레이터 주소 하나뿐이다 — 목록 사본을 
 });
 
 test("simulator preview shares the first-paint waiting state", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   // preview-stage 는 오버레이 CSS 와 camera-preview 의 closest() 가 함께 보는 표식이다 —
   // 빠뜨리면 이 페이지만 대기/정지 오버레이 없이 깨진 이미지 아이콘을 그린다.
   assert.match(html, /id="stage" class="preview-stage preview-waiting"/);
@@ -39,7 +51,7 @@ test("simulator preview shares the first-paint waiting state", async () => {
 // 겨누는 일은 영상에서 한다(클릭 = 센터링, 드래그 = 박스줌). 조작 패드와 절대 위치 카드는
 // 같은 일을 원단위로 한 번 더 하는 자리라 걷어냈다 — 남은 것은 설치 폼의 P·T·Z 한 줄뿐이다.
 test("PTZ 는 설치 폼의 한 줄뿐이다 — 오버레이도 조작 패드도 없다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   for (const gone of ["ptz-overlay", "sim-ptz-mount", "createPtzControls", "simPtz."]) {
     assert.ok(!html.includes(gone), gone + " 를 다시 두지 않는다");
   }
@@ -47,14 +59,15 @@ test("PTZ 는 설치 폼의 한 줄뿐이다 — 오버레이도 조작 패드�
   // 탭에서는 화면이 그냥 굳은 것처럼 보인다. 그래서 뷰바에 남는다.
   const viewbar = html.slice(html.indexOf('<div id="viewbar">'), html.indexOf('<div id="sim-bottom-tabs">'));
   assert.match(viewbar, /id="busy"/);
-  // 속도를 고를 칸도 패드와 함께 사라졌다 — 남은 이동은 전부 이 상수를 쓴다.
-  assert.match(html, /const MOVE_SPEED = 50;/);
+  // 속도를 고를 칸도 패드와 함께 사라졌다 — 남은 이동은 전부 이 상수를 쓴다(값은 actions 의 것).
+  assert.match(html, /\bMOVE_SPEED,/, "이동 속도는 actions 에서 들여온다");
+  assert.doesNotMatch(code(html), /MOVE_SPEED\s*=/, "화면이 제 사본을 두면 두 값이 갈린다");
 });
 
 // 이건 휴컴스 시뮬이다. 도(°)로 바꿔 적으면 프로토콜이 쓰는 수와 화면이 쓰는 수가 갈리고,
 // 로그·저장위치·오라클이 전부 원단위라 눈으로 대조할 수도 없게 된다.
 test("PTZ 칸은 휴컴스 원단위다 — 컨트롤 탭의 것이다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   const form = html.slice(html.indexOf('<form id="sim-cam-drive-form"'), html.indexOf('id="sim-cam-drive-apply"'));
   assert.match(form, /id="sim-cam-edit-pan"[^>]*min="0" max="35999"/);
   assert.match(form, /id="sim-cam-edit-tilt"[^>]*min="-2000" max="9000"/);
@@ -62,7 +75,8 @@ test("PTZ 칸은 휴컴스 원단위다 — 컨트롤 탭의 것이다", async (
   assert.ok(!html.includes("TILT_PER_DEG"), "도(°) 환산을 다시 들이지 않는다");
 
   // PTZ 는 지금 보고 있는 카메라의 것이다 — 다른 카메라를 고른 폼에 적으면 남의 자세를 적게 된다.
-  const pick = html.slice(html.indexOf("function ptzOfSelected("), html.indexOf("// 평면도에서 끌어 바꾼 값을"));
+  const pick = html.slice(html.indexOf("function ptzOfSelected("), html.indexOf("// 평면도에서 끌어 바꾼 자리를"));
+  assert.ok(pick.length > 60 && pick.length < 400, "ptzOfSelected 를 못 읽었다");
   assert.match(pick, /cameraDeviceFor\(cam\)\?\.id !== simActiveCameraId/);
 
   // 적용은 창구도 폼도 갈린다: 설치는 씬 PATCH(applyInstallEdit), 현재값은 제어 POST
@@ -70,57 +84,51 @@ test("PTZ 칸은 휴컴스 원단위다 — 컨트롤 탭의 것이다", async (
   const drive = html.slice(html.indexOf("async function applyDriveEdit("), html.indexOf("async function spawnSceneCamera("));
   assert.match(drive, /postJson\(api\("\/simulator\/control\/ptz"\)/);
   assert.ok(!/reqJson\("PATCH"/.test(drive), "조종 적용이 씬(설치)을 건드리면 안 된다");
+  assert.match(drive, /driveChangeOf\(\{/, "무엇이 바뀌었나는 actions 가 답한다");
   const install = html.slice(html.indexOf("async function applyInstallEdit("), html.indexOf("async function applyDriveEdit("));
   assert.match(install, /reqJson\("PATCH"/);
   assert.ok(!/simulator\/control\/ptz/.test(install), "설치 적용이 카메라를 몰면 안 된다");
-  assert.match(install, /if \(!Object\.keys\(patch\)\.length\)/);
+  assert.match(install, /installPatchFrom\(\{/, "보낼 필드를 고르는 일은 actions 가 한다");
 });
 
 // 시뮬은 카메라를 **설치방위 + 팬** 으로 돌린다(PanPivot->SetWorldRotation(BaseYaw + CurrentPan)).
 // 부채꼴은 그 합, 즉 **지금 보는 시야**다 — 설치방위만 그리면 팬이 걸린 카메라의 부채꼴이
 // 카메라가 보지 않는 곳을 가리킨다(2026-08-12 실측 89°).
 //
-// 팬은 카메라마다 다르므로 카메라마다 물어야 한다. 몰고 있는 한 대의 값으로 나머지를 채우면,
-// 카메라를 바꾸는 것만으로 손대지도 않은 옆 카메라의 부채꼴이 그 카메라의 팬만큼 돌아간다
-// (실측 69.6°: test01 이 가만히 있는데 화면에서 그만큼 튀었다).
-test("부채꼴은 FK 의 단을 탭이 정한다 — 배치는 설치방위, 컨트롤은 설치+팬", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
-  // 방향(설치방위 + 팬)도 화각(줌→화각 표)도 **서버가 낸 숫자**를 읽는다. 그 식이 곧 광학
-  // 모델이고 이 저장소는 그것을 백엔드에 한 벌만 둔다 — 화면이 제 식을 들면 부채꼴과 영상
-  // 위의 핀이 갈라진다. 서버 값은 렌더러의 답과 0.03° 안에서 맞는다(2026-08-12 실측).
-  assert.match(html, /function viewYawOf\(cam\) \{[\s\S]*?viewOf\(cam\)\?\.viewYawDeg/);
-  assert.match(html, /function hfovOf\(cam\) \{[\s\S]*?viewOf\(cam\)\?\.hfovDeg/);
-  assert.ok(!/panpos \/ 100|zoomHfov/.test(html), "브라우저가 raw PTZ 로 방위·화각을 지어내지 않는다");
-  const map = html.slice(html.indexOf("function renderMap()"), html.indexOf("function renderDragGhost("));
-  // 시뮬의 카메라는 액터(설치) → PanPivot(설치+팬) 의 FK 계층이다. 배치 탭은 부모(설치방위,
-  // 기준 시야), 컨트롤 탭은 자식(보는 방향, 지금 화각)을 그린다 — 팬이 걸려 있으면 두 탭의
-  // 부채꼴이 다른 곳을 가리키는 것이 맞는 그림이다.
-  assert.match(map, /const installMode = mapTabKey\(\) !== "drive";/);
-  assert.match(map, /const yaw = installMode \? mountYawOf\(cam\) : viewYawOf\(cam\);/);
-  assert.match(map, /const hfov = installMode \? \(limits \? limits\.max : null\) : hfovOf\(cam\);/);
-  assert.match(map, /const half = hfov === null \? null : hfov \/ 2;/);
-  assert.ok(!/wideHFovDeg/.test(map), "렌즈 한계도 서버가 낸 값(hfovRange)으로 — 고정 상수를 들이지 않는다");
+// **어느 단을 그리는가**(배치=설치방위, 컨트롤=설치+팬)는 coneOf 가 값으로 답하고 그쪽
+// 테스트가 문다. 여기서 지키는 것은 화면이 그 답을 쓰는가, 그리고 제 식을 들지 않는가다.
+test("부채꼴의 단은 탭이 정하고, 그 계산은 화면 밖에 있다", async () => {
+  const html = await read();
+  const map = html.slice(html.indexOf("function renderMap()"), html.indexOf("function renderTiltGhost("));
+  assert.ok(map.length > 2000, "renderMap 을 못 읽었으면 이 검사는 아무것도 안 지킨다");
+  assert.match(map, /coneOf\(simViewByPort, cam, \{ installMode: mapTabKey\(\) !== "drive" \}\)/);
   // 모르면 그리지 않는다 — 팬을 0 으로 채우면 89° 어긋난 곳을 가리킨다(실측).
-  assert.match(map, /if \(yaw !== null && half !== null && !aiming\)/);
+  assert.match(map, /if \(cone !== null && !aiming\)/);
+  // 방향도 화각도 서버가 낸 값이다. 화면이 raw PTZ 로 지어내면 그 순간 광학 모델이 두 벌이
+  // 되고, 부채꼴과 영상 위의 핀이 서로 다른 식으로 그려진다.
+  assert.ok(!/panpos \/ 100|zoomHfov|wideHFovDeg/.test(code(html)),
+    "브라우저가 raw PTZ 로 방위·화각을 지어내지 않는다");
+  // 렌즈 한계도 서버가 낸 값(hfovRange)이다 — 고정 상수를 들이지 않는다.
+  assert.doesNotMatch(code(html), /hfovRange/, "한계 판정은 actions 의 hfovLimitsOf 하나뿐이다");
 });
 
 // 시야는 **카메라마다** 다르다. 몰고 있는 한 대의 값으로 나머지를 채우면 그 값이 곧 거짓이다
 // (그렇게 해서 카메라를 바꾸는 것만으로 옆 카메라의 부채꼴이 69.6° 튀었다).
 test("카메라마다의 시야는 카메라마다 물어서 얻는다 — 한 대의 값을 나눠 쓰지 않는다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   assert.match(html, /getJson\(api\("\/simulator\/ptz"\)\)/);
-  assert.match(html, /function viewOf\(cam\) \{[\s\S]*?simViewByPort\.get\(Number\(cam\?\.hucomsPort\)\)/);
+  // 포트별 표에서 찾는 일만 화면에 남는다 — 값 판정은 actions 다.
+  assert.match(html, /const viewOf = \(cam\) => viewOfPort\(simViewByPort, cam\);/);
   // 몰고 있는 카메라가 움직이면 그 시야도 낡는다 — 폴링(5초)을 기다리지 않고 다시 받는다.
   assert.match(html, /function applyPtz\(ptz\) \{[\s\S]*?fetchSimPtz\(\)\.then\(renderMap\)/);
-  // 시야가 서명에 없으면, 다른 카메라가 돌아가도 "바뀐 게 없다"고 판단해 다시 안 그린다.
-  const sig = html.slice(html.indexOf("function rigSignature()"), html.indexOf("function rigSignature()") + 800);
-  assert.match(sig, /viewYawOf\(c\), hfovOf\(c\)/);
+  // 서명도 한 벌이다 — 화면이 제 서명을 짜면 시야를 빠뜨린 옛 판이 되돌아온다.
+  assert.match(html, /const rigSignature = \(\) => signatureOf\(simCameras, simViewByPort\);/);
 });
 
 // 끌기는 **자리만** 옮긴다. 방향은 팬이 정하는 값이고, 그것을 지도에서 끌어 바꾸는 일은
 // 아직 넣지 않았다(이교수님 지시, 2026-08-12) — 반쯤 남은 회전 경로가 없어야 한다.
 test("평면도 끌기는 자리만 옮긴다 — 회전 경로는 없다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   const drag = html.slice(html.indexOf("function beginCameraDrag("), html.indexOf("if (mapEl) {"));
   assert.match(drag, /reqJson\("PATCH", api\(`\/simulator\/cameras\/\$\{encodeURIComponent\(drag\.cam\.id\)\}`\),\s*\n\s*\{ location: \{ x: at\.x, y: at\.y, z: drag\.from\.z \} \}\)/);
   // 셋을 함께 보낸다 — 축 하나만 보내면 나머지를 sim 이 0 으로 읽어 카메라가 원점으로 날아간다.
@@ -132,25 +140,22 @@ test("평면도 끌기는 자리만 옮긴다 — 회전 경로는 없다", asyn
 
 // 조준 앵커(시선 막대 끝)는 두 탭에 다 서지만 **적히는 축이 다르다**: 컨트롤 탭에서는 팬
 // (카메라를 돌린다, 현재값), 배치 탭에서는 설치방위(폴을 돌려 단다 — 팬 불변). 같은 손짓,
-// 다른 장부다.
+// 다른 장부다. 어느 축인가의 판정은 aimTargetFor 에 있다.
 test("조준 앵커 — 컨트롤 탭은 팬, 배치 탭은 설치방위에 적는다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   // 앵커는 막대 끝에 선다.
-  const map = html.slice(html.indexOf("function renderMap()"), html.indexOf("function renderAimGhost("));
-  assert.match(map, /const tip = \{ x: p\.x \+ Math\.sin\(rad\) \* coneLen, y: p\.y - Math\.cos\(rad\) \* coneLen \};/);
+  const map = html.slice(html.indexOf("function renderMap()"), html.indexOf("function renderTiltGhost("));
+  assert.match(map, /const tip = tipAt\(p, yaw, coneLen\);/);
   assert.match(map, /cx: tip\.x, cy: tip\.y[\s\S]*?"map-aim-handle"/);
   assert.match(map, /beginAimDrag\(cam, e, aimTarget\)/);
-  // 달리는 조건도 축을 따른다: 팬 조준은 활성 카메라(제어 창구가 거기만 닿는다), 설치방위는
-  // 스폰 카메라 전부(씬 PATCH — 레벨 저작은 403 이라 아예 안 단다).
-  assert.match(map, /\? \(cameraDeviceFor\(cam\)\?\.id === simActiveCameraId \? "pan" : null\)/);
-  assert.match(map, /: \(cam\.spawned !== false \? "mount" : null\)/);
+  assert.match(map, /const aimTarget = aimTargetFor\(cam, \{/);
   // 줌 앵커는 컨트롤 탭에만 — 줌은 순수 현재값이라 설치 축에 낄 자리가 없다.
   assert.match(map, /if \(aimTarget === "pan"\) for \(const side of \[-1, 1\]\)/);
 
   const aim = html.slice(html.indexOf("async function finishAimDrag("), html.indexOf("async function finishCameraDrag("));
   assert.ok(aim.length > 200, "finishAimDrag 를 못 읽었으면 이 검사는 아무것도 안 지킨다");
-  // 팬 경로: 팬 = 보고 싶은 방위 − 설치방위. 하향각·줌은 그대로 되돌려보낸다.
-  assert.match(aim, /const panpos = Math\.round\(\(\(\(yaw - mountYawOf\(drag\.cam\)\) % 360 \+ 360\) % 360\) \* 100\);/);
+  // 팬 경로: 팬 = 보고 싶은 방위 − 설치방위(계산은 geometry). 하향각·줌은 그대로 되돌려보낸다.
+  assert.match(aim, /const panpos = panposForYaw\(yaw, mountYawOf\(drag\.cam\)\);/);
   assert.match(aim, /postJson\(api\("\/simulator\/control\/ptz"\), \{\s*\n\s*panpos,/);
   assert.match(aim, /tiltpos: now\.tiltpos, zoompos: now\.zoompos/);
   // 끄는 사이에 활성이 바뀌었으면 남의 카메라가 돈다.
@@ -165,11 +170,10 @@ test("조준 앵커 — 컨트롤 탭은 팬, 배치 탭은 설치방위에 적�
 });
 
 // 틸트 슬라이더 — 막대 한가운데의 **녹색 기준선이 틸트 0**(수평)이고 자리에서 움직이지
-// 않는다. 움직이는 것은 앵커원뿐이다: 기준선에서 카메라 쪽 = 아래(+90° 까지), 끝쪽 = 위
-// (−20° 까지) — 트랙의 양끝이 곧 기기 규약(휴컴스 틸트 −2000..9000)의 양끝이다.
-// 적히는 축은 조준 앵커와 같은 규약: 컨트롤 = 틸트, 배치 = 설치 하향각.
+// 않는다. 움직이는 것은 앵커원뿐이다. 자리↔각 환산(tiltSliderPos/Deg)은 geometry 의 것이고
+// 서로 역함수라는 것을 그쪽 테스트가 문다.
 test("틸트 슬라이더 — 기준선(틸트 0)은 고정, 앵커원만 끌린다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   const map = html.slice(html.indexOf("function renderMap()"), html.indexOf("function renderTiltGhost("));
   // 기준선은 막대 한가운데 고정이다 — 앵커를 어디로 끌든 이 선은 그대로 있어야 기준으로 읽힌다.
   assert.match(map, /const zeroAt = \{ x: p\.x \+ Math\.sin\(rad\) \* mid, y: p\.y - Math\.cos\(rad\) \* mid \};/);
@@ -179,11 +183,8 @@ test("틸트 슬라이더 — 기준선(틸트 0)은 고정, 앵커원만 끌린
   assert.match(map, /beginTiltDrag\(cam, e, aimTarget, yaw, coneLen\)/);
   // 틸트를 모르는 카메라(안 닿음)에는 달지 않는다.
   assert.match(map, /if \(tiltNow !== null\)/);
-
-  // 자리↔각은 서로 역함수다 — 한쪽만 고치면 앵커가 끈 자리와 다른 값이 나간다.
-  assert.match(html, /function tiltSliderPos\(tiltDeg, trackLen\)/);
-  assert.match(html, /function tiltSliderDeg\(s, trackLen\)/);
   // 드래그 = 커서를 광축에 투영한 트랙 위 자리 → 각. 트랙 밖은 양끝(기기 한계)에 물린다.
+  assert.match(html, /const s = trackOffsetOf\(world, tiltDrag\.from, tiltDrag\.axisYaw\);/);
   assert.match(html, /tiltDrag\.tiltDeg = tiltSliderDeg\(Math\.min\(Math\.max\(s, 0\), tiltDrag\.trackLen\), tiltDrag\.trackLen\);/);
 
   const fin = html.slice(html.indexOf("async function finishTiltDrag("), html.indexOf("// ── 부채꼴 모서리 끌기"));
@@ -201,8 +202,8 @@ test("틸트 슬라이더 — 기준선(틸트 0)은 고정, 앵커원만 끌린
 // 어느 눈금인지는 백엔드의 광학 모델이 답한다 — 브라우저가 표를 들고 역보간하면 부채꼴과
 // 영상 위 핀이 서로 다른 모델로 그려진다.
 test("모서리 앵커를 끌면 화각이 나간다 — 줌 눈금은 백엔드가 옮긴다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
-  const map = html.slice(html.indexOf("function renderMap()"), html.indexOf("function renderFovGhost("));
+  const html = await read();
+  const map = html.slice(html.indexOf("function renderMap()"), html.indexOf("function renderTiltGhost("));
   // 앵커는 부채꼴의 두 모서리(광축 ± 반각)에 선다.
   assert.match(map, /for \(const side of \[-1, 1\]\) \{[\s\S]*?const edge = \(yaw \+ side \* half\) \* Math\.PI \/ 180;/);
   assert.match(map, /"map-fov-handle"/);
@@ -215,16 +216,16 @@ test("모서리 앵커를 끌면 화각이 나간다 — 줌 눈금은 백엔드
   // 팬·틸트는 그대로 되돌려보낸다 — 화각만 바꾸려던 손이 카메라를 돌려 놓으면 안 된다.
   assert.match(fov, /panpos: now\.panpos, tiltpos: now\.tiltpos/);
 
-  // 한계는 서버가 답한 값으로 문다. 모르면 지금 각에 묶어 아무 데도 못 가게 한다.
-  assert.match(html, /function hfovLimitsOf\(cam\) \{[\s\S]*?viewOf\(cam\)\?\.hfovRange/);
-  assert.match(html, /fovDrag\.hfov = Math\.min\(Math\.max\(halfDeg \* 2, limits\.min\), limits\.max\);/);
+  // 끄는 각 → 화각(한계에 물림)은 geometry 의 hfovFromDrag 하나다.
+  assert.match(html, /const hfov = hfovFromDrag\(toward, fovDrag\.axisYaw, hfovLimitsOf\(fovDrag\.cam\)\);/);
+  assert.match(html, /if \(hfov === null\) return;/, "한계를 모르면 끌 것이 없다");
 });
 
 // 설치(볼트로 박는 값: x·y·H·방위·하향)와 현재값(몰면서 바뀌는 값: P·T·Z)은 다른 축이다.
 // 한 폼에 섞으면 자리를 고치려던 손이 카메라를 움직인다 — 그래서 탭이 갈린다(이교수님 지시,
 // 2026-08-12). 평면도는 한 장을 두 탭이 도크로 나눠 쓰고, 기즈모가 탭의 뜻이다.
 test("배치/컨트롤 탭 분리 — 평면도는 한 장, 기즈모·센터링은 탭이 뜻을 정한다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   assert.match(html, /data-sim-tab="drive">카메라 컨트롤</);
   // 평면도는 재부모화로 공유한다 — 사본을 두 장 그리면 어느 쪽이 낡았는지 아무도 모른다.
   assert.equal(html.match(/id="sim-map"/g)?.length, 1, "지도는 한 장뿐이어야 한다");
@@ -240,7 +241,7 @@ test("배치/컨트롤 탭 분리 — 평면도는 한 장, 기즈모·센터링
 });
 
 test("카메라 목록은 읽기만 한다 — 만들고 지우는 자리는 /simulator/cameras 다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   assert.match(html, /getJson\(api\("\/simulator\/devices"\)\)/);
   // 백엔드가 405 로 답하는 경로다. 화면에 남아 있으면 저장 버튼이 조용히 실패한다.
   assert.doesNotMatch(html, /"(POST|PATCH|DELETE)", api\(`?\/simulator\/devices/);
@@ -250,8 +251,10 @@ test("카메라 목록은 읽기만 한다 — 만들고 지우는 자리는 /si
 });
 
 test("simulator camera selection and control stay isolated from CCTV active state", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
-  assert.match(html, /SIM_ACTIVE_CAMERA_KEY = "sim:active-camera\.v1"/);
+  const html = await read();
+  // 저장 키는 actions 의 것이다 — 화면이 제 문자열을 들면 CCTV 쪽 키와 갈라질 자리가 생긴다.
+  assert.match(html, /SIM_ACTIVE_CAMERA_KEY, SIM_PREVIEW_WANTED_KEY, SIM_CROSSHAIR_KEY,/);
+  assert.doesNotMatch(code(html), /SIM_ACTIVE_CAMERA_KEY\s*=/);
   assert.match(html, /postJson\(api\("\/simulator\/active"\)/);
   assert.match(html, /postJson\(api\("\/simulator\/control\/ptz"\)/);
   assert.match(html, /streamUrl: api\("\/simulator\/stream"\)/);
@@ -260,7 +263,7 @@ test("simulator camera selection and control stay isolated from CCTV active stat
 });
 
 test("simulator camera switch refreshes scene data for the selected simulator", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   assert.match(html, /function invalidateSimulatorScene\(/);
   assert.match(html, /simCatalog = null/);
   assert.match(html, /getJson\(api\("\/simulator\/catalog"\)\)/);
@@ -270,7 +273,7 @@ test("simulator camera switch refreshes scene data for the selected simulator", 
 });
 
 test("simulator overlay asks the backend for pin coordinates — no optics in the browser", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   // 2026-07-28: 투영 수식은 백엔드 관문에만 있다. 브라우저가 광학 모듈을 다시 import 하면
   // 계산 지점이 둘로 갈라져 모델이 조용히 어긋난다 — 그 회귀를 여기서 막는다.
   assert.doesNotMatch(html, /from "\.\/profile\//);
@@ -278,16 +281,18 @@ test("simulator overlay asks the backend for pin coordinates — no optics in th
   assert.match(html, /postJson\(api\("\/simulator\/overlay"\)/);
   // 선택·필터 변경은 캐시된 좌표로 다시 그린다(네트워크 왕복 없음).
   assert.match(html, /function renderPins\(\)/);
+  // 오라클 대조의 배율 맞추기·통계는 actions 의 compareOracle 이 값으로 답한다.
+  assert.match(html, /const cmp = compareOracle\(\{ ours, truth, targets, frame:/);
 });
 
 test("리그 갱신은 활성 카메라가 갈리면 PTZ 와 핀을 다시 읽는다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   // 보고 있던 카메라를 지우면 서버가 활성 sim 기기를 스스로 갈아 끼운다. 프리뷰는 스트림이
   // 끊긴 자리에서 새 카메라로 재연결하는데, PTZ 표시와 핀만 옛 카메라 것으로 남으면
   // 새 카메라의 영상 위에 남의 주차면 핀이 얹힌다.
   const start = html.indexOf("async function refreshRig()");
-  const end = html.indexOf("async function saveSceneSnapshot()", start);
-  const refresh = html.slice(start, end);
+  const refresh = html.slice(start, html.indexOf("function setSceneStatus(", start));
+  assert.ok(refresh.length > 200, "refreshRig 를 못 읽었다");
   assert.match(refresh, /const activeBefore = simActiveCameraId/);
   assert.match(refresh, /simActiveCameraId !== activeBefore/);
   assert.match(refresh, /lastPtz = null/);
@@ -295,7 +300,7 @@ test("리그 갱신은 활성 카메라가 갈리면 PTZ 와 핀을 다시 읽�
 });
 
 test("세우기는 씬만 건드린다 — 기기를 따로 만들지 않고, 실패해도 리그를 다시 읽는다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   const start = html.indexOf("async function spawnSceneCamera(");
   const end = html.indexOf("async function removeSceneCamera(", start);
   const spawn = html.slice(start, end);
@@ -305,12 +310,15 @@ test("세우기는 씬만 건드린다 — 기기를 따로 만들지 않고, �
   assert.doesNotMatch(spawn, /rolledBack/, "되돌릴 등록이 없으므로 롤백 분기도 없다");
   // 실패해도 씬은 바뀌었을 수 있다 — 화면을 씬으로 되맞춘다.
   assert.match(spawn, /catch \(e\) \{[\s\S]*await refreshRig\(\)/);
+  // 무엇을 보낼지·왜 못 세우는지는 actions 가 답한다.
+  assert.match(spawn, /spawnRequestFrom\(\{/);
+  assert.match(spawn, /spawnOutcome\(r, \{ httpPort: body\.httpPort, note \}\)/);
 });
 
 // 세우기와 설치는 같은 양을 다룬다 — 한 칸 안에서 같은 값이 두 이름을 가지면, 어느 쪽이
 // 무엇인지 읽는 사람이 매번 다시 맞춰 봐야 한다.
 test("세우기 폼과 설치 폼은 같은 이름·같은 배치를 쓴다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   const rowsOf = (form) => [...form.matchAll(/<div class="sim-cam-place-row">([\s\S]*?)<\/div>/g)]
     .map((m) => [...m[1].matchAll(/<span>([^<]+)<\/span>/g)].map((s) => s[1]));
   const spawn = html.slice(html.indexOf('<form id="sim-cam-form"'), html.indexOf('<form id="sim-cam-edit-form"'));
@@ -333,7 +341,7 @@ test("세우기 폼과 설치 폼은 같은 이름·같은 배치를 쓴다", as
 });
 
 test("고르는 곳은 하나다 — 드롭다운과 평면도가 같은 카메라를 가리킨다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   // 목록 사본이 다시 생기면 "고른 카메라"가 두 벌이 되어, 화면이 A 를 보여 주면서 B 를
   // 옮길 준비를 하고 있게 된다. 세 번째 사본을 지웠던 것과 같은 이유다.
   assert.ok(!html.includes('id="sim-cam-list"'), "카메라 목록을 다시 두지 않는다");
@@ -357,7 +365,8 @@ test("고르는 곳은 하나다 — 드롭다운과 평면도가 같은 카메�
   assert.match(html, /r: selected \? dot \* 1\.35 : dot/);
 
   const sel = html.slice(html.indexOf("function selectSceneCamera(id) {"),
-                         html.indexOf("function sceneCameraForDevice("));
+                         html.indexOf("const sceneCameraForDevice ="));
+  assert.ok(sel.length > 300, "selectSceneCamera 를 못 읽었다");
   // 평면도에서 고르면 드롭다운도 간다 — 전환 경로(프리뷰 재시작·PTZ)는 한 벌뿐이라
   // 여기서 흉내 내지 않고 change 를 흘려 보낸다.
   assert.match(sel, /camSelect\.value = device\.id;\s*\n\s*camSelect\.dispatchEvent\(new Event\("change"\)\)/);
@@ -365,19 +374,11 @@ test("고르는 곳은 하나다 — 드롭다운과 평면도가 같은 카메�
   const picker = html.slice(html.indexOf("function syncSelectionFromPicker() {"),
                             html.indexOf("// ── 고른 카메라의 설치"));
   assert.ok(!picker.includes("selectSceneCamera("), "되돌이가 생긴다");
-
-  // 기준기는 씬에서 파생된 것이 아니라 config 에 사는 계약의 정본이다 — 서버가 derived:false
-  // 로 그렇게 말한다. 포트 일치만 보면, 기준기가 어쩌다 같은 포트를 갖는 순간 남의 카메라에
-  // 설치 폼이 붙는다.
-  const lookup = html.slice(html.indexOf("function sceneCameraForDevice("), html.indexOf("function pickedDevice("));
-  assert.match(lookup, /if \(!dev \|\| dev\.derived === false\) return null;/);
-  // "없습니다" 하나로 뭉뚱그리면 기준기를 고른 사람은 화면이 고장 났다고 읽는다.
-  assert.match(html, /picked\?\.derived === false\s*\n\s*\? t\("\{name\} · 기준기 — 설치는 시뮬 카메라만 고칩니다"/);
   assert.match(html, /syncSelectionFromPicker\(\);\s*\n\s*log\(t\("카메라 전환 → \{id\}"/);
 });
 
 test("설치 폼은 늘 열려 있고, 고른 카메라의 자리·설치 자세를 고칠 수 있다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   // hidden 이면 "편집" 을 눌러야 나오는 옛 폼이다.
   assert.match(html, /<form id="sim-cam-edit-form" class="sim-cam-form">/);
   for (const id of ["sim-cam-edit-x", "sim-cam-edit-y", "sim-cam-edit-height",
@@ -403,36 +404,15 @@ test("설치 폼은 늘 열려 있고, 고른 카메라의 자리·설치 자세
   // 파일로 남기는 일은 「씬」 탭의 씬 저장이 맡는다.
   const buttons = [...form.matchAll(/<button id="([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual(buttons, ["sim-cam-edit-apply", "sim-cam-edit-delete"]);
+  // 별명은 씬(카메라의 note)에 산다 — 여기 사본을 두지 않는다.
+  assert.match(html, /id="sim-cam-edit-note"/);
 
   const start = html.indexOf("async function applyInstallEdit(");
-  const end = html.indexOf("async function applyDriveEdit(", start);
-  assert.ok(start > 0 && end > start, "설치 적용 함수가 있어야 한다");
-  const apply = html.slice(start, end);
-  // 지면을 모르면 세우지 않는 것과 같은 이유로 옮기지도 않는다 — 0 으로 가정하면 지면이
-  // z=0 이 아닌 레벨에서 그 차이가 통째로 높이 오차가 된다.
-  assert.match(apply, /sceneGroundZcm\(\)/);
-  assert.match(apply, /ground === null/);
-  // 한 축만 고쳐도 셋을 함께 보낸다 — 축 하나만 보내면 나머지를 sim 이 0 으로 읽는다.
-  assert.match(apply, /patch\.location = \{ x, y, z \}/);
-  assert.match(apply, /if \(x === null \|\| y === null\)/);
-  // 별명은 씬(카메라의 note)에 산다 — 여기 사본을 두지 않는다. 빈 문자열도 뜻이 있어서
-  // ("이름 지움") 씬이 준 값과 **다를 때만** 보낸다.
-  assert.match(html, /id="sim-cam-edit-note"/);
-  assert.match(apply, /if \(note !== String\(cam\.note \?\? ""\)\.trim\(\)\) patch\.note = note;/);
-  // 레벨 저작 카메라도 이름은 고칠 수 있다 — 옮기지 못하는 것은 자세가 레벨의 것이기 때문이지
-  // 사람이 부르는 이름까지 레벨의 것이어서가 아니다(플러그인도 같은 규칙).
-  const render0 = html.slice(html.indexOf("function renderCameraEditForm("), html.indexOf("function ptzOfSelected("));
-  assert.match(render0, /el\.note\.disabled = !cam;/);
-  assert.match(render0, /sim-cam-edit-apply"\)\.hidden = !cam;/);
+  const apply = html.slice(start, html.indexOf("async function applyDriveEdit(", start));
+  assert.ok(apply.length > 200, "설치 적용 함수가 있어야 한다");
   assert.match(apply, /reqJson\("PATCH", api\(`\/simulator\/cameras\//);
   // 씬이 정본이다 — 실패해도 일부는 반영됐을 수 있으므로 화면을 씬으로 되맞춘다.
   assert.match(apply, /catch \(e\) \{[\s\S]*await refreshRig\(\)/);
-
-  // 폼은 좌표를 cm 정수로 보여 준다. 그 표시를 그대로 보내면 아무것도 안 고치고 저장만 눌러도
-  // 카메라가 반올림한 만큼 움직인다.
-  const keep = html.slice(html.indexOf("function typedOrExact("), start);
-  assert.match(keep, /formValue === Math\.round\(sceneValue\) \? sceneValue : formValue/);
-  assert.match(apply, /const x = typedOrExact\(toNum\(el\.x\.value\), nowX\)/);
 
   // 잠금은 hidden 으로 한다 — setBusy 가 모든 button 의 disabled 를 되돌리므로, disabled 로
   // 막아 둔 삭제 버튼은 다른 작업 하나가 끝날 때 되살아난다.
@@ -440,11 +420,15 @@ test("설치 폼은 늘 열려 있고, 고른 카메라의 자리·설치 자세
                             html.indexOf("function syncCameraEditForm("));
   assert.match(render, /sim-cam-edit-delete"\)\.hidden = !cam \|\| authored/);
   assert.match(render, /node\.disabled = !cam \|\| authored/);
+  // 레벨 저작 카메라도 이름은 고칠 수 있다 — 옮기지 못하는 것은 자세가 레벨의 것이기 때문이지
+  // 사람이 부르는 이름까지 레벨의 것이어서가 아니다(플러그인도 같은 규칙).
+  assert.match(render, /el\.note\.disabled = !cam;/);
+  assert.match(render, /sim-cam-edit-apply"\)\.hidden = !cam;/);
   // 잠긴 칸만 있고 이유가 없으면 고장으로 읽힌다 — 아이디 줄이 그 한 가지(레벨 저작)를 말한다.
-  // 이름 밑에 카메라 아이디, 그 밑에 포트 둘(제어·프리뷰) — 포트는 설치의 사실이라 배치 탭에만
-  // 보인다. 로그·API 응답에서 이 카메라를 찾는 열쇠가 그 두 줄이다.
-  assert.match(render, /const idLine = cam \? cam\.id \+ \(authored \? t\(" · 레벨 저작\(자세 고정\)"\) : ""\) : fallback;/);
-  assert.match(render, /t\("제어 :\{c\} · 프리뷰 :\{m\}", \{ c: cam\.hucomsPort, m: cam\.mjpegPort \?\? "—" \}\)/);
+  // 이름 밑에 카메라 아이디, 그 밑에 포트 둘(제어·프리뷰) — 그 두 줄이 로그·API 응답에서
+  // 이 카메라를 찾는 열쇠다. 문구 판정은 actions 의 cameraTitleLine 이 값으로 답한다.
+  assert.match(render, /const idLine = cameraTitleLine\(cam, picked\);/);
+  assert.match(render, /cameraPortsLine\(cam\)/);
 });
 
 // 폼의 칸은 editEls() 하나가 모아 둔다. 거기 없는 이름을 쓰면 el.<이름> 이 undefined 라
@@ -452,7 +436,7 @@ test("설치 폼은 늘 열려 있고, 고른 카메라의 자리·설치 자세
 // 폼에서 사라진 뒤에도 syncCameraEditForm 이 el.yaw 에 쓰고 있어서, Ctrl+끌기로 돌릴 때마다
 // 마지막 줄이 터졌다(2026-08-12). getElementById 를 세는 검사로는 안 잡히는 부류다.
 test("폼에 없는 칸에는 쓰지 않는다 — editEls 가 아는 이름만 쓴다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   const decl = html.slice(html.indexOf("const editEls = () => ({"));
   const known = new Set([...decl.slice(0, decl.indexOf("});")).matchAll(/^\s*([a-zA-Z]+):/gm)].map((m) => m[1]));
   assert.ok(known.size >= 5, "editEls 를 못 읽었으면 이 검사는 아무것도 안 지킨다");
@@ -461,20 +445,25 @@ test("폼에 없는 칸에는 쓰지 않는다 — editEls 가 아는 이름만 
   // 본다. 주석은 지우고 본다 — 이 검사를 설명하는 주석이 스스로 걸리면 안 된다.
   const bodies = [];
   for (let i = html.indexOf("const el = editEls();"); i !== -1; i = html.indexOf("const el = editEls();", i + 1)) {
-    bodies.push(html.slice(i, html.indexOf("\n}", i)).replace(/\/\/.*$/gm, ""));
+    bodies.push(code(html.slice(i, html.indexOf("\n}", i))));
   }
   assert.ok(bodies.length >= 3, "editEls 를 쓰는 함수를 못 찾았다");
   const used = new Set(bodies.flatMap((body) => [...body.matchAll(/\bel\.([a-zA-Z]+)\b/g)].map((m) => m[1])));
   const missing = [...used].filter((name) => !known.has(name));
   assert.deepEqual(missing, [], `폼에 없는 칸: ${missing.join(", ")}`);
+
+  // 폼을 채우는 값도 같은 이름표를 쓴다 — installFieldsOf 의 키와 editEls 의 키가 갈리면
+  // 그 칸만 조용히 undefined 가 된다(입력칸에 "undefined" 가 찍힌다).
+  assert.match(html, /for \(const \[key, node\] of Object\.entries\(el\)\) put\(node, fields\[key\]\);/);
 });
 
 test("끌어서 바꾼 값은 폼에도 반영된다 — 저장이 방금 끈 것을 되돌리지 않게", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   // 저장은 폼과 씬을 견주어 다른 칸만 보낸다. 그래서 끌고 난 뒤 폼에 옛 방위가 남아 있으면
   // 그 값이 그대로 "돌리라는 지시"가 되어 방금 끈 것을 되돌린다.
   const sync = html.slice(html.indexOf("function syncCameraEditForm("),
-                          html.indexOf("function revertCameraEditForm("));
+                          html.indexOf("// 폼은 좌표를 cm 정수로 보여 준다"));
+  assert.ok(sync.length > 200, "syncCameraEditForm 을 못 읽었다");
   assert.match(sync, /mapSelectedCameraId !== camId/);   // 옆 카메라를 끌었으면 이 폼은 그대로 둔다
   assert.match(sync, /if \(changed\.location\)/);
   // 폼을 통째로 다시 채우면 저장 안 한 손글씨(높이·하향각)가 사라진다.
@@ -504,7 +493,7 @@ test("끌어서 바꾼 값은 폼에도 반영된다 — 저장이 방금 끈 �
 });
 
 test("저장된 씬은 카메라가 아니라 씬의 것이다 — 씬 탭에서 다루고 씬 상태줄에 적는다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   const info = html.slice(html.indexOf('data-sim-tab-panel="info"'),
                           html.indexOf('data-sim-tab-panel="settings"'));
   // 저장본은 세운 카메라 + 차량 전체다. 카메라 옆에 두면 "이 카메라를 저장한다" 로 읽힌다.
@@ -531,7 +520,7 @@ test("저장된 씬은 카메라가 아니라 씬의 것이다 — 씬 탭에서
 // 했는데, 그 파일은 받은 사람의 다운로드 폴더 밖에서는 존재하지 않았다 — 시뮬을 재시작하고
 // 나서 되돌릴 것이 실제로 남아 있지 않았다는 뜻이다.
 test("씬 저장은 서버로 간다 — 다운로드로 떨어뜨리지 않는다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   const save = html.slice(html.indexOf("async function putScene("),
                           html.indexOf("async function saveSceneAs("));
   assert.match(save, /reqJson\("PUT", api\(`\/simulator\/scenes\//);
@@ -551,14 +540,14 @@ test("씬 저장은 서버로 간다 — 다운로드로 떨어뜨리지 않는�
 });
 
 test("씬 탭을 열면 저장 목록을 서버에서 다시 읽는다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   assert.match(html, /if \(key === "info"\) loadSavedScenes\(\);/);
 });
 
 // 이름을 고치는 것과 내용을 고치는 것은 다른 일이다. 한 버튼으로 묶으면(= 새 이름으로 저장)
 // 이름만 고치려던 사람이 그 사이 달라진 씬까지 저장본에 옮겨 담게 된다.
 test("이름 바꾸기는 서버가 파일을 옮긴다 — 새 이름으로 다시 저장하는 것이 아니다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   const rename = html.slice(html.indexOf("async function renameSavedScene("),
                             html.indexOf("async function deleteSavedScene("));
   assert.match(rename, /postJson\(api\(`\/simulator\/scenes\/\$\{encodeURIComponent\(scene\.name\)\}\/rename`\)/);
@@ -574,7 +563,7 @@ test("이름 바꾸기는 서버가 파일을 옮긴다 — 새 이름으로 다
 // 저장되는 것은 카메라 하나가 아니라 이 월드다. 빈 칸을 두면 눈앞의 카메라 별명을 적게 되어
 // 저장본 이름이 카메라 이름과 같아진다(실제로 그렇게 됐다).
 test("저장 이름 칸은 비어 있으면 레벨 이름으로 채운다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   const load = html.slice(html.indexOf("async function loadSavedScenes("),
                           html.indexOf("function renderSavedScenes("));
   assert.match(load, /getElementById\("sim-level"\)/);
@@ -582,7 +571,7 @@ test("저장 이름 칸은 비어 있으면 레벨 이름으로 채운다", asyn
 });
 
 test("카메라 배치 목록은 씬을 주기적으로 다시 읽되, 바뀐 게 없으면 다시 그리지 않는다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   const start = html.indexOf("async function pollRig()");
   const end = html.indexOf("setInterval(", start);
   assert.ok(start > 0 && end > start, "주기 갱신 함수가 있어야 한다");
@@ -603,24 +592,28 @@ test("카메라 배치 목록은 씬을 주기적으로 다시 읽되, 바뀐 �
   // 것이 손 아래에서 사라진다.
   //
   // **편집 중은 여기서 빠진다.** 폼이 늘 열려 있으므로 그걸로 쉬면 영영 쉰다 — 손대는 중인
-  // 칸을 지키는 일은 formDirty 가 폼 안에서 맡는다.
+  // 칸을 지키는 일은 dirtyFields 가 폼 안에서 맡는다.
   assert.match(poll, /placing \|\| dragCam \|\| busyEl\.textContent/);
   assert.ok(!poll.includes("editingCameraId"), "편집 여부로 폴링을 멈추지 않는다");
   // 조준(PTZ)은 이 화면만 바꾸는 값이 아니다 — 밖에서 돌아간 카메라 앞에서 화면이 옛 자세를
   // 계속 말하면, 값이 "연동되지 않는다" 로 보인다. 달라졌을 때만 고쳐 쓴다.
-  assert.match(poll, /getJson\(api\("\/simulator\/control\/ptz"\)\)/);
   assert.match(poll, /if \(ptz && fmt\(ptz\) !== fmt\(lastPtz\)\)/);
   // 바뀐 게 없으면 그리지 않는다(스크롤·커서 튐 방지).
   assert.match(poll, /if \(rigSignature\(\) === before\) return;/);
   // 등록부는 주기 호출 대상이 아니다 — loadCameras 는 활성 기기를 서버에 쓴다.
   assert.doesNotMatch(poll, /loadCameras\(/);
+  // 포트는 옆 세션의 스폰이나 시뮬 재시작으로 낡는다. 다만 조기반환 **뒤**여야 한다 —
+  // 앞에 두면 아무것도 안 바뀐 5초 주기마다 요청 하나를 공짜로 버린다.
+  const early = poll.indexOf("if (rigSignature() === before) return;");
+  const fetchPorts = poll.indexOf("fetchSimPorts()");
+  assert.ok(fetchPorts > -1 && early < fetchPorts, "포트 갱신은 조기반환보다 뒤에 있어야 한다");
 });
 
 // 시뮬레이터 주소는 카메라와 별개다 — 카메라를 전부 지워도 연결이 남아야 한다.
 // 회귀(2026-08-11): 주소가 카메라 기기의 scenePort 에 얹혀 있어서, 기기를 전부 지우자
 // 백엔드가 인메모리 더블로 내려가고 화면이 실제 주차장 대신 빈 씬을 그렸다.
 test("주소는 카메라가 아니라 시뮬레이터(월드)의 것이다 — 자기 화면과 자기 라우트를 갖는다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   // 계정도 월드의 것이다 — 카메라마다 복사돼 있던 것을 이 한 자리로 모았다.
   for (const id of ["sim-endpoint-host", "sim-endpoint-port", "sim-endpoint-timeout",
                     "sim-endpoint-user", "sim-endpoint-pass",
@@ -637,111 +630,68 @@ test("주소는 카메라가 아니라 시뮬레이터(월드)의 것이다 — 
   assert.doesNotMatch(html, /\bscenePort\b\s*[:.=]|\.scenePort\b/);
   assert.match(html, /controlPort/, "제어 포트는 시뮬레이터 하나의 것이다");
 
-  // 빈 비밀번호 칸은 "모른다"이지 "지워라"가 아니다. 빈 문자열을 실어 보내면 호스트만
-  // 고치는 저장 한 번에 월드의 계정이 사라지고 모든 파생 카메라가 인증에 실패한다.
+  // 빈 칸을 어떻게 다루는가(특히 비밀번호)는 actions 의 endpointPayload 규칙이다 — 화면은
+  // 칸을 읽어 넘기기만 한다. 여기서 다시 조립하면 그 규칙이 두 벌이 된다.
   const start = html.indexOf("function readEndpointForm()");
   const form = html.slice(start, html.indexOf("async function loadSceneEndpoint(", start));
-  assert.match(form, /\.\.\.\(password \? \{ password \} : \{\}\)/);
+  assert.match(form, /return endpointPayload\(\{/);
+  assert.ok(!/\.\.\.\(/.test(form), "빈 칸 규칙을 화면이 다시 짜지 않는다");
 });
 
 // JS 가 부르는 element id 는 전부 DOM 에 있어야 한다. getElementById(...).disabled 처럼
 // 곧바로 속성을 쓰는 자리가 많아, 없는 id 가 하나만 남아도 그 탭이 통째로 죽는다 —
 // 입력칸을 지우면서 참조를 안 고쳐 실제로 그랬다(2026-08-11).
 test("화면이 부르는 element id 는 전부 실재한다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   const referenced = new Set([...html.matchAll(/getElementById\("([^"]+)"\)/g)].map((m) => m[1]));
   const present = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
   assert.ok(referenced.size > 50, "참조를 못 읽었다");
   assert.deepEqual([...referenced].filter((id) => !present.has(id)), []);
 });
 
-// 스폰 포트의 정본은 서버다. 카메라 포트 대역은 인스턴스마다 다르므로(다중 인스턴스 계약,
-// v0.1.17 부터 대역 밖 스폰은 409) 프런트가 관례로 고르면 안 된다 — 8200 하드코딩이 정확히
-// 그 사고였다(2026-08-17 재현: 대역 8030~8040 인스턴스에서 폼이 8200 을 채워 409 로 끝남).
-test("스폰 포트는 서버가 정한다 — nextFree · 대역 만원 · 대역 없음 세 갈래", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+// 스폰 포트의 정본은 서버다. 세 갈래 판정과 대역 만원 문구는 actions 가 값으로 문다 —
+// 여기서 지키는 것은 화면이 그 판정을 부르고 **제 관례를 다시 들이지 않는가**다.
+// 8200 하드코딩이 정확히 그 사고였다(2026-08-17 재현: 대역 8030~8040 인스턴스에서 409).
+test("스폰 포트는 서버가 정한다 — 화면은 관례를 다시 들이지 않는다", async () => {
+  const html = await read();
   assert.match(html, /api\("\/simulator\/ports"\)/, "대역·빈 쌍을 서버에서 읽어야 한다");
+  assert.match(html, /const pickSpawnPorts = \(\) => pickPorts\(simPortInfo,/);
+  assert.match(html, /const portBand = \(\) => bandOf\(simPortInfo\);/);
+  assert.match(html, /const bandFullNotice = \(\) => bandFullOf\(simPortInfo\);/);
+  // 관례 탐색(8200·+100)은 대역 없는 인스턴스 전용이라 actions 안에만 산다.
+  assert.doesNotMatch(code(html), /8200|nextFree/, "화면이 포트 관례를 다시 알면 안 된다");
 
-  const pick = html.slice(html.indexOf("function pickSpawnPorts"), html.indexOf("function bandFullNotice"));
-  const next = pick.indexOf("simPortInfo?.nextFree");
-  // 대역 판정은 portBand() 로 갔다 — null 경계(무제한 인스턴스)를 「대역 없음」으로 접는 관문.
-  const full = pick.indexOf("portBand()");
-  const conv = pick.indexOf("suggestPortsByConvention()");
-  assert.ok(next > -1 && full > -1 && conv > -1, "세 갈래가 모두 있어야 한다");
-  assert.ok(next < full && full < conv,
-    "가운데(대역 만원)를 빠뜨리면 대역 밖 값을 다시 제안한다 — 관례 탐색은 맨 끝이어야 한다");
-
-  // 관례 탐색(8200·+100)은 **대역 없는 인스턴스 전용**이다. 이름이 그 사실을 들고 있어야
-  // 다음 사람이 대역 있는 자리에 다시 끌어다 쓰지 않는다.
-  assert.ok(!/function suggestPorts\(/.test(html), "옛 이름이 남으면 용도가 다시 흐려진다");
-  assert.match(html, /function suggestPortsByConvention\(/);
-});
-
-// 대역이 꽉 차면 빈칸 둘만 남는데, 빈칸은 "포트를 입력하세요"로 끝난다 — 사람은 아무 값도
-// 안 된다는 사실을 시도해 봐야만 알게 된다. 만원은 입력 실수가 아니라 상태다.
-test("대역 만원은 빈칸이 아니라 말로 알린다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
-  assert.match(html, /function bandFullNotice\(\)/);
-  // 만원 판정은 "대역은 있는데 빈 쌍이 없다" 하나다.
-  assert.match(html, /if \(!range \|\| simPortInfo\?\.nextFree\) return "";/);
-
+  // 대역이 꽉 찼으면 폼을 여는 순간 말한다 — 빈칸은 "입력하세요"로 끝나 사람이 아무 값도
+  // 안 된다는 사실을 시도해 봐야만 알게 된다.
   const finish = html.slice(html.indexOf("function finishPlacing"), html.indexOf("function beginCameraDrag"));
   assert.match(finish, /bandFullNotice\(\)/, "폼을 여는 순간 알려야 한다");
-
-  const fn = html.slice(html.indexOf("async function spawnSceneCamera"), html.indexOf("async function removeSceneCamera"));
-  assert.match(fn, /setCamStatus\(bandFullNotice\(\) \|\| t\("포트를 입력하세요\."\)\)/,
-    "빈칸으로 제출해도 만원이면 만원이라고 답해야 한다");
-});
-
-// 포트는 옆 세션의 스폰이나 시뮬 재시작으로 낡는다. 다만 조기반환 **뒤**여야 한다 —
-// 앞에 두면 아무것도 안 바뀐 5초 주기마다 요청 하나를 공짜로 버린다.
-test("포트 갱신은 리그가 실제로 바뀐 뒤에만 — 폴링 조기반환 뒤", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
-  const poll = html.slice(html.indexOf("async function pollRig"), html.indexOf("// 상태 폴링도 숨겨진 탭에서는"));
-  const early = poll.indexOf("if (rigSignature() === before) return;");
-  const fetchPorts = poll.indexOf("fetchSimPorts()");
-  assert.ok(early > -1 && fetchPorts > -1 && early < fetchPorts, "조기반환보다 뒤에 있어야 한다");
-});
-
-test("대역 밖 포트는 제출 전에 끊는다 — 서버 409 를 사람 말로 먼저", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
-  const fn = html.slice(html.indexOf("async function spawnSceneCamera"), html.indexOf("async function removeSceneCamera"));
-  const gate = fn.indexOf("portBand()");
-  const post = fn.indexOf('postJson(api("/simulator/cameras")');
-  assert.ok(gate > -1 && post > -1 && gate < post, "대역 검증이 POST 보다 먼저여야 한다");
-  // 대역을 모르면(옛 백엔드) 막지 않는다 — 추측으로 막으면 스폰 자체가 불가능해진다.
-  assert.match(fn, /range && \(/);
+  // 직전에 세운 카메라의 근거가 다음 카메라에 묻어가면 기록이 있는 것처럼 보이면서 틀린다.
+  assert.match(finish, /getElementById\("sim-cam-note"\)\.value = "";/);
   // 대역은 폼에도 새겨진다 — min/max 와 힌트 줄(실재하는 id 여야 한다).
   assert.match(html, /id="sim-cam-port-range"/);
-  const applyIdx = html.indexOf("function applyPortRangeToForm");
-  assert.ok(applyIdx > -1, "대역을 폼(min/max·힌트)에 새기는 자리가 있어야 한다");
+  assert.match(html, /const hint = portRangeHint\(simPortInfo\);/);
 });
 
 // 씬 API 에는 감사 로그가 없다. 그래서 카메라의 note(이름)가 "누가 왜 세웠나"의 유일한
 // 기록이고, 비워 둘 수 있게 하면 그 답이 아무 데도 남지 않는다 — 2026-08-17 에 실제로
 // 서버 씬의 카메라 한 대를 두고 그 답을 못 찾았다(note 가 빈 문자열이었다).
 test("세우기는 이름을 요구한다 — 출처가 씬에 남는 유일한 기록이다", async () => {
-  const html = await readFile(simulatorPageUrl, "utf8");
+  const html = await read();
   const form = html.slice(html.indexOf('<form id="sim-cam-form"'), html.indexOf('id="sim-cam-spawn"'));
   assert.match(form, /id="sim-cam-note"[^>]*required/, "세우기 폼에 필수 이름 칸이 있어야 한다");
 
   const fn = html.slice(html.indexOf("async function spawnSceneCamera"), html.indexOf("async function removeSceneCamera"));
-  const guard = fn.indexOf("if (!note)");
+  // 검증은 POST 보다 먼저다 — 자리·높이까지 다 정한 뒤에 받는 거절은 비싸다.
+  const guard = fn.indexOf("if (error) { setCamStatus(error); return; }");
   const post = fn.indexOf('postJson(api("/simulator/cameras")');
-  assert.ok(guard > -1 && guard < post, "빈 이름은 POST 보다 먼저 끊어야 한다");
-  assert.match(fn, /httpPort, mjpegPort, note,/, "note 를 스폰 본문에 실어야 한다");
+  assert.ok(guard > -1 && guard < post, "못 세우는 이유는 POST 보다 먼저 답해야 한다");
+  // 이름은 스폰 본문에 실린다(그 조립은 actions 의 spawnRequestFrom 이 한다).
+  assert.match(fn, /const note = body\.note;/);
 
   // 스폰 응답은 방어적으로 읽는다. 한 번 관측된 실패에서 응답에 `camera` 키가 없었는데
   // **카메라는 실제로 세워져 있었다** — r.camera.id 를 곧장 읽으면 성공한 스폰에서 예외가 나
   // 화면이 "실패"라고 말하면서 카메라는 씬에 서 있는 상태가 된다(baro_memo #55 코멘트).
-  // 주석은 걷어내고 본다 — 이 규칙을 설명하는 주석 자체가 예시로 `r.camera.id` 를 인용한다.
-  const code = fn.replace(/^\s*\/\/.*$/gm, "");
-  assert.doesNotMatch(code, /r\.camera\.id/, "응답의 camera 를 무방비로 읽으면 안 된다");
-  assert.match(fn, /const spawned = r\.camera \|\| null;/);
-  assert.match(fn, /if \(camId && String\(spawned\.note \?\? ""\) !== note\)/,
+  assert.doesNotMatch(code(fn), /r\.camera/, "응답의 camera 를 화면이 직접 읽으면 안 된다");
+  assert.match(fn, /if \(out\.needsNoteRetry\)/,
     "이름 보정은 카메라를 받았을 때만 — 간헐 실패에는 재시도가 맞는 모양이다");
-
-  // 직전 카메라의 근거가 다음 카메라에 묻어가면 기록이 있는 것처럼 보이면서 틀린다.
-  const finish = html.slice(html.indexOf("function finishPlacing"), html.indexOf("function beginCameraDrag"));
-  assert.match(finish, /getElementById\("sim-cam-note"\)\.value = "";/);
 });

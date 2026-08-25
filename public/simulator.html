@@ -1011,7 +1011,28 @@ import { getJson, postJson, reqJson, fmtPtz as fmt, api } from "./web/api.mjs";
 import { createCameraPreview } from "./web/camera-preview.mjs";
 import { t } from "./web/i18n.mjs";
 import { initPageChrome } from "./web/page-chrome.mjs";
-import { toNum, pad2 } from "./web/format.mjs";
+import { toNum } from "./web/format.mjs";
+import {
+  MOVE_SPEED, ORACLE_TOLERANCE_PX,
+  SIM_ACTIVE_CAMERA_KEY, SIM_PREVIEW_WANTED_KEY, SIM_CROSSHAIR_KEY,
+  ptzSnapshot, readyStateOf, statusTextFromSimulatorState, endpointPayload,
+  slotName as simSlotName, slotNameById, sortSlots as sortSimSlots, plateText as simPlateText,
+  mountYawOf, viewOf as viewOfPort, viewYawOf as viewYawOfPort,
+  hfovOf as hfovOfPort, tiltposOf as tiltposOfPort, hfovLimitsOf as hfovLimitsOfPort,
+  coneOf, aimTargetFor,
+  rigSignature as signatureOf, portBand as bandOf, pickSpawnPorts as pickPorts,
+  bandFullNotice as bandFullOf, portRangeHint,
+  spawnRequestFrom, spawnOutcome, installPatchFrom, driveChangeOf,
+  installFieldsOf, cameraTitleLine, cameraPortsLine,
+  deviceForCamera, cameraForDevice, resolveActiveCam as resolveCamFor, pickDevice,
+  compareOracle, doomedCameraCount, restoreSummaryText, sceneMetaText, saveSceneText,
+} from "./web/pages/simulator/actions.mjs";
+import {
+  toMap, toWorld, CONE_LEN_RATIO, conePathD, tipAt, computeMapView as mapViewOf,
+  cameraHeightM, sceneGroundZcm as groundOf, measureSlotPitchCm as pitchOf, slotBoxCm as boxOf,
+  poseFromPlacement as poseOf, aimYawTowards, panposForYaw, turnBetween,
+  tiltSliderPos, tiltSliderDeg, trackOffsetOf, hfovFromDrag, spreadClusters,
+} from "./web/pages/simulator/geometry.mjs";
 
 initPageChrome({ page: "simulator" });
 
@@ -1022,7 +1043,6 @@ const rubber = document.getElementById("rubber");
 const busyEl = document.getElementById("busy");
 const logEl = document.getElementById("log");
 const logPanel = document.getElementById("sim-log-panel");
-const SIM_ACTIVE_CAMERA_KEY = "sim:active-camera.v1";
 const simReadyLed = document.getElementById("sim-ready-led");
 const simReadyText = document.getElementById("sim-ready-text");
 let lastPtz = null;
@@ -1105,53 +1125,23 @@ const preview = createCameraPreview({
   log,
 });
 
-// 이동 속도(1–100). 조작 패드를 걷어내면서 이 값을 고를 칸도 함께 사라졌다 — 패드의 기본값을
-// 그대로 쓴다. 센터링·박스줌·앵커 조작이 같은 속도로 움직인다.
-const MOVE_SPEED = 50;
-
 // Crosshair 토글 — 화면 중앙 조준선을 켜고 끈다. 선택은 localStorage 에 남는다.
 const crosshairToggle = document.getElementById("crosshair-toggle");
-const CROSSHAIR_KEY = "sim:crosshair.v1";
-try { crosshairToggle.checked = localStorage.getItem(CROSSHAIR_KEY) !== "off"; } catch { /* 저장소 사용 불가 */ }
+try { crosshairToggle.checked = localStorage.getItem(SIM_CROSSHAIR_KEY) !== "off"; } catch { /* 저장소 사용 불가 */ }
 const applyCrosshairToggle = () => document.getElementById("stage").classList.toggle("crosshair-off", !crosshairToggle.checked);
 crosshairToggle.addEventListener("change", () => {
-  try { localStorage.setItem(CROSSHAIR_KEY, crosshairToggle.checked ? "on" : "off"); } catch { /* 저장소 사용 불가 */ }
+  try { localStorage.setItem(SIM_CROSSHAIR_KEY, crosshairToggle.checked ? "on" : "off"); } catch { /* 저장소 사용 불가 */ }
   applyCrosshairToggle();
 });
 applyCrosshairToggle();
 
-function ptzSnapshot(p) {
-  if (!p) return null;
-  const panpos = Number(p.panpos);
-  const tiltpos = Number(p.tiltpos);
-  const zoompos = Number(p.zoompos);
-  if (![panpos, tiltpos, zoompos].every(Number.isFinite)) return null;
-  return { panpos, tiltpos, zoompos };
-}
-
+// LED 와 문구는 readyStateOf 가 정한다 — **무엇이 죽었는가**(백엔드냐 시뮬이냐)를 가려 말하는
+// 판정이라 값으로 검사한다. 여기서는 그 답을 DOM 에 옮기기만 한다.
 function setSimulatorReadyState(state = {}) {
   simEndpointPort = Number(state?.endpoint?.port) || null;
-  const mode = state.mode || "";
-  const ready = Boolean(state.ready);
-  simReadyLed.classList.toggle("ready", ready);
-  simReadyLed.classList.toggle("warn", !ready && mode === "fake");
-  simReadyLed.classList.toggle("off", !ready && mode !== "fake");
-  if (ready) {
-    const version = state.pluginVersion ? ` · v${state.pluginVersion}` : "";
-    simReadyText.textContent = `시뮬레이터 준비됨${version}`;
-    return;
-  }
-  if (mode === "fake") {
-    simReadyText.textContent = "Fake 모드";
-    return;
-  }
-  if (state.unreachable) {
-    // 죽은 것은 백엔드(또는 터널)다 — 「시뮬레이터 미연결」이라고 말하면 사람이 UE 를 뒤진다.
-    simReadyText.textContent = `백엔드 무응답 — 시뮬레이터 상태를 알 수 없습니다 (${state.error})`;
-    return;
-  }
-  const why = state.message || state.error;   // 계약은 message — error 는 로컬(fetch 실패) 폴백
-  simReadyText.textContent = why ? `시뮬레이터 미연결: ${why}` : "시뮬레이터 미연결";
+  const { led, text } = readyStateOf(state);
+  for (const cls of ["ready", "warn", "off"]) simReadyLed.classList.toggle(cls, led === cls);
+  simReadyText.textContent = text;
 }
 
 async function refreshSimulatorStatus({ silent = false } = {}) {
@@ -1165,15 +1155,6 @@ async function refreshSimulatorStatus({ silent = false } = {}) {
     if (!silent) setEndpointStatus("상태 확인 실패: " + e.message);
     return null;
   }
-}
-
-function statusTextFromSimulatorState(state = {}) {
-  const endpoint = state.endpoint || {};
-  const where = endpoint.host ? `${endpoint.host}${endpoint.port ? ":" + endpoint.port : ""}` : "host 미설정";
-  if (state.ready) return `연결됨 · ${endpoint.name || endpoint.id || "sim"} · ${where}`;
-  if (state.mode === "fake") return `Fake 모드 · ${where}`;
-  const why = state.message || state.error;
-  return `미연결 · ${where}` + (why ? ` · ${why}` : "");
 }
 
 // ---- 시뮬레이터 주소: 월드 하나의 주소와 계정. 카메라·stage 와 무관하다 ----
@@ -1200,20 +1181,16 @@ function setEndpointStatus(text, configured) {
   if (configured !== undefined) endpointEl.state.textContent = configured ? t("설정됨") : t("미설정");
 }
 
+// 빈 칸을 어떻게 다루는가(특히 비밀번호 — 빈 칸은 "모른다"이지 "지워라"가 아니다)는
+// endpointPayload 의 규칙이다. 여기서는 칸을 읽어 넘기기만 한다.
 function readEndpointForm() {
-  const host = endpointEl.host.value.trim();
-  const controlPort = endpointEl.port.value.trim();
-  const timeoutMs = endpointEl.timeout.value.trim();
-  const username = endpointEl.user.value.trim();
-  const password = endpointEl.pass.value;
-  return {
-    host, controlPort,
-    ...(timeoutMs ? { timeoutMs: Number(timeoutMs) } : {}),
-    ...(username ? { username } : {}),
-    // 비밀번호는 서버가 내려주지 않는다. 빈 칸은 "모른다"라서 **보내지 않는 것**이 맞다 —
-    // 빈 문자열로 보내면 호스트만 고치는 저장 한 번에 월드의 계정이 지워진다.
-    ...(password ? { password } : {}),
-  };
+  return endpointPayload({
+    host: endpointEl.host.value,
+    controlPort: endpointEl.port.value,
+    timeoutMs: endpointEl.timeout.value,
+    username: endpointEl.user.value,
+    password: endpointEl.pass.value,
+  });
 }
 
 async function loadSceneEndpoint() {
@@ -1402,9 +1379,7 @@ async function loadCameras() {
       let savedId = "";
       try { savedId = localStorage.getItem(SIM_ACTIVE_CAMERA_KEY) || ""; } catch { /* 저장소 사용 불가 */ }
       const activeId = cfg.active;
-      let selectedId = sims.some((d) => d.id === savedId)
-        ? savedId
-        : sims.some((d) => d.id === activeId) ? activeId : sims[0].id;
+      let selectedId = pickDevice(sims, { savedId, activeId });   // 저장본 → 서버의 활성 → 첫째
       camSelect.value = selectedId;
       // 활성 전환은 목록의 일이 아니다 — 이 POST 한 건의 일시 실패가 바깥 catch 로 나가면
       // 「카메라 목록 실패」로 오보되고, 목록은 이미 채워졌는데 활성만 반쪽으로 남는다.
@@ -1517,55 +1492,23 @@ async function fetchSimPorts() {
   applyPortRangeToForm();
 }
 
-// 대역의 네 값이 **전부 유한할 때만** 대역이 있다고 친다. 무제한 인스턴스는 경계를 null 로
-// 보낼 수 있는데, null 을 그대로 비교에 태우면 port > null 이 항상 참이라 모든 스폰이
-// 「대역 밖」으로 거절된다 — 반쪽 대역도 같은 이유로 통째로 「대역 없음」으로 다룬다.
-function portBand() {
-  const r = simPortInfo?.cameraPortRange;
-  if (!r) return null;
-  const b = { httpFrom: toNum(r.httpFrom), httpTo: toNum(r.httpTo), mjpegFrom: toNum(r.mjpegFrom), mjpegTo: toNum(r.mjpegTo) };
-  return Object.values(b).some((v) => v === null) ? null : b;
-}
+// 대역·빈 쌍·만원 판정은 전부 actions 에 있다(세 갈래와 null 경계가 그쪽 테스트의 본론이다).
+// 여기 남는 것은 「지금 서버가 뭐라고 했나」를 넘기는 일뿐이다.
+const portBand = () => bandOf(simPortInfo);
+const pickSpawnPorts = () => pickPorts(simPortInfo,
+  { cameras: simCameras, devices: simDevices, controlPort: simEndpointPort });
+const bandFullNotice = () => bandFullOf(simPortInfo);
 
-// 대역을 폼에 새긴다 — min/max(브라우저 1차 방어)와 힌트 한 줄. 모르면 새기지 않는다
-// (추측으로 좁히면 옛 백엔드에서 스폰 자체가 막힌다).
+// 대역을 폼에 새긴다 — min/max(브라우저 1차 방어)와 힌트 한 줄. 모르면 새기지 않는다.
 function applyPortRangeToForm() {
-  const range = portBand();
+  const hint = portRangeHint(simPortInfo);
   const httpEl = document.getElementById("sim-cam-http");
   const mjpegEl = document.getElementById("sim-cam-mjpeg");
   const hintEl = document.getElementById("sim-cam-port-range");
-  if (range) {
-    httpEl.min = range.httpFrom; httpEl.max = range.httpTo;
-    mjpegEl.min = range.mjpegFrom; mjpegEl.max = range.mjpegTo;
-    hintEl.textContent = t("허용 포트 {hf}–{ht} · MJPEG {mf}–{mt}",
-      { hf: range.httpFrom, ht: range.httpTo, mf: range.mjpegFrom, mt: range.mjpegTo });
-    hintEl.hidden = false;
-  } else {
-    httpEl.min = 1; httpEl.max = 65535;
-    mjpegEl.min = 1; mjpegEl.max = 65535;
-    hintEl.hidden = true;
-  }
-}
-
-// 세울 포트를 고른다. **세 갈래이고 가운데를 빠뜨리면 고치려던 증상이 그대로 돌아온다.**
-//  - nextFree 있음            → 그 쌍. 서버가 이 인스턴스의 대역 안에서, 씬이 연 포트를 피해 골랐다
-//  - 대역 있는데 nextFree 없음 → **대역 만원**이다. 관례로 내려가면 대역 밖 값을 다시 제안한다
-//  - 대역 자체가 없음          → 무제한 인스턴스이거나 대역 계약 이전 백엔드. 이때만 관례 탐색
-// nextFree 는 **쌍이거나 null 이지 반쪽이 아니다** — 반쪽을 주면 받는 쪽이 나머지를 +100 으로
-// 지어내게 되고, 두 대역이 100 차이라는 보장은 어디에도 없다(인자가 넷이라 독립이다).
-function pickSpawnPorts() {
-  const next = simPortInfo?.nextFree;
-  if (next) return { http: next.httpPort, mjpeg: next.mjpegPort };
-  if (portBand()) return { http: "", mjpeg: "" };
-  return suggestPortsByConvention();
-}
-
-// 대역이 있는데 빈 쌍이 없다 = 만원. 빈 문자열이면 만원이 아니다(호출부가 그대로 쓴다).
-function bandFullNotice() {
-  const range = portBand();
-  if (!range || simPortInfo?.nextFree) return "";
-  return t("카메라 포트 대역({from}~{to})이 가득 찼습니다 — 카메라를 지우거나 더 넓은 대역으로 시뮬레이터를 다시 띄우세요.",
-    { from: range.httpFrom, to: range.httpTo });
+  httpEl.min = hint.http.min; httpEl.max = hint.http.max;
+  mjpegEl.min = hint.mjpeg.min; mjpegEl.max = hint.mjpeg.max;
+  hintEl.textContent = hint.text;
+  hintEl.hidden = !hint.text;
 }
 
 // 카메라마다 지금 자세를 묻는다(백엔드가 카메라마다 실제로 물어본 값이다). 닿지 않는 카메라는
@@ -1580,19 +1523,10 @@ async function fetchSimPtz() {
   } catch { /* 직전 표를 지키고 다음 폴링을 기다린다 */ }
 }
 function resolveActiveCam() {
-  const dev = simDevices.find((d) => d.id === camSelect.value) || {};
-  const port = dev.port;
-  // 첫 카메라 폴백은 **합성 fake 기기**의 것이다(포트 없는 지어낸 기기 하나 = 씬 카메라
-  // 하나). 기준기(derived:false)는 씬 카메라가 아니라 자기 하드웨어다 — 여기에 폴백을
-  // 태우면 남의 카메라 광학모델에 이 카메라의 PTZ 를 꽂아 핀·오라클을 그린다.
-  activeCam = simCameras.find((c) => c.hucomsPort === port)
-    || (port == null && dev.derived !== false && simCameras.length ? simCameras[0] : null);
+  const r = resolveCamFor({ devices: simDevices, cameras: simCameras, deviceId: camSelect.value });
+  activeCam = r.cam;
   const hint = document.getElementById("overlay-hint");
-  if (hint) {
-    hint.textContent = activeCam ? ""
-      : dev.derived === false ? t("기준기 — 씬 포즈가 없어 오버레이를 그리지 않습니다")
-      : t("이 카메라의 포즈 없음 — 오버레이 미표시");
-  }
+  if (hint) hint.textContent = r.hint;
 }
 // 포즈는 mount(설치) 와 자세(PTZ) 둘 다다 — 평면도가 그리는 시야는 둘의 합이라, 하나만 새로
 // 읽으면 카메라를 바꾼 직후 옆 카메라의 부채꼴이 사라지거나 낡은 자세로 남는다.
@@ -1614,7 +1548,6 @@ let pinsFrame = { width: 1920, height: 1080 };
 // 오라클(렌더러가 답한 진짜 픽셀) — 대조를 눌렀을 때만 차고, 자세가 바뀌면 비운다.
 let truthPins = new Map();    // slotId -> { x, y, behind, d } (d = 우리 모델과의 픽셀 거리)
 let oracleSummary = "";
-const ORACLE_TOLERANCE_PX = 3;   // 이 위는 색으로 표시한다(프레임 1920 기준 0.16%)
 
 async function refreshOverlay() {
   // 자세가 바뀌면 지난 오라클 답은 거짓말이 된다 — 남겨 두면 모델 오차처럼 보인다.
@@ -1686,13 +1619,6 @@ function renderPins() {
 // 두 답은 반드시 **같은 순간의 자세**로 물어야 한다. 오라클은 렌더러의 현재 자세를 쓰고
 // 오버레이는 우리가 넘긴 PTZ 를 쓰므로, 카메라가 도는 중에 재면 그 시간차가 고스란히
 // 모델 오차로 나타난다 — 그래서 PTZ 를 바로 앞에서 새로 읽고 둘을 함께 던진다.
-function median(values) {
-  if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-}
-
 async function compareWithOracle() {
   const out = document.getElementById("oracle-out");
   const say = (message) => { if (out) out.textContent = message || ""; };
@@ -1714,44 +1640,13 @@ async function compareWithOracle() {
       }),
     ]);
     // 우리 핀도 이 응답으로 갈아 끼운다 — 두 답이 같은 호출에서 나와야 비교가 성립한다.
-    pinsBySlot = new Map((ours.pins || []).map((p) => [p.id, p]));
-    pinsFrame = { width: ours.width || nw, height: ours.height || nh };
-    // 오라클이 다른 해상도로 답하면 그 배율로 우리 프레임에 맞춘다(요청과 다를 수 있다).
-    const tw = truth.resolution?.width || nw;
-    const th = truth.resolution?.height || nh;
-    const sx = pinsFrame.width / tw;
-    const sy = pinsFrame.height / th;
-
-    truthPins = new Map();
-    const inFrame = [];
-    let behind = 0;
-    let outside = 0;
-    (truth.points || []).forEach((point, index) => {
-      const slot = targets[index];
-      const ourPin = pinsBySlot.get(slot?.id);
-      if (!slot || !ourPin) return;
-      if (point.behind || ourPin.behind) { behind += 1; return; }
-      const x = point.x * sx;
-      const y = point.y * sy;
-      const d = Math.hypot(ourPin.x - x, ourPin.y - y);
-      truthPins.set(slot.id, { x, y, behind: false, d });
-      // 화면 밖 점은 통계에서 뺀다 — 화면 가장자리 너머에서는 각도 오차가 픽셀로 발산해서
-      // 몇 개가 프레임을 벗어났느냐에 따라 "최대 오차"가 널뛴다.
-      if (x >= 0 && x <= pinsFrame.width && y >= 0 && y <= pinsFrame.height) inFrame.push(d);
-      else outside += 1;
-    });
+    // 배율 맞추기·프레임 밖 제외·통계는 compareOracle 이 값으로 답한다.
+    const cmp = compareOracle({ ours, truth, targets, frame: { width: nw, height: nh } });
+    pinsBySlot = cmp.pins;
+    pinsFrame = cmp.frame;
+    truthPins = cmp.truthPins;
+    oracleSummary = cmp.summary;
     renderPins();
-
-    if (!inFrame.length) {
-      oracleSummary = t("프레임 안에 든 주차면이 없습니다 — 카메라를 주차면 쪽으로 돌리고 다시 재세요. (뒤 {b} · 밖 {o})", { b: behind, o: outside });
-    } else {
-      oracleSummary = t("프레임 안 {n}면 · 중앙 {med} px · 최대 {max} px (밖 {o} · 뒤 {b}) — 프레임 {w}×{h}", {
-        n: inFrame.length,
-        med: median(inFrame).toFixed(1),
-        max: Math.max(...inFrame).toFixed(1),
-        o: outside, b: behind, w: pinsFrame.width, h: pinsFrame.height,
-      });
-    }
     say(oracleSummary);
     log(t("오라클 대조") + ": " + oracleSummary);
   } catch (e) {
@@ -1774,20 +1669,7 @@ let simCatalog = null;
 let simSelectedSlot = null;   // 스폰 대상 슬롯 id
 let simSelectedCar = null;    // 편집 대상 차량 id
 let simCarById = new Map();
-const simSlotCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
-
-function simSlotName(slot) {
-  return String(slot?.label || slot?.id || "");
-}
-
-function simSlotNameById(id) {
-  const slot = simSlotList.find((s) => s.id === id);
-  return slot ? simSlotName(slot) : String(id || "");
-}
-
-function sortSimSlots(slots = []) {
-  return [...slots].sort((a, b) => simSlotCollator.compare(simSlotName(a), simSlotName(b)));
-}
+const simSlotNameById = (id) => slotNameById(simSlotList, id);
 
 async function loadSimulator() {
   const status = document.getElementById("sim-status");
@@ -1846,13 +1728,6 @@ function updateSimColorChip() {
   const idx = Number(document.getElementById("sim-color").value) || 0;
   const c = simCatalog && simCatalog.colors[idx];
   if (c && c.rgb) chip.style.background = "rgb(" + c.rgb.map((v) => Math.round(v * 255)).join(",") + ")";
-}
-
-function simPlateText(p = {}) {
-  const region = String(p.city || "").trim();
-  const middle = (String(p.prefix || "").trim() + String(p.kor || "").trim()).trim();
-  const number = String(p.number || "").trim();
-  return [region, middle, number].filter(Boolean).join(" ");
 }
 
 function renderSimSlots(slots) {
@@ -2011,7 +1886,6 @@ window.addEventListener("resize", () => { cancelAnimationFrame(resizeRaf); resiz
 // 페이지를 여는 것이 곧 시뮬 카메라 점유가 되지 않게 한다. 시뮬은 캡처 예산이 유한해서
 // (카메라 2대가 동시에 스트리밍하면 각 30 -> 26fps) 안 보는 사람이 잡고 있으면 그대로 손해다.
 // 선택은 기억하고, 기본값은 꺼짐.
-const SIM_PREVIEW_WANTED_KEY = "sim:preview-on.v1";
 const simPreviewStartBtn = document.getElementById("sim-preview-start");
 const simPreviewStopBtn = document.getElementById("sim-preview-stop");
 const simPreviewLed = document.getElementById("sim-preview-led");
@@ -2059,11 +1933,6 @@ const camStatusEl = document.getElementById("sim-cam-status");
 const camFormEl = document.getElementById("sim-cam-form");
 const camEditFormEl = document.getElementById("sim-cam-edit-form");
 
-// 위에서 내려다본 그림: UE 는 +X 가 북, +Y 가 동, yaw 0 = +X 다. 화면 위를 북으로 두면
-// mapX = worldY, mapY = -worldX 이고, 그러면 yaw 0 인 카메라가 화면에서 위를 가리킨다.
-const toMap = (w) => ({ x: Number(w?.y) || 0, y: -(Number(w?.x) || 0) });
-const toWorld = (m) => ({ x: -m.y, y: m.x });
-
 let mapSelectedCameraId = "";
 let mapView = null;      // { minX, minY, width, height } (평면도 좌표계)
 let placing = null;      // { stage: "position"|"aim", location?, aim? } — 배치 진행 상태
@@ -2080,48 +1949,13 @@ let tiltDrag = null;
 // 그 사이 포트가 바뀌면 기기 id 까지 갈린다(sim-cam-<포트>).
 let dragCam = null;
 
-// 시야콘 길이는 지도 크기에 비례한다 — 평면도와 끄는 중 미리보기가 같은 값을 써야
-// 손을 뗀 그림이 끌던 그림과 같다.
-const CONE_LEN_RATIO = 0.22;
-
-// 시야콘의 경로. 월드 방위 θ 의 평면도 방향은 (sin θ, −cos θ) 다 — toMap 과 같은 규약.
-// sweep-flag=1: 방위가 커지는 쪽이 평면도에서 시계방향이다(θ=0 위 → θ=90 오른쪽).
-// 0 이면 SVG 가 반대쪽 원을 골라 호가 꼭짓점 쪽으로 파여 부채꼴이 오목해진다.
-function conePathD(p, yawDeg, halfDeg, len) {
-  const arc = (deg) => {
-    const rad = deg * Math.PI / 180;
-    return { x: p.x + Math.sin(rad) * len, y: p.y - Math.cos(rad) * len };
-  };
-  const a = arc(yawDeg - halfDeg), b = arc(yawDeg + halfDeg);
-  return `M ${p.x} ${p.y} L ${a.x} ${a.y} A ${len} ${len} 0 0 1 ${b.x} ${b.y} Z`;
-}
-
-// 설치방위 — 씬이 아는 사실. 카메라를 **세운** 방향이지 보는 방향이 아니다. 사람이 다룰 값도
-// 아니라서 화면에 개념으로 나오지 않는다: 여기서 쓰는 곳은 조준을 팬으로 옮기는 계산 하나뿐이다
-// (조준각 − 설치방위 = 보내야 할 팬).
-function mountYawOf(cam) {
-  return Number(cam?.mount?.baseYaw) || 0;
-}
-
-// 이 카메라의 지금 자세 — 백엔드가 카메라마다 실제로 물어본 값이다(/simulator/ptz).
-// 없으면 null: 안 닿는 카메라라는 뜻이고, 모르는 것은 그리지 않는다.
-function viewOf(cam) {
-  return simViewByPort.get(Number(cam?.hucomsPort)) || null;
-}
-
-// **지금 보고 있는 방향**과 **지금 줌의 화각.** 둘 다 서버가 낸 숫자를 그대로 읽는다 —
-// 그 식(설치방위 + 팬, 줌→화각 표)이 곧 광학 모델이고, 이 저장소는 그것을 백엔드에 한 벌만
-// 둔다(packages/profile 의 카메라 모델). 영상 위의 주차면 핀도 그 한 벌에서 나오므로, 화면이
-// 제 식을 들면 부채꼴과 핀이 조용히 갈라진다.
-function viewYawOf(cam) {
-  const yaw = Number(viewOf(cam)?.viewYawDeg);
-  return Number.isFinite(yaw) ? yaw : null;
-}
-
-function hfovOf(cam) {
-  const hfov = Number(viewOf(cam)?.hfovDeg);
-  return Number.isFinite(hfov) ? hfov : null;
-}
+// 카메라마다의 지금 시야. 방향(설치방위 + 팬)도 화각(줌→화각 표)도 **서버가 낸 숫자**를
+// 그대로 읽는다 — 그 식이 곧 광학 모델이고 이 저장소는 그것을 백엔드에 한 벌만 둔다.
+// 여기 남는 것은 「어느 포트의 표에서 찾을 것인가」뿐이다.
+const viewOf = (cam) => viewOfPort(simViewByPort, cam);
+const viewYawOf = (cam) => viewYawOfPort(simViewByPort, cam);
+const hfovOf = (cam) => hfovOfPort(simViewByPort, cam);
+const hfovLimitsOf = (cam) => hfovLimitsOfPort(simViewByPort, cam);
 
 function svgEl(name, attrs = {}, cls = "") {
   const node = document.createElementNS(SVG_NS, name);
@@ -2142,23 +1976,7 @@ function defaultMapHint() {
     : t("클릭 = 선택 · 끌기 = 자리 · 붉은 앵커 = 설치방위");
 }
 
-// 씬이 보고한 것들을 다 담는 사각형. 아무것도 없으면 그릴 것이 없다.
-function computeMapView() {
-  const points = [];
-  for (const s of simSlotList) if (s?.transform?.location) points.push(toMap(s.transform.location));
-  for (const c of simCameras) if (c?.mount?.location) points.push(toMap(c.mount.location));
-  if (!points.length) return null;
-  const xs = points.map((p) => p.x);
-  const ys = points.map((p) => p.y);
-  const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const minY = Math.min(...ys), maxY = Math.max(...ys);
-  const pad = Math.max(300, Math.max(maxX - minX, maxY - minY) * 0.12);
-  return {
-    minX: minX - pad, minY: minY - pad,
-    width: Math.max(1, (maxX - minX) + pad * 2),
-    height: Math.max(1, (maxY - minY) + pad * 2),
-  };
-}
+const computeMapView = () => mapViewOf(simSlotList, simCameras);
 
 // 화면 픽셀 → 월드 cm. SVG 가 viewBox 로 맞춰 그리므로 역변환은 브라우저에게 묻는다
 // (직접 계산하면 preserveAspectRatio 의 레터박스만큼 어긋난다).
@@ -2169,32 +1987,9 @@ function worldAtEvent(event) {
   return toWorld({ x: point.x, y: point.y });
 }
 
-function cameraDeviceFor(camera) {
-  return simDevices.find((d) => Number(d.port) === Number(camera.hucomsPort)) || null;
-}
+const cameraDeviceFor = (camera) => deviceForCamera(simDevices, camera);
 
-function cameraHeightM(camera) {
-  const cm = Number(camera?.heightAboveReferenceGroundCm);
-  return Number.isFinite(cm) ? cm / 100 : null;
-}
-
-// 이 씬의 지면 z(cm). 사람이 넣는 높이는 **지면 기준**이라 월드 z 로 옮기려면 이 값이 필요하다.
-//
-// 카메라가 하나라도 있으면 씬이 계산해 준 groundReference 가 정답이다. 없을 때가 문제인데,
-// 하필 그때가 **새 레벨에 첫 카메라를 세우는 순간**이다 — 물어볼 카메라가 없다고 0 으로 두면
-// 지면이 z=0 이 아닌 레벨에서 그 차이가 통째로 높이 오차가 된다(이 레벨은 10cm, 다른 레벨은
-// 얼마든지 될 수 있다). 슬롯 z 의 중앙값으로 대신 구한다 — 씬이 쓰는 방법과 같다
-// (groundReference.method = "parkingSlotPlacementOriginMedian").
-function sceneGroundZcm() {
-  for (const cam of simCameras) {
-    const z = Number(cam?.groundReference?.zCm);
-    if (Number.isFinite(z)) return z;
-  }
-  const zs = simSlotList.map((s) => Number(s?.transform?.location?.z)).filter(Number.isFinite).sort((a, b) => a - b);
-  if (!zs.length) return null;   // 슬롯도 카메라도 없으면 모른다 — 0 이라고 우기지 않는다
-  const mid = zs.length >> 1;
-  return zs.length % 2 ? zs[mid] : (zs[mid - 1] + zs[mid]) / 2;
-}
+const sceneGroundZcm = () => groundOf(simCameras, simSlotList);
 
 // 주차면 그림 크기 — 씬은 치수를 주지 않는다(`transform` 은 location·rotation 뿐).
 // 그래서 **레벨 자신에게서** 읽어 낸다. 여기에 "2.5×5m" 같은 규격을 박으면 그 레벨에만
@@ -2206,39 +2001,8 @@ function sceneGroundZcm() {
 // 둘 다 못 구하면 사각형을 그리지 않고 점만 찍는다 — 모르는 치수를 지어내지 않는다.
 let slotPitchCm = null;   // simSlotList 가 바뀔 때만 다시 잰다(레벨이 바뀌면 같이 바뀐다)
 
-function measureSlotPitchCm() {
-  const items = simSlotList
-    .map((s) => ({ loc: s?.transform?.location, yaw: Number(s?.transform?.rotation?.yaw) || 0 }))
-    .filter((s) => s.loc && Number.isFinite(Number(s.loc.x)) && Number.isFinite(Number(s.loc.y)));
-  if (items.length < 2) return null;
-  const gaps = [];
-  for (const a of items) {
-    let best = Infinity;
-    for (const b of items) {
-      if (a === b) continue;
-      // 같은 열의 이웃만 본다. 방향이 다른 자리는 통로 건너편이라 간격이 폭이 아니다.
-      const turn = Math.abs(((a.yaw - b.yaw) % 180 + 180) % 180);
-      if (Math.min(turn, 180 - turn) > 10) continue;
-      best = Math.min(best, Math.hypot(a.loc.x - b.loc.x, a.loc.y - b.loc.y));
-    }
-    if (Number.isFinite(best)) gaps.push(best);
-  }
-  if (!gaps.length) return null;
-  gaps.sort((x, y) => x - y);
-  const mid = gaps.length >> 1;
-  return gaps.length % 2 ? gaps[mid] : (gaps[mid - 1] + gaps[mid]) / 2;
-}
-
-function slotBoxCm(slot) {
-  const metres = Number(String(slot?.type || "").match(/^(\d+(?:\.\d+)?)\s*m/i)?.[1]);
-  const fromType = Number.isFinite(metres) && metres > 0 ? metres * 100 : null;
-  const pitch = slotPitchCm;
-  if (fromType === null && pitch === null) return null;
-  // 폭은 이 레벨의 간격, 다만 자리보다 넓을 수는 없다(1m 자리가 5m 자리만큼 넓어지지 않게).
-  const width = pitch === null ? fromType * 0.5 : Math.min(pitch, fromType ?? pitch);
-  const length = fromType === null ? pitch * 2 : fromType;
-  return { length, width };
-}
+const measureSlotPitchCm = () => pitchOf(simSlotList);
+const slotBoxCm = (slot) => boxOf(slot, slotPitchCm);
 
 function renderMap() {
   if (!mapEl) return;
@@ -2301,27 +2065,11 @@ function renderMap() {
   // "같은 자리"의 기준은 실거리가 아니라 **화면에서 겹치는가**다. 마커 반지름(dot)이 이미
   // span 에서 나오므로 그보다 가까우면 어느 레벨에서든 겹친다. 여기에 "30cm" 같은 실거리를
   // 박으면 넓은 주차장에서는 겹치는 것들을 못 묶고, 좁은 곳에서는 남남을 묶는다.
-  const clusterRadius = dot * 2;
-  const clusterKey = (loc) => `${Math.round(loc.x / clusterRadius)}:${Math.round(loc.y / clusterRadius)}`;
-  const clusters = new Map();
-  for (const cam of simCameras) {
-    const loc = cam?.mount?.location;
-    if (!loc) continue;
-    const key = clusterKey(loc);
-    if (!clusters.has(key)) clusters.set(key, []);
-    clusters.get(key).push(cam.id);
-  }
+  const markerAt = spreadClusters(simCameras, dot);
 
   for (const cam of simCameras) {
-    const loc = cam?.mount?.location;
-    if (!loc) continue;
-    const p = toMap(loc);
-    const peers = clusters.get(clusterKey(loc)) || [cam.id];
-    if (peers.length > 1) {
-      const turn = (peers.indexOf(cam.id) / peers.length) * Math.PI * 2;
-      p.x += Math.cos(turn) * dot * 2.1;
-      p.y += Math.sin(turn) * dot * 2.1;
-    }
+    const p = markerAt.get(cam.id);
+    if (!p) continue;   // 씬이 자리를 안 준 카메라 — 그릴 자리가 없다
     // **지금 보고 있는 시야.** 방향은 설치방위 + 팬, 폭은 지금 줌의 수평화각이다 — 둘 다
     // 카메라마다 실제로 물어본 값이라(/simulator/ptz) 마커마다 같은 뜻이고, 카메라를 바꿔도
     // 남의 값으로 그려지지 않는다. 설치방위만 그리던 때는 팬 88.9° 카메라의 콘이 카메라가
@@ -2336,11 +2084,9 @@ function renderMap() {
     //
     // 팬이나 줌을 모르는 카메라(안 닿음)는 시야를 그리지 않는다. 0 으로 채우면 그 0 이 곧
     // "정면을 본다"는 거짓말이 된다.
-    const installMode = mapTabKey() !== "drive";
-    const limits = hfovLimitsOf(cam);
-    const yaw = installMode ? mountYawOf(cam) : viewYawOf(cam);
-    const hfov = installMode ? (limits ? limits.max : null) : hfovOf(cam);
-    const half = hfov === null ? null : hfov / 2;
+    const cone = coneOf(simViewByPort, cam, { installMode: mapTabKey() !== "drive" });
+    const yaw = cone === null ? null : cone.yaw;
+    const half = cone === null ? null : cone.half;
     // 호는 **벌려 놓은 꼭짓점 p 에서** 뻗는다 — 꼭짓점만 옮기고 호는 원래 자리에서 계산하면
     // 그 어긋남이 그대로 방위 오차로 보인다(폴 넷이 서로 다른 곳을 보는 것처럼 그려졌다).
     // 돌리는 중인 카메라는 옛 방위를 지운다 — 두 콘이 겹쳐 있으면 어느 쪽이 결과인지 모른다.
@@ -2349,13 +2095,13 @@ function renderMap() {
     const selected = cam.id === mapSelectedCameraId;
     const aiming = (aimDrag && aimDrag.moved && aimDrag.cam.id === cam.id)
       || (fovDrag && fovDrag.moved && fovDrag.cam.id === cam.id);
-    if (yaw !== null && half !== null && !aiming) {
+    if (cone !== null && !aiming) {
       mapEl.appendChild(svgEl("path", { d: conePathD(p, yaw, half, coneLen) },
         "map-cone" + (selected ? " sel" : "")));
       // 시야의 한가운데 = 카메라의 광축. 부채꼴은 얼마나 넓게 보는지를, 이 선은 어디를 보는지를
       // 말한다 — 넓은 화각에서는 부채꼴만으로 중심이 어디인지 눈으로 못 짚는다.
       const rad = yaw * Math.PI / 180;
-      const tip = { x: p.x + Math.sin(rad) * coneLen, y: p.y - Math.cos(rad) * coneLen };
+      const tip = tipAt(p, yaw, coneLen);
       mapEl.appendChild(svgEl("line", {
         x1: p.x, y1: p.y, x2: tip.x, y2: tip.y, "vector-effect": "non-scaling-stroke",
       }, "map-view-axis" + (selected ? " sel" : "")));
@@ -2366,9 +2112,9 @@ function renderMap() {
       // 달리는 조건도 축을 따른다. 팬 조준은 /simulator/control/* 로 나가 활성 카메라 한
       // 대에만 닿으므로 그 카메라에만 달고, 설치방위는 씬 PATCH 라 스폰 카메라 전부에 단다
       // (레벨 저작은 자세가 레벨의 것이라 403 — 잡을 수 없는 것은 보이지도 않아야 한다).
-      const aimTarget = mapTabKey() === "drive"
-        ? (cameraDeviceFor(cam)?.id === simActiveCameraId ? "pan" : null)
-        : (cam.spawned !== false ? "mount" : null);
+      const aimTarget = aimTargetFor(cam, {
+        tab: mapTabKey(), deviceId: cameraDeviceFor(cam)?.id, activeCameraId: simActiveCameraId,
+      });
       if (aimTarget) {
         const handle = svgEl("circle", {
           cx: tip.x, cy: tip.y, r: dot * 0.9, "vector-effect": "non-scaling-stroke",
@@ -2391,7 +2137,7 @@ function renderMap() {
         // 적히는 축은 조준 앵커와 같은 규약: 컨트롤 탭 = 틸트(현재값), 배치 탭 = 설치
         // 하향각(씬 PATCH — 씬 계약에서 설치 하향은 틸트를 다시 앉히는 값이다).
         // 틸트를 모르는 카메라(안 닿음)에는 달지 않는다.
-        const tiltNow = toNum(viewOf(cam)?.ptz?.tiltpos);
+        const tiltNow = tiltposOfPort(simViewByPort, cam);
         if (tiltNow !== null) {
           const across = { x: Math.cos(rad), y: Math.sin(rad) };   // 축에 수직(평면도 기준)
           const mid = coneLen / 2;
@@ -2554,57 +2300,11 @@ function renderPlacingGhost(span) {
   }
 }
 
-// 자리와 조준점 두 점이면 설치 자세가 다 나온다: 방위는 두 점을 잇는 각, 하향각은
-// 높이와 수평거리의 아크탄젠트. 사람이 각도를 상상해서 적는 일을 없애는 것이 요점이다.
-function poseFromPlacement() {
-  const h = toNum(document.getElementById("sim-cam-height").value);
-  const heightCm = (h === null ? 6 : h) * 100;
-  const from = placing?.location, to = placing?.aim;
-  if (!from || !to) return { yawDeg: 0, pitchDeg: -20 };
-  const dx = to.x - from.x, dy = to.y - from.y;
-  const dist = Math.hypot(dx, dy);
-  const yawDeg = Math.atan2(dy, dx) * 180 / Math.PI;
-  const pitchDeg = dist < 1 ? -89 : -Math.atan2(heightCm, dist) * 180 / Math.PI;
-  return { yawDeg, pitchDeg: Math.max(-89, Math.min(-1, pitchDeg)) };
-}
-
-// 빈 값은 0 이 아니라 없음이다 — 그 규칙은 format.mjs 의 toNum 이 갖는다.
-
-// **대역이 없는 인스턴스 전용 관례 탐색.** 무제한 인스턴스이거나 대역 계약 이전(플러그인
-// 0.1.17 미만) 백엔드라 서버가 고를 근거를 못 주는 경우다. 그때는 어느 빈 포트든 합법이라
-// 창(8200~)도 짝(+100)도 이쪽의 관례일 뿐이다 — **대역이 있는 인스턴스에는 절대 쓰지 않는다.**
-// 그 구분을 빠뜨리면 대역 밖 값을 다시 제안하게 되고, 그게 원래 증상이었다.
-// 빈 포트를 고르는 근거는 **씬이 지금 열고 있는 포트**다. 포트는 그 카메라의 신원이기도
-// 하므로(기기 id 가 sim-cam-<포트>) 겹치면 두 카메라가 한 기기가 된다. 관례(+1)로
-// 유추하지 않는다.
-function suggestPortsByConvention() {
-  const used = new Set();
-  for (const cam of simCameras) {
-    if (Number.isFinite(Number(cam.hucomsPort))) used.add(Number(cam.hucomsPort));
-    if (Number.isFinite(Number(cam.mjpegPort))) used.add(Number(cam.mjpegPort));
-  }
-  for (const d of simDevices) {
-    for (const key of ["port", "mjpegPort"]) {
-      const p = Number(d[key]);
-      if (Number.isFinite(p)) used.add(p);
-    }
-  }
-  // 제어 포트는 기기 목록에 없다(월드 전역이라 config.simulator 소유) — 그래도 카메라가
-  // 그 번호를 집으면 UE 가 400 으로 거절하므로 쓰인 번호로 함께 센다.
-  const controlPort = Number(simEndpointPort);
-  if (Number.isFinite(controlPort)) used.add(controlPort);
-  // 낮은 쪽부터 찾는다. 「쓰인 것 중 최대 + 1」로 늘리면 CGI 포트가 MJPEG 대역(83xx)으로
-  // 흘러들어가 두 대역이 섞이고, 지웠다 만들기를 반복할수록 번호가 실제 대수와 멀어진다.
-  // 짝은 이 씬의 관례대로 CGI + 100 = MJPEG.
-  for (let http = 8200; http <= 8299; http += 1) {
-    if (!used.has(http) && !used.has(http + 100)) return { http, mjpeg: http + 100 };
-  }
-  const highest = used.size ? Math.max(...used) : 8080;
-  for (let http = highest + 1; http <= 65400; http += 1) {
-    if (!used.has(http) && !used.has(http + 100)) return { http, mjpeg: http + 100 };
-  }
-  return { http: "", mjpeg: "" };
-}
+// 자리와 조준점 두 점이면 설치 자세가 다 나온다 — 계산은 geometry 의 것이다.
+const poseFromPlacement = () => poseOf({
+  from: placing?.location, to: placing?.aim,
+  heightM: document.getElementById("sim-cam-height").value,
+});
 
 function startPlacing() {
   placing = { stage: "position" };
@@ -2720,33 +2420,9 @@ function cancelAimDrag() {
   renderMap();
 }
 
-// 카메라에서 커서를 향한 월드 방위. 커서가 카메라 위에 겹쳐 있는 동안은 방향이랄 것이 없어
-// 각이 튄다 — 그때는 아직 방위가 아니라고 보고 직전 값을 지킨다.
-function aimYawTowards(from, to) {
-  const dx = to.x - from.x, dy = to.y - from.y;
-  if (Math.hypot(dx, dy) < 10) return null;
-  return Math.atan2(dy, dx) * 180 / Math.PI;
-}
-
 // ── 틸트 슬라이더 ────────────────────────────────────────────────────────────────
 // 막대 한가운데(녹색 기준선)가 틸트 0. 카메라 쪽 절반이 아래(0..+90°), 끝쪽 절반이 위(0..−20°)
 // 다 — 양쪽 한계가 기기 규약(휴컴스 틸트 −2000..9000)의 양끝이라, 트랙의 끝 = 기기의 끝이다.
-// 틸트(°) → 트랙 위 자리. tiltSliderDeg 의 역함수다.
-function tiltSliderPos(tiltDeg, trackLen) {
-  const mid = trackLen / 2;
-  return tiltDeg >= 0
-    ? mid - (Math.min(tiltDeg, 90) / 90) * (mid - trackLen * 0.06)
-    : mid + (Math.min(-tiltDeg, 20) / 20) * (mid - trackLen * 0.12);
-}
-
-// 트랙 위 자리 → 틸트(°). 기준선에서 카메라 쪽으로 얼마나 갔나가 곧 각이다.
-function tiltSliderDeg(s, trackLen) {
-  const mid = trackLen / 2;
-  return s <= mid
-    ? Math.min(((mid - s) / (mid - trackLen * 0.06)) * 90, 90)
-    : Math.max(-((s - mid) / (mid - trackLen * 0.12)) * 20, -20);
-}
-
 function beginTiltDrag(cam, event, target, axisYaw, trackLen) {
   const loc = cam?.mount?.location;
   const x = toNum(loc?.x), y = toNum(loc?.y);
@@ -2824,16 +2500,6 @@ function beginFovDrag(cam, event) {
   if (mapEl) mapEl.classList.add("aiming");
 }
 
-// 렌즈가 갈 수 있는 화각의 양끝. 서버가 카메라마다 답한 값이다 — 모르면 지금 화각에 묶어
-// 아무 데도 못 가게 한다(모르는 한계를 지어내 그 너머로 보내지 않는다).
-function hfovLimitsOf(cam) {
-  const range = viewOf(cam)?.hfovRange;
-  const min = Number(range?.minDeg), max = Number(range?.maxDeg);
-  if (Number.isFinite(min) && Number.isFinite(max) && min > 0 && max >= min) return { min, max };
-  const now = hfovOf(cam);
-  return now === null ? null : { min: now, max: now };
-}
-
 async function finishFovDrag() {
   const drag = fovDrag;
   fovDrag = null;
@@ -2876,7 +2542,7 @@ async function finishAimDrag(event) {
   const yaw = (at && aimYawTowards(drag.from, at)) ?? drag.yaw;
   if (yaw === null || yaw === undefined) { renderMap(); return; }
   // 얼마나 돌았는지를 함께 적는다 — 절대 방위만 적으면 손이 한 일의 크기가 안 보인다.
-  const turned = ((yaw - drag.fromYaw) % 360 + 540) % 360 - 180;
+  const turned = turnBetween(yaw, drag.fromYaw);
 
   // 설치방위(배치 탭): 폴을 돌려 단다 — 씬 PATCH 하나, 팬·틸트·줌은 건드리지 않는다.
   // 배치 탭의 부채꼴이 곧 설치방위라, 끈 각이 곧 새 설치방위다(오프셋 셈법이 없다).
@@ -2910,7 +2576,7 @@ async function finishAimDrag(event) {
     // 팬 = 보고 싶은 방위 − 설치방위(팬 0 일 때 보는 방위). 0..35999 로 감는다.
     // 하향각·줌은 그대로 되돌려보낸다 — 돌렸을 뿐인데 위아래로 기울거나 당겨지면 사고다.
     const now = viewOf(drag.cam)?.ptz || {};
-    const panpos = Math.round((((yaw - mountYawOf(drag.cam)) % 360 + 360) % 360) * 100);
+    const panpos = panposForYaw(yaw, mountYawOf(drag.cam));
     const j = await postJson(api("/simulator/control/ptz"), {
       panpos, tiltpos: now.tiltpos, zoompos: now.zoompos,
       panspeed: MOVE_SPEED, tiltspeed: MOVE_SPEED, zoomspeed: MOVE_SPEED,
@@ -2995,10 +2661,9 @@ if (mapEl) {
           && Math.hypot(event.clientX - tiltDrag.clientX, event.clientY - tiltDrag.clientY) <= 4) return;
       const world = worldAtEvent(event);
       if (!world) return;
-      // 커서를 광축에 투영한 트랙 위 자리. 커서가 옆으로 벗어나 있어도 축 위의 그 자리로
-      // 읽는다 — 앵커는 축 위를 미끄러지는 슬라이더다. (UE: 방위 θ 의 지면 방향 = (cosθ, sinθ))
-      const radA = tiltDrag.axisYaw * Math.PI / 180;
-      const s = (world.x - tiltDrag.from.x) * Math.cos(radA) + (world.y - tiltDrag.from.y) * Math.sin(radA);
+      // 커서를 광축에 투영한 트랙 위 자리 — 앵커는 축 위를 미끄러지는 슬라이더다.
+      // 트랙 밖으로 끌어도 양끝(기기 한계)에 물린다.
+      const s = trackOffsetOf(world, tiltDrag.from, tiltDrag.axisYaw);
       tiltDrag.tiltDeg = tiltSliderDeg(Math.min(Math.max(s, 0), tiltDrag.trackLen), tiltDrag.trackLen);
       tiltDrag.moved = true;
       scheduleGhost();
@@ -3011,12 +2676,10 @@ if (mapEl) {
       if (!world) return;
       const toward = aimYawTowards(fovDrag.from, world);
       if (toward === null) return;   // 커서가 카메라에 겹쳐 있는 동안은 각이 없다
-      // 광축에서 벌어진 각이 곧 반각이다. 반대쪽 모서리를 끌어도 같은 값이라 |…| 로 본다.
-      const halfDeg = Math.abs(((toward - fovDrag.axisYaw) % 360 + 540) % 360 - 180);
-      const limits = hfovLimitsOf(fovDrag.cam);
-      if (!limits) return;
-      // 렌즈의 한계까지만 — 그 너머로 끌어도 부채꼴은 끝에서 멈춘다(백엔드도 같은 값으로 문다).
-      fovDrag.hfov = Math.min(Math.max(halfDeg * 2, limits.min), limits.max);
+      // 광축에서 벌어진 각의 두 배가 화각이고, 렌즈의 한계까지만 간다(백엔드도 같은 값으로 문다).
+      const hfov = hfovFromDrag(toward, fovDrag.axisYaw, hfovLimitsOf(fovDrag.cam));
+      if (hfov === null) return;     // 한계를 모르면 끌 것이 없다
+      fovDrag.hfov = hfov;
       fovDrag.moved = true;
       scheduleGhost();
       return;
@@ -3144,11 +2807,7 @@ function selectSceneCamera(id) {
 // 기준기(reference)는 씬에서 파생된 것이 아니라 config 에 사는 계약의 정본이라 씬 카메라가
 // 없다 — 서버가 `derived: false` 로 그렇게 말한다. **그 표시를 봐야 한다.** 포트 일치만
 // 보면, 기준기가 어쩌다 씬 카메라와 같은 포트를 갖는 순간 남의 카메라에 설치 폼이 붙는다.
-function sceneCameraForDevice(deviceId) {
-  const dev = simDevices.find((d) => d.id === deviceId);
-  if (!dev || dev.derived === false) return null;
-  return simCameras.find((c) => c.hucomsPort === dev.port) || null;
-}
+const sceneCameraForDevice = (deviceId) => cameraForDevice(simDevices, simCameras, deviceId);
 
 function pickedDevice() {
   return simDevices.find((d) => d.id === camSelect.value) || null;
@@ -3204,17 +2863,12 @@ function renderCameraEditForm({ force = false } = {}) {
   const el = editEls();
   const authored = cam ? cam.spawned === false : false;
   // 카메라가 없는 데는 두 가지 뜻이 있다. 기준기를 고른 것과, 씬이 비었거나 목록을 아직 못
-  // 읽은 것 — "없습니다" 하나로 뭉뚱그리면 기준기를 고른 사람은 화면이 고장 났다고 읽는다.
+  // 읽은 것 — cameraTitleLine 이 그 둘을 가려 말한다.
   const picked = cam ? null : pickedDevice();
-  const fallback = picked?.derived === false
-    ? t("{name} · 기준기 — 설치는 시뮬 카메라만 고칩니다", { name: picked.name || picked.id })
-    : t("고른 카메라가 없습니다.");
   // 배치 탭: 이름 밑에 카메라 아이디, 그 밑에 포트 둘(제어·프리뷰) — 포트는 설치의 사실이다.
-  const idLine = cam ? cam.id + (authored ? t(" · 레벨 저작(자세 고정)") : "") : fallback;
+  const idLine = cameraTitleLine(cam, picked);
   document.getElementById("sim-cam-edit-title").textContent = idLine;
-  document.getElementById("sim-cam-edit-ports").textContent = cam
-    ? t("제어 :{c} · 프리뷰 :{m}", { c: cam.hucomsPort, m: cam.mjpegPort ?? "—" })
-    : "";
+  document.getElementById("sim-cam-edit-ports").textContent = cameraPortsLine(cam);
   // 컨트롤 탭도 같은 카메라를 다룬다 — 제목이 다르면 두 탭이 딴 카메라를 잡은 것처럼 읽힌다.
   document.getElementById("sim-cam-drive-title").textContent = idLine;
   // setBusy 가 모든 button 의 disabled 를 되돌리므로, 못 하는 일은 감춰서 막는다.
@@ -3235,26 +2889,12 @@ function renderCameraEditForm({ force = false } = {}) {
   }
   // 지금 손대고 있는 칸만 건너뛴다 — 나머지는 씬을 따라간다.
   const put = (node, value) => { if (force || !dirtyFields.has(node.id)) node.value = value; };
-  const loc = cam?.mount?.location;
-  const heightM = cameraHeightM(cam);
-  const cm = (v) => (v === null ? "" : String(Math.round(v)));
-  // 별명은 씬이 준 그대로. 만들어 낸 이름을 채워 두면 아무도 지은 적 없는 이름이 저장된다.
-  put(el.note, String(cam.note ?? ""));
-  put(el.x, cm(toNum(loc?.x)));
-  put(el.y, cm(toNum(loc?.y)));
-  put(el.height, heightM === null ? "" : heightM.toFixed(2));
-  // 설치 자세. 방위는 씬이 준 설치방위 그대로, 하향은 이 카메라의 틸트에서 온다 — 씬 계약에서
-  // 설치 하향각은 별도 저장이 아니라 틸트를 다시 앉히는 값이라(pitchDeg→tilt), 틸트가 곧
-  // 그 값의 지금 모습이다. 틸트를 모르는 카메라(안 닿음)는 비워 둔다.
-  put(el.bearing, (() => { const b = toNum(cam?.mount?.baseYaw); return b === null ? "" : b.toFixed(1); })());
-  const camTilt = toNum(viewOf(cam)?.ptz?.tiltpos);
-  put(el.pitch, camTilt === null ? "" : (-camTilt / 100).toFixed(1));
-  // PTZ 는 **지금 보고 있는 카메라**의 것이다(lastPtz). 다른 카메라를 고른 폼에 적으면 남의
-  // 자세를 이 카메라의 것으로 적게 되므로, 그때는 비워 둔다.
-  const ptz = ptzOfSelected(cam);
-  put(el.pan, ptz === null ? "" : ptz.panpos);
-  put(el.tilt, ptz === null ? "" : ptz.tiltpos);
-  put(el.zoom, ptz === null ? "" : ptz.zoompos);
+  // 무엇을 어떤 자릿수로 적을지, 모르는 값을 어떻게 비울지는 installFieldsOf 가 정한다.
+  // PTZ 는 **지금 보고 있는 카메라**의 것이다 — 남의 카메라를 고른 폼에는 적지 않는다.
+  const fields = installFieldsOf(cam, {
+    tiltpos: tiltposOfPort(simViewByPort, cam), ptz: ptzOfSelected(cam),
+  });
+  for (const [key, node] of Object.entries(el)) put(node, fields[key]);
   if (force) markClean();
 }
 
@@ -3289,63 +2929,23 @@ function syncCameraEditForm(camId, changed) {
 // 폼은 좌표를 cm 정수로 보여 준다. 그 표시를 그대로 보내면, 아무것도 안 고치고 저장만 눌러도
 // 카메라가 반올림한 만큼(≤5 mm) 움직인다. 그래서 **표시와 같은 값이면 씬의 원값을 되돌려보낸다** —
 // 사람이 적은 것만 사람이 적은 값으로 나간다.
-function typedOrExact(formValue, sceneValue) {
-  if (formValue === null || sceneValue === null) return sceneValue;
-  return formValue === Math.round(sceneValue) ? sceneValue : formValue;
-}
-
 // 설치 적용 — 씬 PATCH 하나로 나간다(location·note·yawDeg·pitchDeg, 바뀐 필드만).
 // 현재값(P·T·Z)은 여기 없다: 그쪽은 「카메라 컨트롤」 탭의 applyDriveEdit 이다.
 async function applyInstallEdit() {
   const cam = selectedSceneCamera();
-  if (!cam) { setCamStatus(t("고칠 카메라를 찾지 못했습니다 — 목록을 다시 읽으세요.")); return; }
   const el = editEls();
-  const patch = {};
-  const nowX = toNum(cam?.mount?.location?.x), nowY = toNum(cam?.mount?.location?.y);
-  const nowZ = toNum(cam?.mount?.location?.z);
-  const x = typedOrExact(toNum(el.x.value), nowX);
-  const y = typedOrExact(toNum(el.y.value), nowY);
+  // 무엇을 보낼지(바뀐 칸만·자리는 셋을 함께)와 왜 못 보내는지는 installPatchFrom 이 값으로
+  // 답한다. 표시 반올림이 「바뀐 척」 나가지 않게 하는 규칙도 그쪽이다.
+  const { error, patch } = installPatchFrom({
+    cam,
+    form: {
+      x: el.x.value, y: el.y.value, heightM: el.height.value,
+      bearing: el.bearing.value, pitch: el.pitch.value, note: el.note.value,
+    },
+    tiltpos: tiltposOfPort(simViewByPort, cam), cameras: simCameras, slots: simSlotList,
+  });
+  if (error) { setCamStatus(error); return; }
   const heightM = toNum(el.height.value);
-  const nowHeightM = cameraHeightM(cam);
-  const heightChanged = heightM !== null && (nowHeightM === null || Math.abs(heightM - nowHeightM) > 0.005);
-  if (x !== nowX || y !== nowY || heightChanged) {
-    // 축 하나만 보내면 나머지를 sim 이 0 으로 읽어 카메라가 원점으로 날아간다(백엔드도 같은
-    // 이유로 셋을 다 요구한다). 그래서 한 축만 고쳐도 셋을 함께 보낸다.
-    if (x === null || y === null) { setCamStatus(t("씬이 이 카메라의 설치 좌표를 주지 않았습니다.")); return; }
-    let z = nowZ;
-    if (heightChanged) {
-      if (heightM <= 0) { setCamStatus(t("높이는 0 보다 커야 합니다.")); return; }
-      // 세울 때와 같은 이유로 지면을 모르면 옮기지 않는다: 0 으로 가정하면 지면이 z=0 이 아닌
-      // 레벨에서 그 차이가 통째로 높이 오차가 되고, 나중에 높이 축이 그것을 "실측"으로 읽는다.
-      const ground = sceneGroundZcm();
-      if (ground === null) {
-        setCamStatus(t("이 씬의 지면 높이를 알 수 없습니다 — 주차면이나 카메라가 하나는 있어야 합니다."));
-        return;
-      }
-      z = heightM * 100 + ground;
-    }
-    if (z === null) { setCamStatus(t("씬이 이 카메라의 설치 좌표를 주지 않았습니다.")); return; }
-    patch.location = { x, y, z };
-  }
-  // 설치 자세(도 단위). 방위는 씬의 설치방위와, 하향은 이 카메라의 틸트(설치 하향의 지금
-  // 모습)와 견주어 바뀐 것만 보낸다. 0.05° 는 toFixed(1) 표시 반올림 아래라, 안 고친 칸이
-  // 표시 오차만큼 "바뀐 척" 나가는 것을 막는다.
-  const bearing = toNum(el.bearing.value);
-  const nowBearing = toNum(cam?.mount?.baseYaw);
-  if (bearing !== null && (nowBearing === null || Math.abs(bearing - nowBearing) > 0.05)) {
-    patch.yawDeg = bearing;
-  }
-  const pitch = toNum(el.pitch.value);
-  const camTilt = toNum(viewOf(cam)?.ptz?.tiltpos);
-  const nowPitch = camTilt === null ? null : -camTilt / 100;
-  if (pitch !== null && (nowPitch === null || Math.abs(pitch - nowPitch) > 0.05)) {
-    patch.pitchDeg = pitch;
-  }
-  // 별명은 빈 문자열도 뜻이 있다("이름 지움") — 씬이 준 값과 다를 때만 보낸다.
-  const note = el.note.value.trim();
-  if (note !== String(cam.note ?? "").trim()) patch.note = note;
-
-  if (!Object.keys(patch).length) { setCamStatus(t("바뀐 값이 없습니다.")); return; }
 
   setBusy(true, "설치를 고치는 중…");
   setCamStatus(t("설치를 고치는 중…"));
@@ -3370,15 +2970,11 @@ async function applyDriveEdit() {
   const cam = selectedSceneCamera();
   if (!cam) { setCamStatus(t("고칠 카메라를 찾지 못했습니다 — 목록을 다시 읽으세요.")); return; }
   const el = editEls();
-  const nowPtz = ptzOfSelected(cam);
-  if (nowPtz === null) {
-    setCamStatus(t("조준할 수 없습니다 — 지금은 다른 카메라를 몰고 있습니다."));
-    return;
-  }
-  const wantPtz = { panpos: toNum(el.pan.value), tiltpos: toNum(el.tilt.value), zoompos: toNum(el.zoom.value) };
-  const ptzChanged = Object.entries(wantPtz).every(([, v]) => v !== null)
-    && Object.entries(wantPtz).some(([k, v]) => v !== nowPtz[k]);
-  if (!ptzChanged) { setCamStatus(t("바뀐 값이 없습니다.")); return; }
+  const { error, ptz: wantPtz } = driveChangeOf({
+    form: { pan: el.pan.value, tilt: el.tilt.value, zoom: el.zoom.value },
+    now: ptzOfSelected(cam),
+  });
+  if (error) { setCamStatus(error); return; }
 
   setBusy(true, "카메라를 옮기는 중…");
   setCamStatus(t("옮기는 중…"));
@@ -3401,72 +2997,40 @@ async function applyDriveEdit() {
 
 async function spawnSceneCamera(event) {
   event.preventDefault();
-  if (!placing || !placing.location) { setCamStatus(t("먼저 평면도에서 자리를 정하세요.")); return; }
-  const height = toNum(document.getElementById("sim-cam-height").value);
-  if (height === null || height <= 0) { setCamStatus(t("높이를 입력하세요 (m).")); return; }
-  // 이름은 필수다. 씬 API 에 감사 로그가 없어서 이 값이 "누가 왜 세웠나"의 유일한 기록이다.
-  const note = document.getElementById("sim-cam-note").value.trim();
-  if (!note) { setCamStatus(t("이름을 입력하세요 — 누가 왜 세웠는지가 씬에 남는 유일한 기록입니다.")); return; }
-  const httpPort = toNum(document.getElementById("sim-cam-http").value);
-  const mjpegPort = toNum(document.getElementById("sim-cam-mjpeg").value);
-  // 대역이 꽉 차서 비어 있는 것과, 사람이 지운 것은 다른 사실이다. 전자에 "입력하세요"라고
-  // 답하면 넣을 값이 있는 것처럼 들린다 — 없다.
-  if (httpPort === null || mjpegPort === null) { setCamStatus(bandFullNotice() || t("포트를 입력하세요.")); return; }
-  // 대역 검증은 제출 전에 한다 — 서버의 409 도 정확하지만, 자리·높이까지 다 정한 뒤에
-  // 받는 거절은 비싸다. 대역을 **알 때만** 막는다(모르면 서버가 판정한다 — 추측으로 막아
-  // 옛 백엔드의 스폰까지 죽이지 않는다).
-  const range = portBand();
-  if (range && (httpPort < range.httpFrom || httpPort > range.httpTo)) {
-    setCamStatus(t("포트 {p} 는 이 인스턴스의 허용 범위({from}~{to}) 밖입니다.",
-      { p: httpPort, from: range.httpFrom, to: range.httpTo }));
-    return;
-  }
-  if (range && (mjpegPort < range.mjpegFrom || mjpegPort > range.mjpegTo)) {
-    setCamStatus(t("MJPEG 포트 {p} 는 이 인스턴스의 허용 범위({from}~{to}) 밖입니다.",
-      { p: mjpegPort, from: range.mjpegFrom, to: range.mjpegTo }));
-    return;
-  }
-  // 높이는 지면 기준이다 — 월드 z 로 바꾸려면 이 레벨의 지면을 더해야 한다. 모르면
-  // 세우지 않는다: 0 으로 가정하면 지면이 z=0 이 아닌 레벨에서 그 차이가 통째로 높이
-  // 오차가 되고, 그 오차는 나중에 높이 축이 "실측"으로 읽는다.
-  const ground = sceneGroundZcm();
-  if (ground === null) { setCamStatus(t("이 씬의 지면 높이를 알 수 없습니다 — 주차면이나 카메라가 하나는 있어야 합니다.")); return; }
-  const body = {
-    location: { x: placing.location.x, y: placing.location.y, z: height * 100 + ground },
-    yawDeg: toNum(document.getElementById("sim-cam-yaw").value) ?? 0,
-    pitchDeg: toNum(document.getElementById("sim-cam-pitch").value) ?? -20,
-    httpPort, mjpegPort, note,
-  };
+  // 무엇을 보낼지와 왜 못 세우는지는 spawnRequestFrom 이 값으로 답한다 — 대역 검증도(제출
+  // 전에 끊는다), 지면 판정도(모르면 세우지 않는다) 그쪽이다.
+  const { error, body } = spawnRequestFrom({
+    location: placing?.location,
+    form: {
+      heightM: document.getElementById("sim-cam-height").value,
+      note: document.getElementById("sim-cam-note").value,
+      httpPort: document.getElementById("sim-cam-http").value,
+      mjpegPort: document.getElementById("sim-cam-mjpeg").value,
+      yawDeg: document.getElementById("sim-cam-yaw").value,
+      pitchDeg: document.getElementById("sim-cam-pitch").value,
+    },
+    portInfo: simPortInfo, cameras: simCameras, slots: simSlotList,
+  });
+  if (error) { setCamStatus(error); return; }
+  const note = body.note;
   setBusy(true, "카메라를 세우는 중…");
   setCamStatus(t("세우는 중…"));
   try {
     const r = await postJson(api("/simulator/cameras"), body);
-    // **스폰 응답을 그대로 믿지 않는다.** 백엔드도 씬도 note 를 버리지 않지만(baro_memo #55
-    // 코멘트에서 백엔드가 소스로 확인: 필터가 없고 그대로 전달한다), 한 번 관측된 실패가
-    // 있다 — 응답에 `camera` 키가 통째로 없고 note 가 ""로 남았는데, **카메라는 실제로
-    // 세워져 있었다**(2026-08-17). 재현되지 않아 원인은 미정이고, 프로세스 첫 스폰 가설도
-    // 반증됐다(재시작 직후 첫 스폰은 정상). 즉 간헐이다.
-    //
-    // 그래서 응답을 방어적으로 읽는다. `r.camera.id` 를 곧장 읽으면 **성공한 스폰에서
-    // 예외가 나** 화면이 "실패"라고 말하는데 카메라는 씬에 서 있는 상태가 된다.
-    const spawned = r.camera || null;
-    const camId = spawned?.id || null;
-    const camPort = spawned?.hucomsPort ?? httpPort;
-    log(t("카메라 세움: {id} :{port}", { id: camId || "?", port: camPort }));
-    // 이름은 이 카메라의 유일한 출처 기록이라 조용히 비워 둘 수 없다. 안 들어갔을 때만
-    // 한 번 더 쓴다 — 간헐 실패에는 무조건 왕복보다 재시도가 맞는 모양이다.
-    if (camId && String(spawned.note ?? "") !== note) {
+    // **스폰 응답을 그대로 믿지 않는다** — 한 번 관측된 실패에서 응답에 camera 키가 통째로
+    // 없었는데 카메라는 실제로 세워져 있었다(2026-08-17). 그 방어는 spawnOutcome 에 있다.
+    const out = spawnOutcome(r, { httpPort: body.httpPort, note });
+    log(t("카메라 세움: {id} :{port}", { id: out.camId || "?", port: out.camPort }));
+    // 이름은 이 카메라의 유일한 출처 기록이라 조용히 비워 둘 수 없다 — 안 들어갔으면 한 번 더 쓴다.
+    if (out.needsNoteRetry) {
       try {
-        await reqJson("PATCH", api(`/simulator/cameras/${encodeURIComponent(camId)}`), { note });
+        await reqJson("PATCH", api(`/simulator/cameras/${encodeURIComponent(out.camId)}`), { note });
       } catch (noteError) {
         log(t("이름 저장 실패 — 카메라는 세워졌습니다") + ": " + noteError.message);
       }
     }
     // 기기는 따로 만들지 않는다 — 이 카메라가 곧 기기다(sim-cam-<포트>).
-    // 응답이 카메라를 안 실어 보냈어도 세워진 것은 사실이다 — refreshRig 가 씬에서 다시 읽는다.
-    setCamStatus(camId
-      ? t("세웠습니다: {id} · 기기 sim-cam-{port}", { id: camId, port: camPort })
-      : t("세웠습니다 — 응답이 카메라를 싣지 않아 이름은 목록에서 확인하세요 (sim-cam-{port})", { port: camPort }));
+    setCamStatus(out.text);
     cancelPlacing();
     await refreshRig();
   } catch (e) {
@@ -3528,12 +3092,6 @@ function setSceneStatus(message) {
 // 같았다 — 그래서 시뮬을 재시작한 뒤에 되돌릴 것이 실제로 남아 있지 않았다.
 let savedScenes = [];
 
-function sceneStamp(iso) {
-  const d = new Date(iso);
-  if (!iso || Number.isNaN(d.getTime())) return "";
-  return `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-}
-
 async function loadSavedScenes() {
   try {
     savedScenes = (await getJson(api("/simulator/scenes"))).scenes || [];
@@ -3573,9 +3131,7 @@ function renderSavedScenes() {
     const meta = document.createElement("span");
     meta.className = "meta";
     // 깨진 저장본은 숨기지 않는다 — 목록에서 사라지면 사람은 저장이 안 된 줄 알고 다시 저장한다.
-    meta.textContent = scene.error
-      ? t("읽을 수 없음")
-      : `${t("카메라")} ${scene.cameras} · ${t("차량")} ${scene.cars} · ${sceneStamp(scene.savedAtUtc)}`;
+    meta.textContent = sceneMetaText(scene);
 
     // 이름을 고치는 것과 내용을 고치는 것은 다른 일이다. 「이름」은 담긴 씬을 그대로 두고,
     // 「덮어쓰기」는 이름을 그대로 두고 지금 씬을 담는다 — 둘을 한 버튼으로 묶으면 이름을
@@ -3616,9 +3172,7 @@ async function putScene(name) {
     // 본문을 싣지 않는다 — 서버가 시뮬에서 직접 읽어 저장한다(브라우저가 씬을 실어 나르면
     // 화면이 낡은 사이에 저장을 누른 만큼 옛 씬이 저장된다).
     const r = await reqJson("PUT", api(`/simulator/scenes/${encodeURIComponent(name)}`));
-    setSceneStatus(r.scene
-      ? t("저장했습니다 — 카메라 {cams}대 · 차량 {cars}대", { cams: r.scene.cameras ?? "?", cars: r.scene.cars ?? "?" })
-      : t("저장했습니다"));   // 요약이 없으면 0 을 지어내지 않는다
+    setSceneStatus(saveSceneText(r));   // 요약이 없으면 0 을 지어내지 않는다
     log(t("씬 저장: {name}", { name }));
     await loadSavedScenes();
   } catch (e) {
@@ -3682,7 +3236,7 @@ async function restoreSavedScene(scene) {
     setSceneStatus(t("저장본을 읽지 못했습니다") + ": " + e.message);
     return;
   }
-  const doomed = simCameras.filter((c) => c.spawned && !(snap.cameras || []).some((s) => Number(s.httpPort) === Number(c.hucomsPort))).length;
+  const doomed = doomedCameraCount(simCameras, snap);
   if (!confirm(t("복원하면 차량이 전부 다시 배치되고, 저장본에 없는 카메라 {n}대가 지워집니다. 계속할까요? (카메라 {cams} · 차량 {cars})", {
     n: doomed, cams: (snap.cameras || []).length, cars: (snap.cars || []).length,
   }))) return;
@@ -3703,11 +3257,7 @@ async function restoreSavedScene(scene) {
       r = await postJson(path, { force: true });
     }
     const c = r.cameras || {};
-    setSceneStatus(t("복원됨 — 카메라 +{sp}/이동 {mv}/삭제 {rm} · 차량 {cars}대{fail}", {
-      sp: c.spawned ?? 0, mv: c.moved ?? 0, rm: c.removed ?? 0,
-      cars: r.cars?.restored ?? 0,
-      fail: (r.failures || []).length ? t(" · 실패 {n}건", { n: r.failures.length }) : "",
-    }));
+    setSceneStatus(restoreSummaryText(r));
     log(t("씬 복원: 카메라 +{sp}/{mv}/{rm} · 차량 {cars}", { sp: c.spawned ?? 0, mv: c.moved ?? 0, rm: c.removed ?? 0, cars: r.cars?.restored ?? 0 }));
     // 복원은 카메라도 차량도 바꾼다 — 씬·기기 목록·슬롯을 전부 다시 읽는다.
     simCatalog = null;
@@ -3793,15 +3343,7 @@ initSimulatorPage();
 //
 // 기기 목록은 같이 읽지 않는다 — loadCameras 는 활성 기기를 **서버에 쓰기**까지 하므로
 // 주기 호출로 쓸 함수가 아니다. 목록 변화는 탭을 열 때 refreshRig 가 잡는다.
-function rigSignature() {
-  return JSON.stringify(simCameras.map((c) => [
-    c.id, c.hucomsPort, c.mjpegPort, c.spawned !== false,
-    c?.heightAboveReferenceGroundCm, c?.mount?.location?.x, c?.mount?.location?.y, c?.mount?.baseYaw,
-    // 시야가 빠지면 다른 카메라를 누가 돌려도 평면도가 옛 시야를 계속 그린다
-    // (바뀐 게 없다고 판단해 다시 그리지 않으므로). 틸트는 틸트 앵커의 자리다.
-    viewYawOf(c), hfovOf(c), viewOf(c)?.ptz?.tiltpos,
-  ]));
-}
+const rigSignature = () => signatureOf(simCameras, simViewByPort);
 
 let pollRigInFlight = false;
 async function pollRig() {
