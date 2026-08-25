@@ -27,7 +27,12 @@
 - **배포에서 정적 서빙은 외부 서비스가 전담한다**(형제 저장소의 확정 원칙). 정적 산출물이
   백엔드 저장소에 얹혀 있을 이유가 없고, Pages 는 그 원칙의 가장 순수한 형태다.
 
-**무빌드 바닐라다.** React/Vite 도 JS 번들러도 없다. 빌드는 Tailwind CLI 한 번뿐이다.
+**React + Vite SPA 다**(2026-08-22 결정 → 08-25 전 화면 전환 완료). 셸 문서 하나에 해시
+라우트가 붙는다. 런타임 의존성은 react·react-dom 둘뿐이고 라우터도 상태 관리도 들이지
+않았다 — 이 앱의 라우팅 요구는 「해시 → 화면 표 룩업」 하나다.
+
+2026-08-25 이전에는 무빌드 바닐라 MPA 였다(화면마다 HTML + 인라인 `<script>`). 그 시절의
+자작 도구 `server.mjs`·`pack.mjs` 는 Vite 가 흡수하면서 함께 퇴역했다.
 
 ## 읽는 순서
 
@@ -46,9 +51,11 @@
 
 ## 현재 스냅샷
 
-- **상태: 분리·정적 배포 경로 확정 완료**(2026-08-04). 홈 + 6 페이지(cctv · discovery ·
-  simulator · settings · calibration · height)가 실동작하고, 지금 주력은 **캘리브레이션**이다.
-  남은 계획은 `plan.md` 가 출처다.
+- **상태: React SPA 전환 완료**(2026-08-25). 대문 + 6 화면(cctv · discovery · simulator ·
+  settings · calibration · height)이 **한 문서의 해시 라우트**로 선다(`#/cctv` …).
+  옛 주소(`…/cctv.html`)는 빌드가 발행하는 리다이렉트 셸이 받는다. 남은 계획은 `plan.md`.
+- **화면 코드는 `src/pages/<id>/` 에 있다** — `public/` 에 남은 문서는 셸 하나뿐이다.
+  「화면을 고치려면 그 HTML 을 연다」는 옛 규칙은 더 이상 맞지 않는다(`inventory.md`).
 - 이름 표기: `baro_kalory`. 형제 저장소는 `baro_calrory`(오타 그대로 고정). **`c`/`k` 차이는
   의도된 말장난이다 — 백엔드가 `c`alrory, 프런트가 `k`alory.** 오타로 보고 고치지 않는다.
   두 저장소를 한 번에 훑을 때는 `grep` 패턴을 `[ck]al` 로 쓴다(한쪽만 잡히는 함정).
@@ -57,9 +64,9 @@
 - **버전은 여기 적지 않는다.** `package.json` 과 `public/app-versions.json` 이 출처다.
   문서에 박은 숫자는 반드시 낡는다.
 - 배포 대상: GitHub Pages(정적). **백엔드는 이 저장소에 없다** — API 주소는 사용자가
-  런타임에 지정한다(`memo.md` 「API 주소 주입」). 다만 저장소에는 **개발용 서버가 있다** —
-  `server.mjs`(정적 서빙 + 무인증 API 프록시)를 pm2 로 상주시킨다(`inventory.md` 명령,
-  `memo.md` 상주 함정).
+  런타임에 지정한다(`memo.md` 「API 주소 주입」). 개발용 서버는 **Vite dev server** 이고
+  (무인증 API 프록시 포함) pm2 앱 이름은 `kalory-dev` 다(`inventory.md` 명령, `memo.md`
+  상주 함정). 자작 `server.mjs` 는 2026-08-25 퇴역했다.
 - **백엔드 계약이 두 갈래로 동시에 살아 있다** — 개발기와 배포기의 버전이 다르고, 언제든
   다시 같아진다. 그래서 화면은 **버전 문자열로 분기하지 않고 백엔드가 응답에 적어 준 답으로
   분기한다**(`reload.required` · `optics.source` · `settleMs` 유무). 이렇게 두면 옛 계약이

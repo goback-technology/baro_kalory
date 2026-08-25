@@ -212,12 +212,16 @@ https://<사이트>/?api=reset          # 저장된 주소를 지우는 탈출�
 | `camera/` | `provider`·`select`·`preview`·`use-preview`·`mjpeg-player`·`motion-settle` | 활성 카메라(서버 전역 상태)와 프리뷰 스트림. 밖으로 나가는 의존은 `lib/api`·`i18n` 둘뿐이라 **통째로 읽거나 통째로 안 읽어도 된다** |
 | `i18n/` | `index`(규칙 98줄) · `dict`(데이터 913줄) | 사전이 커서 갈랐다. `t()` 를 보러 900줄을 열 이유가 없다 |
 | `components/` | `ptz-pad` · `use-stage-pointer` | 여러 화면이 쓰는 React 부품 |
-| `lib/` | `api` · `format` · `use-job-poll` | 어느 화면에도 속하지 않는 것. `api` 는 fetch 계약 + API base 주입, `format` 은 「모르는 값을 아는 값처럼 그리지 않는다」, `use-job-poll` 은 폴링 4중 가드 |
-| `pages/<id>/` | `page.jsx` · `actions.mjs` · `<id>.css` | 화면 하나. 그 화면만 쓰는 것은 전부 여기 안이다(예: 캘리브레이션의 `profile-chart.mjs`) |
+| `lib/` | `api` · `format` · `prefs` · `use-job-poll` | 어느 화면에도 속하지 않는 것. `api` 는 fetch 계약 + API base 주입, `format` 은 「모르는 값을 아는 값처럼 그리지 않는다」, `prefs` 는 던지는 `localStorage` 를 삼키는 자리, `use-job-poll` 은 폴링 4중 가드 |
+| `pages/<id>/` | `page.jsx` · `actions.mjs` · `<id>.css` | 화면 하나. 그 화면만 쓰는 것은 전부 여기 안이다(캘리브레이션의 `profile-chart.mjs`, 시뮬레이터의 `geometry`·`map`·탭 패널 셋) |
 
 `src` 최상위에는 **파일을 두지 않는다.** 루트에 낱개로 놓이면 「누가 쓰나」를 위치가 말해
 주지 못한다 — 실제로 `mjpeg-player`·`motion-settle` 은 소비자가 `camera/preview` 하나뿐인데도
 공용 유틸과 동급으로 서 있었다.
+
+**화면이 커지면 탭 단위로 가른다.** 시뮬레이터가 그 예다 — 설정·씬·오른쪽 단이 제 파일을
+갖고, 자기 탭만 쓰는 상태와 동작을 함께 가져간다. 화면 전체를 아는 일(주소를 바꾼 뒤 씬을
+다시 읽는 것 같은)은 부모가 콜백으로 들고, 패널이 그 선을 넘지 않는 것을 테스트가 문다.
 
 **단위 테스트는 대상 옆에**(`src/**/*.test.mjs`), 여러 화면을 가로지르는 구조 그물만
 `test/` 에 둔다. 둘 다 `pnpm test` 한 번에 돈다.
