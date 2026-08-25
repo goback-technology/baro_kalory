@@ -1,4 +1,4 @@
-// 활성 카메라. 헤더의 <select> 는 camera-select.mjs 위젯이 소유하고, 이 provider 가 그
+// 활성 카메라. 헤더의 <select> 는 ./select.mjs 위젯이 소유하고, 이 provider 가 그
 // 위젯을 하나만 만들어 라우트들에게 나눠 준다.
 //
 // **놓아주기 레지스트리가 이 파일의 본론이다.** 활성 카메라를 바꾸기 전에 이전 카메라로
@@ -10,7 +10,7 @@
 // 라우트 전환도 같은 레지스트리를 쓴다. 페이지 이동이 곧 문서 로드이던 시절에는 pagehide
 // 가 안전망이었지만, SPA 에는 그 이벤트가 오지 않는다.
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { createCameraSelect } from "../camera-select.mjs";
+import { createCameraSelect } from "./select.mjs";
 
 const Ctx = createContext(null);
 

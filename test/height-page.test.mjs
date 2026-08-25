@@ -38,7 +38,7 @@ test("설치 높이 — 프리뷰·폴링은 공용 훅을 쓴다", async () => 
     "저장된 선택 키를 유지해야 한다 — 바뀌면 켜 두었던 사람의 선택이 사라진다");
   // 잡이 도는 동안만 되풀이해 묻고, 끝나면 스스로 멈춘다.
   assert.match(page, /useJobPoll\(loadJob, \{ intervalMs: 1500, enabled: running \}\)/);
-  const hook = await read("../src/app/hooks/use-camera-preview.mjs");
+  const hook = await read("../src/camera/use-preview.mjs");
   assert.match(hook, /registerRelease\(/, "카메라 전환 전에 놓아줘야 한다");
   assert.match(hook, /preview\.destroy\(\)/, "언마운트에서 위젯을 거둬야 한다");
   assert.match(hook, /window\.addEventListener\("pagehide", bye\)/, "문서 이탈도 막아야 한다");

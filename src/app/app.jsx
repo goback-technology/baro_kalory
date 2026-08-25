@@ -9,7 +9,7 @@ import { useHashRoute } from "./router.mjs";
 import { AppShell } from "./shell.jsx";
 import { BackendProvider, BackendGate } from "./backend-gate.jsx";
 import { BusyProvider } from "./busy-provider.jsx";
-import { CameraProvider, CameraSelect } from "./camera-provider.jsx";
+import { CameraProvider, CameraSelect } from "../camera/provider.jsx";
 
 // 라우트 표 — **PAGES 를 전부 덮어야 한다**(app-versions.test 가 그것을 문다). 여기에 없는
 // 화면은 대문으로 떨어져 조용히 사라지고, 헤더는 그 화면 이름인데 본문만 대문인 어긋난

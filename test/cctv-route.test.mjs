@@ -15,7 +15,7 @@ const CCTV = {
   css: "../src/pages/cctv/cctv.css",
   ptz: "../src/components/ptz-pad.jsx",
   pointer: "../src/components/use-stage-pointer.mjs",
-  hook: "../src/app/hooks/use-camera-preview.mjs",
+  hook: "../src/camera/use-preview.mjs",
 };
 
 test("CCTV — 라우트 계약", async () => {

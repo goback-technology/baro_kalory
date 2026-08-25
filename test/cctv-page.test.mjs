@@ -64,8 +64,8 @@ test("legacy parking spot registration UI is absent (점 기반 탐색이 대체
 // 스트림을 못 준다"는 사실일 뿐 사용자의 선택도, 새 기기에 대한 판정도 아니다.
 test("기기 전환은 자동 스냅샷 폴백을 무효화한다 (저fps 고착 방지)", async () => {
   const [hook, mod] = await Promise.all([
-    readFile(new URL("../src/app/hooks/use-camera-preview.mjs", import.meta.url), "utf8"),
-    readFile(new URL("../src/camera-preview.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../src/camera/use-preview.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../src/camera/preview.mjs", import.meta.url), "utf8"),
   ]);
   assert.match(mod, /function resetFallbackForNewDevice\(\)/, "폴백 무효화 API 가 있어야 한다");
   assert.match(mod, /fellBackToSnapshot\s*=\s*!!fallback && m === "snapshot"/,
@@ -88,7 +88,7 @@ test("기기 전환은 자동 스냅샷 폴백을 무효화한다 (저fps 고착
 // 전환보다 **먼저**여야 하고(유령 시청자 방지), 자동 폴백은 새 기기에 물려주지 않아야 한다
 // (스트림 없는 기기를 한 번 거치면 그 탭이 세션 내내 저fps 에 갇혔다).
 test("프리뷰 훅이 전환 계약을 든다 — 화면마다 배선하지 않는다", async () => {
-  const hook = await readFile(new URL("../src/app/hooks/use-camera-preview.mjs", import.meta.url), "utf8");
+  const hook = await readFile(new URL("../src/camera/use-preview.mjs", import.meta.url), "utf8");
   const reg = hook.slice(hook.indexOf("registerRelease(async"), hook.indexOf("const bye ="));
   assert.match(reg, /await preview\.stop\(\)/, "stop 을 await 해야 한다");
   assert.match(reg, /resetFallbackForNewDevice\(\)/, "폴백을 걷어내야 한다");
@@ -96,9 +96,9 @@ test("프리뷰 훅이 전환 계약을 든다 — 화면마다 배선하지 않
     "먼저 끊고 나서 폴백을 걷는다");
   assert.match(hook, /window\.addEventListener\("pagehide", bye\)/, "문서 이탈 시 강제 종료는 유지되어야 한다");
   // provider 가 활성을 바꾸기 **전에** 이 함수를 await 한다.
-  const provider = await readFile(new URL("../src/app/camera-provider.jsx", import.meta.url), "utf8");
+  const provider = await readFile(new URL("../src/camera/provider.jsx", import.meta.url), "utf8");
   assert.match(provider, /beforeChange: releaseAll/);
-  const sel = await readFile(new URL("../src/camera-select.mjs", import.meta.url), "utf8");
+  const sel = await readFile(new URL("../src/camera/select.mjs", import.meta.url), "utf8");
   assert.ok(sel.indexOf("await beforeChange(") < sel.indexOf('postJson(api("/cctv/active")'),
     "beforeChange 가 /cctv/active 전환보다 먼저여야 한다");
 });
@@ -108,7 +108,7 @@ test("프리뷰 훅이 전환 계약을 든다 — 화면마다 배선하지 않
 // 있는 카메라)은 서버(/cctv/devices)가 끝내서 보낸다. 화면이 두 목록을 다시 합치면 그
 // 봉합선(별도 묶음·derived 분기)이 반드시 보인다.
 test("카메라 드롭다운은 한 목록이다 — 서버가 병합한 /cctv/devices 하나만 읽는다", async () => {
-  const src = await readFile(new URL("../src/camera-select.mjs", import.meta.url), "utf8");
+  const src = await readFile(new URL("../src/camera/select.mjs", import.meta.url), "utf8");
   assert.match(src, /api\("\/cctv\/devices"\)/);
   assert.ok(!src.includes("optgroup"), "시뮬 카메라를 따로 묶으면 저장 위치가 화면 구조로 샌다");
   assert.ok(!src.includes("/simulator/devices"), "병합은 서버의 일이다 — 화면이 두 목록을 합치지 않는다");

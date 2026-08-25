@@ -88,7 +88,7 @@ function makeStage({ autoLoad = true, loadDelayMs = 1 } = {}) {
 }
 
 installDom();
-const { createCameraPreview } = await import("../src/camera-preview.mjs");
+const { createCameraPreview } = await import("./preview.mjs");
 
 test("스냅샷 폴링 정상 상태에서는 대기 오버레이를 켜지 않는다 (프레임 번쩍임 방지)", async () => {
   const { img, waitingLog, srcLog } = makeStage();

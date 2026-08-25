@@ -5,8 +5,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getJson, postJson, api, fmtPtz } from "../../api.mjs";
 import { t } from "../../i18n/index.mjs";
-import { useCamera } from "../../app/camera-provider.jsx";
-import { useCameraPreview } from "../../app/hooks/use-camera-preview.mjs";
+import { useCamera } from "../../camera/provider.jsx";
+import { useCameraPreview } from "../../camera/use-preview.mjs";
 import { useJobPoll } from "../../app/hooks/use-job-poll.mjs";
 import { usePtzControls, PtzPad, AbsoluteMove } from "../../components/ptz-pad.jsx";
 import { useStagePointer } from "../../components/use-stage-pointer.mjs";

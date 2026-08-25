@@ -27,7 +27,7 @@ globalThis.Option = class {
   constructor(text, value) { this.text = text; this.value = value; }
 };
 
-const { createCameraSelect } = await import("../src/camera-select.mjs");
+const { createCameraSelect } = await import("./select.mjs");
 
 function makeSelect() {
   return {

@@ -4,7 +4,7 @@
 // Works with both the UE sim stream and the ffmpeg mpjpeg proxy (both send a
 // Content-Length header per part).
 //
-// Shared by the control tab (camera-preview.mjs) and simple.html.
+// 이 폴더의 preview.mjs 가 쓴다 — 이 모듈을 직접 부르는 화면은 없다.
 //
 // stop() 은 fetch 를 abort 하고 그 읽기 루프가 '실제로 끝날 때까지' await 한다. 이로써
 // 호출부(탭/카메라/화면 전환)가 "이전 스트림이 완전히 꺼진 뒤" 다음을 시작할 수 있어,

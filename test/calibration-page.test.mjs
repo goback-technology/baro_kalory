@@ -267,7 +267,7 @@ test("캘리브레이션 페이지 — 라이브 뷰와 스윕 오버레이", as
   const status = await read(CAL.status);
 
   // 프리뷰는 공유 모듈을 쓴다. 두 벌째 구현을 두면 스트림 수명·폴백 규칙이 갈라진다.
-  assert.match(app, /import \{ createCameraPreview \} from "\.\.\/\.\.\/camera-preview\.mjs"/,
+  assert.match(app, /import \{ createCameraPreview \} from "\.\.\/\.\.\/camera\/preview\.mjs"/,
     "프리뷰는 공유 모듈이어야 한다");
   assert.doesNotMatch(app + overlay, /new EventSource|createMjpegPlayer/, "페이지가 스트림을 직접 몰면 안 된다");
 

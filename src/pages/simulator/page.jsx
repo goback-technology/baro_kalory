@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getJson, postJson, reqJson, api, fmtPtz as fmt } from "../../api.mjs";
 import { t } from "../../i18n/index.mjs";
 import { toNum } from "../../format.mjs";
-import { createCameraPreview } from "../../camera-preview.mjs";
+import { createCameraPreview } from "../../camera/preview.mjs";
 import { useJobPoll } from "../../app/hooks/use-job-poll.mjs";
 import { useStagePointer } from "../../components/use-stage-pointer.mjs";
 import { RigMap } from "./map.jsx";

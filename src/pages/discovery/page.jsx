@@ -6,8 +6,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getJson, postJson, reqJson, api, asset, fmtPtz } from "../../api.mjs";
 import { t, i18nHtml } from "../../i18n/index.mjs";
-import { useCamera } from "../../app/camera-provider.jsx";
-import { useCameraPreview } from "../../app/hooks/use-camera-preview.mjs";
+import { useCamera } from "../../camera/provider.jsx";
+import { useCameraPreview } from "../../camera/use-preview.mjs";
 import { useJobPoll } from "../../app/hooks/use-job-poll.mjs";
 import { ptzErrorText } from "../cctv/actions.mjs";
 import {

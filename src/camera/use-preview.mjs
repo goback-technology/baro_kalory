@@ -1,4 +1,4 @@
-// 프리뷰 하나를 화면에 붙이는 훅. camera-preview.mjs 는 <img>·모드버튼·fps 라벨을 소유하는
+// 프리뷰 하나를 화면에 붙이는 훅. ./preview.mjs 는 <img>·모드버튼·fps 라벨을 소유하는
 // **명령형 위젯**이고 이 훅은 그 위젯의 수명과 React 의 수명을 잇는다 — 위젯을 다시 쓰지
 // 않는다(그 안에는 501 폴백·재연결·백그라운드 자동정지처럼 값비싸게 얻은 규칙이 들어 있다).
 //
@@ -6,8 +6,8 @@
 // 상태 렌더·카메라 전환 시 놓아주기·pagehide. 그중 마지막 둘은 배선을 빠뜨린 화면이 조용히
 // 결함을 갖는 종류였다(유령 시청자가 카메라를 점유한다).
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createCameraPreview } from "../../camera-preview.mjs";
-import { useCamera } from "../camera-provider.jsx";
+import { createCameraPreview } from "./preview.mjs";
+import { useCamera } from "./provider.jsx";
 
 // 프리뷰를 여는 것은 **사용자 선택**이고 그 선택만 기억한다 — 페이지를 여는 행위가 카메라
 // 점유가 되면 안 된다(저장소 계약, 기본 꺼짐). 한 번 켜 둔 사람이 화면을 옮길 때마다 다시

@@ -754,7 +754,7 @@ export const DICT = {
   "점 '{name}' 번호판 보기 — z{z} · {px}px (프리셋을 클릭하면 와이드 복귀).": { en: "Point '{name}' plate view — z{z} · {px}px (click a preset to return wide).", vi: "Điểm '{name}' xem biển — z{z} · {px}px (nhấp cài đặt sẵn để về rộng)." },
   "프리셋 '{name}'을(를) 삭제할까요? (그 안의 점들도 함께 삭제)": { en: "Delete preset '{name}'? (its points are deleted too)", vi: "Xóa cài đặt sẵn '{name}'? (các điểm bên trong cũng bị xóa)" },
 
-  // ── shared browser modules: camera-preview + ptz-controls ──
+  // ── shared browser modules: camera/preview ──
   "프리뷰: 스트림(MJPEG)": { en: "Preview: Stream (MJPEG)", vi: "Xem trước: Luồng (MJPEG)" },
   "스트림": { en: "Stream", vi: "Luồng" },
   "스트림 연결 중…": { en: "Connecting stream…", vi: "Đang kết nối luồng…" },

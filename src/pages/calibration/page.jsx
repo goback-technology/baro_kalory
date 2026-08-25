@@ -4,8 +4,8 @@
 // 셸이 주는 것을 쓴다. 헤더 셀렉터도 이제 CameraProvider 소유다.
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getJson, postJson, reqJson, api } from "../../api.mjs";
-import { useCamera } from "../../app/camera-provider.jsx";
-import { createCameraPreview } from "../../camera-preview.mjs";
+import { useCamera } from "../../camera/provider.jsx";
+import { createCameraPreview } from "../../camera/preview.mjs";
 import { t } from "../../i18n/index.mjs";
 import "./calibration.css";
 import { SweepOverlay } from "./sweep-overlay.jsx";
