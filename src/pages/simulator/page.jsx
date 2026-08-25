@@ -15,10 +15,11 @@ import { useJobPoll } from "../../lib/use-job-poll.mjs";
 import { readPref, writePref } from "../../lib/prefs.mjs";
 import { useStagePointer } from "../../components/use-stage-pointer.mjs";
 import { RigMap } from "./map.jsx";
+import { EndpointPanel } from "./endpoint-panel.jsx";
 import {
   MOVE_SPEED, ORACLE_TOLERANCE_PX,
   SIM_ACTIVE_CAMERA_KEY, SIM_PREVIEW_WANTED_KEY, SIM_CROSSHAIR_KEY,
-  ptzSnapshot, readyStateOf, statusTextFromSimulatorState, endpointPayload,
+  ptzSnapshot, readyStateOf, statusTextFromSimulatorState,
   slotName, slotNameById, sortSlots, plateText,
   mountYawOf, viewOf, tiltposOf, hfovLimitsOf, viewYawOf, hfovOf,
   rigSignature, portBand, pickSpawnPorts, bandFullNotice, portRangeHint,
@@ -44,7 +45,6 @@ const TABS = [
 // 이 키들은 actions 의 installFieldsOf(채우기)·installPatchFrom(보내기)와 **같은 이름표**다.
 const BLANK_EDIT = { note: "", x: "", y: "", heightM: "", bearing: "", pitch: "", pan: "", tilt: "", zoom: "" };
 const BLANK_SPAWN = { heightM: "6", httpPort: "", mjpegPort: "", note: "", yawDeg: "", pitchDeg: "" };
-const BLANK_ENDPOINT = { host: "", controlPort: "", timeoutMs: "", username: "", password: "" };
 const DRAG_SLOP = 4;   // 손떨림을 조작으로 읽지 않는다
 
 export default function SimulatorPage() {
@@ -81,13 +81,10 @@ export default function SimulatorPage() {
   const [overlayHint, setOverlayHint] = useState("");
   const [oracleOut, setOracleOut] = useState("");
   const [endpointStatus, setEndpointStatus] = useState("—");
-  const [endpointConfigured, setEndpointConfigured] = useState(null);
-  const [hasPassword, setHasPassword] = useState(false);
 
   // ── 폼 ────────────────────────────────────────────────────────────────────
   const [edit, setEdit] = useState(BLANK_EDIT);
   const [spawnForm, setSpawnForm] = useState(BLANK_SPAWN);
-  const [endpointForm, setEndpointForm] = useState(BLANK_ENDPOINT);
   const [carForm, setCarForm] = useState({ carType: 0, color: 0, plateType: 0, city: "", prefix: "", kor: "", number: "" });
   const [force, setForce] = useState(false);
   const [sceneName, setSceneName] = useState("");
@@ -209,28 +206,6 @@ export default function SimulatorPage() {
       setReady(readyStateOf({ ready: false, unreachable: true, error: e.message }));
       if (!silent) setEndpointStatus(t("상태 확인 실패") + ": " + e.message);
       return null;
-    }
-  }, []);
-
-  // ── 시뮬레이터 주소: 월드 하나의 주소와 계정. 카메라·stage 와 무관하다 ────────
-  //   시뮬레이터 = 월드 하나 → stage 여럿(한 번에 하나 활성) → 그 stage 의 카메라들
-  // 제어 포트는 맨 왼쪽의 것이다. 예전에는 이 값들이 카메라 기기마다 복사돼 있어서, 카메라를
-  // 전부 지우면 백엔드가 시뮬을 잃고 조용히 인메모리 더블로 내려갔다.
-  const loadEndpoint = useCallback(async () => {
-    try {
-      const r = await getJson(api("/simulator/endpoint"));
-      const ep = r.endpoint || {};
-      setEndpointForm({
-        host: ep.host || "", controlPort: ep.controlPort ?? "", timeoutMs: ep.timeoutMs ?? "",
-        username: ep.username || "", password: "",
-      });
-      setHasPassword(!!ep.hasPassword);
-      setEndpointConfigured(!!r.configured);
-      setEndpointStatus(r.configured
-        ? `${ep.host}:${ep.controlPort}`
-        : t("시뮬레이터 주소가 없습니다 — 호스트와 제어 포트를 넣으세요."));
-    } catch (e) {
-      setEndpointStatus(t("시뮬레이터 주소 조회 실패") + ": " + e.message);
     }
   }, []);
 
@@ -1241,34 +1216,19 @@ export default function SimulatorPage() {
     finally { setBusy(false); }
   }, [setBusy, refreshRig, loadScene, log]);
 
-  // ── 주소 저장/테스트 ──────────────────────────────────────────────────────
-  const probeEndpoint = useCallback(async () => {
-    try {
-      const d = endpointPayload(endpointForm);
-      if (!d.host || !d.controlPort) throw new Error(t("제어 포트를 입력하세요 (시뮬레이터 제어 HTTP 포트, 기본 8095)."));
-      setEndpointStatus(t("연결 테스트 중..."));
-      setEndpointStatus(statusTextFromSimulatorState(await postJson(api("/simulator/probe"), d)));
-    } catch (e) { setEndpointStatus(t("연결 테스트 실패") + ": " + e.message); }
-  }, [endpointForm]);
-
-  const saveEndpoint = useCallback(async () => {
-    try {
-      setEndpointStatus(t("저장 중..."));
-      // 저장과 연결은 다른 말이다 — 백엔드가 실제 연결 결과를 함께 준다.
-      const r = await reqJson("PUT", api("/simulator/endpoint"), endpointPayload(endpointForm));
-      setEndpointStatus(statusTextFromSimulatorState(r.status || {}));
-      setEndpointConfigured(!!r.configured);
-      invalidateScene({ clearSelection: true });
-      catalogRef.current = null;
-      await refreshStatus();
-      // 씬이 바뀌면 카메라 목록도 통째로 바뀐다 — 목록의 정본이 그 씬이기 때문이다.
-      await loadDevices();
-      // 무효화가 지운 것은 목록만이 아니다 — 레벨·주차면·카탈로그·포즈·포트 대역도 지웠으니
-      // 전부 다시 채운다. 안 채우면 새 주소 저장 후 씬 화면이 빈 채로 고착된다.
-      await Promise.all([loadScene(), refreshCameraPose(), fetchPorts()]);
-      await loadEndpoint();   // 비밀번호 칸을 비우고 "(저장됨)" 표시를 되돌린다
-    } catch (e) { setEndpointStatus(t("저장 실패") + ": " + e.message); }
-  }, [endpointForm, invalidateScene, refreshStatus, loadDevices, loadScene, refreshCameraPose, fetchPorts, loadEndpoint]);
+  // ── 주소가 바뀐 뒤 ────────────────────────────────────────────────────────
+  // 주소를 저장하면 **씬이 통째로 바뀐다.** 무효화가 지운 것은 카메라 목록만이 아니라
+  // 레벨·주차면·카탈로그·포즈·포트 대역까지이므로 전부 다시 채운다 — 안 채우면 새 주소
+  // 저장 후 씬 화면이 빈 채로 고착된다. 저장 자체는 설정 탭 패널의 일이고, 그 뒤를
+  // 수습하는 이 일은 화면 전체를 아는 여기의 몫이다.
+  const reloadAfterEndpointChange = useCallback(async () => {
+    invalidateScene({ clearSelection: true });
+    catalogRef.current = null;
+    await refreshStatus();
+    // 씬이 바뀌면 카메라 목록도 통째로 바뀐다 — 목록의 정본이 그 씬이기 때문이다.
+    await loadDevices();
+    await Promise.all([loadScene(), refreshCameraPose(), fetchPorts()]);
+  }, [invalidateScene, refreshStatus, loadDevices, loadScene, refreshCameraPose, fetchPorts]);
 
   // ── 초기화 ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1335,12 +1295,13 @@ export default function SimulatorPage() {
   });
 
   // 탭을 열 때만 하는 일들 — 저장본은 다른 브라우저에서도 늘어나고, 리그는 밖에서 바뀐다.
+  // (설정 탭의 주소는 그 패널이 스스로 읽는다 — 패널이 설정 탭에서만 마운트되므로
+  //  마운트가 곧 「탭을 열었다」이고, 여는 쪽과 읽는 쪽을 갈라 둘 이유가 없다.)
   useEffect(() => {
     if (!booted) return;
-    if (tab === "settings") loadEndpoint();
     if (tab === "info") loadSavedScenes();
     if (tab === "rig" || tab === "drive") refreshRig();
-  }, [tab, booted, loadEndpoint, loadSavedScenes, refreshRig]);
+  }, [tab, booted, loadSavedScenes, refreshRig]);
 
   // 오버레이를 못 그리는 이유는 말한다 — 조용히 비면 화면이 고장 난 것으로 읽힌다.
   // 기준기(derived:false)는 씬 카메라가 아니라 자기 하드웨어라 씬 포즈가 아예 없다.
@@ -1655,43 +1616,8 @@ export default function SimulatorPage() {
           )}
 
           {tab === "settings" && (
-            <div id="sim-settings-panel" className="sim-tab-panel" data-sim-tab-panel="settings">
-              <section className="sim-scene-endpoint" aria-label="시뮬레이터 주소">
-                <div className="sim-pane-head">
-                  <strong>시뮬레이터 주소</strong>
-                  <span id="sim-endpoint-state" className="sim-mode-badge">
-                    {endpointConfigured === null ? "—" : endpointConfigured ? t("설정됨") : t("미설정")}
-                  </span>
-                </div>
-                <div className="hint" style={{ margin: "0 0 7px" }}>
-                  시뮬레이터(월드) 하나의 주소와 계정입니다. 제어 포트는 시뮬레이터 전체가 하나 가지며 stage 마다 있는 것이 아닙니다 — 활성 stage 도 이 포트로 고릅니다. 카메라와 무관하므로 카메라가 0 대여도 그대로 남습니다.
-                </div>
-                <div className="row">
-                  <label>호스트</label>
-                  <input id="sim-endpoint-host" type="text" placeholder="192.0.2.60" style={{ width: 150 }}
-                         value={endpointForm.host} onChange={(e) => setEndpointForm((f) => ({ ...f, host: e.target.value }))} />
-                  <label>제어 포트</label>
-                  <input id="sim-endpoint-port" type="number" min="1" max="65535" placeholder="8095" style={{ width: 80 }}
-                         value={endpointForm.controlPort} onChange={(e) => setEndpointForm((f) => ({ ...f, controlPort: e.target.value }))} />
-                  <label>Timeout</label>
-                  <input id="sim-endpoint-timeout" type="number" min="1000" max="120000" step="1000" placeholder="8000" style={{ width: 90 }}
-                         value={endpointForm.timeoutMs} onChange={(e) => setEndpointForm((f) => ({ ...f, timeoutMs: e.target.value }))} />
-                </div>
-                <div className="row" style={{ marginTop: 6 }}>
-                  <label>계정</label>
-                  <input id="sim-endpoint-user" type="text" autoComplete="username" placeholder="admin" style={{ width: 120 }}
-                         value={endpointForm.username} onChange={(e) => setEndpointForm((f) => ({ ...f, username: e.target.value }))} />
-                  <label>비밀번호</label>
-                  {/* 빈 칸은 "모른다"이지 "지워라"가 아니다 — 자리표시가 그 사실을 말한다. */}
-                  <input id="sim-endpoint-pass" type="password" autoComplete="new-password" style={{ width: 150 }}
-                         placeholder={hasPassword ? t("(저장됨 · 변경 시에만 입력)") : t("비밀번호")}
-                         value={endpointForm.password} onChange={(e) => setEndpointForm((f) => ({ ...f, password: e.target.value }))} />
-                  <button id="sim-endpoint-probe" type="button" disabled={locked} onClick={probeEndpoint}>연결 테스트</button>
-                  <button id="sim-endpoint-save" type="button" disabled={locked} onClick={saveEndpoint}>저장</button>
-                </div>
-                <div id="sim-endpoint-status" className="hint" style={{ marginTop: 7 }}>{endpointStatus}</div>
-              </section>
-            </div>
+            <EndpointPanel locked={locked} status={endpointStatus}
+                           setStatus={setEndpointStatus} onSaved={reloadAfterEndpointChange} />
           )}
         </div>
       </div>

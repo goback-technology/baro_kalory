@@ -27,14 +27,14 @@ const rowsOf = (form) => [...form.matchAll(/className="sim-cam-place-row">([\s\S
 // 클릭은 위 피커로 위임했다 — 320px 칸을 넘겨 내용이 잘렸다(실측 203px).
 test("설정 탭은 시뮬레이터 주소 하나뿐이다 — 목록 사본을 두지 않는다", async () => {
   const src = await page();
-  const panel = src.slice(src.indexOf('id="sim-settings-panel"'), src.indexOf("{/* 우: 씬 셋업 */}"));
+  const panel = await read("endpoint-panel.jsx");
   assert.ok(panel.length > 200, "설정 패널을 못 읽었다");
   assert.match(panel, /id="sim-endpoint-host"/);
   for (const id of ["sim-set-list", "sim-set-status", "sim-set-add", "sim-set-id",
                     "sim-set-save", "sim-set-delete"]) {
     assert.doesNotMatch(panel, new RegExp(`id="${id}"`), `${id} 는 기기 CRUD 시절의 잔재다`);
   }
-  assert.doesNotMatch(src, /sim-settings-layout|sim-device-detail\b/, "편집 창이 붙던 레이아웃도 함께 사라진다");
+  assert.doesNotMatch(src + panel, /sim-settings-layout|sim-device-detail\b/, "편집 창이 붙던 레이아웃도 함께 사라진다");
 });
 
 test("프리뷰 스테이지는 공용 표식을 단다", async () => {
@@ -519,9 +519,13 @@ test("씬 저장은 서버로 간다 — 다운로드로 떨어뜨리지 않는�
 test("탭을 열면 그 탭이 보는 것을 서버에서 다시 읽는다", async () => {
   const src = await page();
   // 저장본은 다른 브라우저에서도 늘어나고, 리그는 밖에서 바뀐다.
-  assert.match(src, /if \(tab === "settings"\) loadEndpoint\(\);/);
   assert.match(src, /if \(tab === "info"\) loadSavedScenes\(\);/);
   assert.match(src, /if \(tab === "rig" \|\| tab === "drive"\) refreshRig\(\);/);
+  // 설정 탭의 주소도 같은 규칙을 따르되, 그 패널이 스스로 읽는다 — 설정 탭에서만
+  // 마운트되므로 마운트가 곧 「탭을 열었다」이고, 여는 쪽과 읽는 쪽을 갈라 둘 이유가 없다.
+  const panel = await read("endpoint-panel.jsx");
+  assert.match(panel, /useEffect\(\(\) => \{ load\(\); \}, \[load\]\);/, "패널이 마운트에서 주소를 읽어야 한다");
+  assert.match(src, /\{tab === "settings" && \(\s*<EndpointPanel/, "그 패널은 설정 탭에서만 선다");
 });
 
 // 이름을 고치는 것과 내용을 고치는 것은 다른 일이다. 한 버튼으로 묶으면(= 새 이름으로 저장)
@@ -581,22 +585,28 @@ test("씬은 주기적으로 다시 읽되, 바뀐 게 없으면 다시 그리�
 // 백엔드가 인메모리 더블로 내려가고 화면이 실제 주차장 대신 빈 씬을 그렸다.
 test("주소는 카메라가 아니라 시뮬레이터(월드)의 것이다", async () => {
   const src = await page();
+  const panel = await read("endpoint-panel.jsx");
   // 계정도 월드의 것이다 — 카메라마다 복사돼 있던 것을 이 한 자리로 모았다.
   for (const id of ["sim-endpoint-host", "sim-endpoint-port", "sim-endpoint-timeout",
                     "sim-endpoint-user", "sim-endpoint-pass",
                     "sim-endpoint-probe", "sim-endpoint-save", "sim-endpoint-status"]) {
-    assert.match(src, new RegExp(`id="${id}"`), `${id} 누락`);
+    assert.match(panel, new RegExp(`id="${id}"`), `${id} 누락`);
   }
-  assert.match(src, /getJson\(api\("\/simulator\/endpoint"\)\)/, "시뮬레이터 주소를 읽어 와야 한다");
-  assert.match(src, /reqJson\("PUT", api\("\/simulator\/endpoint"\)/, "주소는 PUT 으로 저장한다");
+  assert.match(panel, /getJson\(api\("\/simulator\/endpoint"\)\)/, "시뮬레이터 주소를 읽어 와야 한다");
+  assert.match(panel, /reqJson\("PUT", api\("\/simulator\/endpoint"\)/, "주소는 PUT 으로 저장한다");
   // 옛 이름을 값으로 다루는 곳이 없어야 한다. 남아 있으면 그 이름으로 보낸 저장이 백엔드에서
   // 400 으로 끊긴다 — 조용히 무시했다면 "포트 없음" = **해제**로 읽혀 주소가 통째로 지워졌을 값이다.
-  assert.doesNotMatch(src, /\bscenePort\b/);
-  assert.match(src, /controlPort/, "제어 포트는 시뮬레이터 하나의 것이다");
+  assert.doesNotMatch(src + panel, /\bscenePort\b/);
+  assert.match(panel, /controlPort/, "제어 포트는 시뮬레이터 하나의 것이다");
   // 빈 칸을 어떻게 다루는가(특히 비밀번호 — 빈 칸은 "모른다"이지 "지워라"가 아니다)는 actions 의
   // endpointPayload 규칙이다. 여기서 다시 조립하면 그 규칙이 두 벌이 된다.
-  assert.equal(src.match(/endpointPayload\(endpointForm\)/g)?.length, 2, "테스트와 저장 둘 다 그 규칙을 쓴다");
-  assert.match(src, /placeholder=\{hasPassword \? t\("\(저장됨 · 변경 시에만 입력\)"\) : t\("비밀번호"\)\}/);
+  assert.equal(panel.match(/endpointPayload\(form\)/g)?.length, 2, "테스트와 저장 둘 다 그 규칙을 쓴다");
+  assert.match(panel, /placeholder=\{hasPassword \? t\("\(저장됨 · 변경 시에만 입력\)"\) : t\("비밀번호"\)\}/);
+  // 주소가 바뀌면 씬이 통째로 바뀐다 — 그 되읽기는 화면 전체를 아는 부모의 몫이고, 패널은
+  // 부른다는 사실만 안다. 패널이 직접 씬을 손대기 시작하면 이 화면을 두 곳에서 몰게 된다.
+  assert.match(panel, /await onSaved\(\);/, "저장 뒤 씬 되읽기를 부모에게 넘겨야 한다");
+  assert.doesNotMatch(panel, /invalidateScene|loadDevices|loadScene\(/, "패널이 씬을 직접 몰면 안 된다");
+  assert.match(src, /const reloadAfterEndpointChange = useCallback/, "부모가 그 되읽기를 들어야 한다");
 });
 
 // 스폰 포트의 정본은 서버다. 세 갈래 판정과 대역 만원 문구는 actions 가 값으로 문다 —
