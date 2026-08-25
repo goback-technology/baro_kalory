@@ -1,0 +1,45 @@
+/* CCTV 제어 화면의 자리잡기. SPA 에서는 방문한 화면의 CSS 가 언로드되지 않고 쌓이므로,
+   접두사 없는 선택자(main·body 같은 것)를 쓰면 떠난 화면의 규칙이 다음 화면을 망가뜨린다.
+   전역 규칙은 셸(public/index.html)이 갖고, 공유 base/컴포넌트/토큰은 app.css 에서 온다.
+   색/글꼴/반경은 전부 var(--…) 토큰 참조(테마 따라 자동 교체). */
+
+/* 반응형 금지 — 화면 가로 1200px 고정, 창이 작아지면 이 화면 안에서 가로로 굴린다
+   (문서 전체를 넓히면 다른 라우트까지 함께 끌린다). #control 이 자체 패딩을 갖는다. */
+.cctv-main { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0; }
+
+/* 제어 2단 레이아웃(좌 영상/포즈 · 우 패널) */
+#panel { flex: 1; min-width: 280px; display: flex; flex-direction: column; gap: 14px; }
+#control { display: flex; gap: 16px; padding: 14px; flex-wrap: nowrap; align-items: stretch;
+  min-width: 1200px; height: 100%; overflow: hidden; box-sizing: border-box; }
+#control #left, #control #panel { max-height: 100%; overflow-y: auto; min-width: 0; box-sizing: border-box; }
+#control #left { flex: 0 0 864px; max-width: calc(100% - 456px); padding-right: 4px; }
+#control #panel { flex: 0 0 420px; min-width: 320px; padding-right: 4px; }
+
+
+/* 검출 오버레이 + 결과 카드 */
+#detector-overlays { position: absolute; inset: 0; pointer-events: none; }
+.det-box { position: absolute; box-sizing: border-box; border: 2px solid var(--color-accent); background: rgba(211,162,74,.12);
+  color: var(--color-bright); font-size: 11px; font-weight: 700; line-height: 1.3; }
+.det-label { position: absolute; left: -2px; top: -21px; max-width: 220px; padding: 2px 5px;
+  background: #000a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 3D 큐보이드 와이어프레임. viewBox 가 프레임 픽셀이라 선 굵기·글자는 스케일에서 빼 둔다
+   — 안 그러면 1920 짜리 프레임에서 선이 실오라기가 된다. */
+.det-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+/* 3D 라벨은 큐보이드 중심에 찍힌다(사각형 위가 아니다) — 그 점을 가리지 않게 살짝 올려 붙인다. */
+.det-label-3d { transform: translate(-50%, -130%); font-size: 11px; font-weight: 700;
+  color: var(--color-bright); border-radius: 2px; }
+.det-result-grid { display: grid; gap: 8px; margin-top: 10px; }
+.det-result { background: var(--color-panel2); border: 1px solid var(--color-border); padding: 8px; }
+.det-result-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 13px; }
+.det-result-head b { font-size: 13px; }
+.det-count { color: var(--color-muted); font-size: 12px; white-space: nowrap; }
+.det-lines { margin-top: 6px; display: grid; gap: 3px; }
+.det-line { color: var(--color-muted); font-size: 11px; overflow-wrap: anywhere; }
+.det-json { margin: 6px 0 0; max-height: 120px; overflow: auto; white-space: pre-wrap; color: var(--color-muted); font-size: 11px; }
+
+/* Crosshair 토글 — 화면 중앙 조준선만 숨긴다. 검출 박스는 조작 결과라 남긴다. */
+#stage.crosshair-off .view-crosshair { display: none; }
+
+.cctv-led { width:10px; height:10px; flex:0 0 auto; border-radius:50%; border:1px solid var(--color-border2); background:var(--color-danger); box-shadow:0 0 0 1px #0008; }
+.cctv-led.ready { background:var(--color-ok); box-shadow:0 0 7px var(--color-ok), 0 0 0 1px #0008; }
+.cctv-led.wait { background:var(--color-warn); box-shadow:0 0 7px var(--color-warn), 0 0 0 1px #0008; }
