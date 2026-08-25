@@ -45,10 +45,6 @@ const DICT = {
   "출처가 다르면 백엔드가 이 주소를 CORS 로 허용해야 합니다":
     { en: "If the origin differs, the backend must allow this origin via CORS",
       vi: "Nếu khác origin, backend phải cho phép origin này qua CORS" },
-  "Baro Calory · CCTV 제어": { en: "Baro Calory · CCTV Control", vi: "Baro Calory · Điều khiển CCTV" },
-  "Baro Calory · 시뮬레이터 셋업": { en: "Baro Calory · Simulator Setup", vi: "Baro Calory · Thiết lập mô phỏng" },
-  "Baro Calory · 설정": { en: "Baro Calory · Settings", vi: "Baro Calory · Cài đặt" },
-  "Baro Calory · 주차면 탐색": { en: "Baro Calory · Spot Discovery", vi: "Baro Calory · Khám phá chỗ đỗ" },
   "스크린샷": { en: "Screenshot", vi: "Ảnh màn hình" },
   "스크린샷 다운로드 — 원본은 카메라에서 새로 받고, 화면은 지금 보이는 프레임 그대로":
     { en: "Download a screenshot — 'original' pulls a fresh full-resolution frame from the camera, 'screen' saves exactly what you see",
@@ -56,20 +52,7 @@ const DICT = {
   "스크린샷 해상도": { en: "Screenshot resolution", vi: "Độ phân giải ảnh chụp" },
   "원본 해상도": { en: "Full resolution", vi: "Độ phân giải gốc" },
   "화면 해상도": { en: "Screen resolution", vi: "Độ phân giải màn hình" },
-  "Baro Calory · 카메라 캘리브레이션": { en: "Baro Calory · Camera Calibration", vi: "Baro Calory · Hiệu chuẩn camera" },
-  // landing / gate (대문)
-  "주차장 CCTV 관제 시스템": { en: "Parking CCTV Control System", vi: "Hệ thống điều khiển CCTV bãi đỗ" },
-  "CCTV 제어 앱": { en: "CCTV Control App", vi: "Ứng dụng điều khiển CCTV" },
-  "PTZ 제어 · 주차면 탐색 · 검출 테스트를 포함한 전체 관제 콘솔": { en: "Full console: PTZ control, spot discovery, detection tests", vi: "Bảng điều khiển đầy đủ: điều khiển PTZ, khám phá chỗ đỗ, kiểm tra phát hiện" },
-  "심플 뷰 (테스트)": { en: "Simple View (Test)", vi: "Xem đơn giản (Kiểm tra)" },
-  "카메라 전환 · 라이브 피드 · PTZ · 클릭 센터링만 담은 경량 예제": { en: "Lightweight example: camera switch, live feed, PTZ, click-to-center", vi: "Ví dụ gọn nhẹ: chuyển camera, luồng trực tiếp, PTZ, nhấp căn giữa" },
-  "열기 →": { en: "Open →", vi: "Mở →" },
-  "기타 도구": { en: "Other Tools", vi: "Công cụ khác" },
-  "화질 비교": { en: "Image Quality Compare", vi: "So sánh chất lượng ảnh" },
-  "캡처 화질 비교 · 톤 보정 레퍼런스": { en: "Capture quality comparison · tone reference", vi: "So sánh chất lượng chụp · tham chiếu tông màu" },
-
   // header / tabs
-  "화면을 클릭하면 그 지점이 가운데로 옵니다": { en: "Click the view to bring that point to the center", vi: "Nhấp vào màn hình để đưa điểm đó vào giữa" },
   "제어 · 모니터링": { en: "Control · Monitoring", vi: "Điều khiển · Giám sát" },
   "주차면 탐색": { en: "Spot Discovery", vi: "Khám phá chỗ đỗ" },
   "설정": { en: "Settings", vi: "Cài đặt" },
@@ -82,15 +65,8 @@ const DICT = {
 
   // control: cards
   "현재 PTZ": { en: "Current PTZ", vi: "PTZ hiện tại" },
-  "주차면 등록": { en: "Register Spot", vi: "Đăng ký chỗ đỗ" },
-  "와이드샷 저장": { en: "Save Wide Shot", vi: "Lưu ảnh góc rộng" },
-  "와이드샷 복귀": { en: "Return to Wide Shot", vi: "Về ảnh góc rộng" },
-  "이름 (선택)": { en: "Name (optional)", vi: "Tên (tùy chọn)" },
-  "현재 위치를 주차면으로 저장": { en: "Save current position as a spot", vi: "Lưu vị trí hiện tại làm chỗ đỗ" },
-  "와이드샷에서 주차면을 클릭하거나 네모로 드래그하세요.": { en: "Click a spot in the wide shot or drag a box.", vi: "Nhấp vào chỗ đỗ trên ảnh góc rộng hoặc kéo một khung." },
   "중지": { en: "Stop", vi: "Dừng" },
   "Detector 테스트": { en: "Detector Test", vi: "Kiểm tra Detector" },
-  "현재 PTZ & 높이": { en: "Current PTZ & Height", vi: "PTZ & độ cao hiện tại" },
   "VPD 테스트": { en: "VPD Test", vi: "Kiểm tra VPD" },
   "LPD 테스트": { en: "LPD Test", vi: "Kiểm tra LPD" },
   "LPR 테스트": { en: "LPR Test", vi: "Kiểm tra LPR" },
@@ -114,7 +90,6 @@ const DICT = {
   "아직 프리셋 없음": { en: "No presets yet", vi: "Chưa có cài đặt sẵn" },
   "주차면 점": { en: "Spot Points", vi: "Điểm chỗ đỗ" },
   "VLM 주차인식": { en: "VLM Parking Detect", vi: "VLM Nhận diện đỗ xe" },
-  "기존 점 교체": { en: "Replace existing points", vi: "Thay điểm hiện có" },
   "대기 중": { en: "Idle", vi: "Đang chờ" },
   "프리셋을 선택하세요.": { en: "Select a preset.", vi: "Hãy chọn một cài đặt sẵn." },
   "점을 선택하세요.": { en: "Select a point.", vi: "Hãy chọn một điểm." },
@@ -145,14 +120,10 @@ const DICT = {
   "시뮬레이터(월드) 하나의 주소와 계정입니다. 제어 포트는 시뮬레이터 전체가 하나 가지며 stage 마다 있는 것이 아닙니다 — 활성 stage 도 이 포트로 고릅니다. 카메라와 무관하므로 카메라가 0 대여도 그대로 남습니다.":
     { en: "The address and account of the one simulator (world). The control port belongs to the simulator as a whole, not one per stage — the active stage is chosen over this same port. It is independent of cameras, so it stays put even with zero cameras.",
       vi: "Địa chỉ và tài khoản của một trình mô phỏng (thế giới) duy nhất. Cổng điều khiển thuộc về toàn bộ trình mô phỏng, không phải mỗi stage một cổng — stage đang hoạt động cũng được chọn qua chính cổng này. Nó độc lập với camera nên vẫn còn ngay cả khi không có camera nào." },
-  "씬에 카메라가 없습니다 — 「카메라」 탭에서 세우면 여기에 나타납니다.":
-    { en: "The scene has no cameras — place one on the Cameras tab and it appears here.",
-      vi: "Cảnh chưa có camera nào — dựng một cái ở tab Camera thì nó sẽ xuất hiện ở đây." },
   "무카메라":
     { en: "no camera", vi: "không camera" },
   "고정형":
     { en: "fixed", vi: "cố định" },
-  "무카메라 mock": { en: "Camera-less mock", vi: "Mock không camera" },
   "MJPEG 포트": { en: "MJPEG port", vi: "Cổng MJPEG" },
   "제어 포트": { en: "Control port", vi: "Cổng điều khiển" },
   "시뮬레이터 주소": { en: "Simulator address", vi: "Địa chỉ trình mô phỏng" },
@@ -164,14 +135,11 @@ const DICT = {
   "MJPEG 포트가 있으면 RTSP 대신 그 포트를 그대로 중계합니다. 시뮬레이터 주소는 기기가 아니라 시뮬레이터 화면의 「시뮬레이터 주소」에서 정합니다 — 월드 하나의 값이라 카메라와 함께 지워지면 안 됩니다.":
     { en: "With an MJPEG port the server relays that port instead of RTSP. The simulator address is not a device field — set it under 「Simulator address」 on the simulator page; it belongs to the one world and must not vanish with a camera.",
       vi: "Nếu có cổng MJPEG, máy chủ chuyển tiếp cổng đó thay cho RTSP. Địa chỉ trình mô phỏng không thuộc thiết bị — đặt ở 「Địa chỉ trình mô phỏng」 trên trang mô phỏng; nó thuộc về một thế giới duy nhất." },
-  "씬 연결 테스트": { en: "Test scene connection", vi: "Kiểm tra kết nối scene" },
   "저장": { en: "Save", vi: "Lưu" },
-  "저장 + 재연결": { en: "Save + Reconnect", vi: "Lưu + Kết nối lại" },
   "저장 중...": { en: "Saving...", vi: "Đang lưu..." },
   "연결 테스트 중...": { en: "Testing connection...", vi: "Đang kiểm tra kết nối..." },
   "연결 테스트 실패": { en: "Connection test failed", vi: "Kiểm tra kết nối thất bại" },
   "상태 확인 실패": { en: "Status check failed", vi: "Kiểm tra trạng thái thất bại" },
-  "무카메라 mock 기기 — 씬 연결 없음(인메모리).": { en: "Camera-less mock — no scene connection (in-memory).", vi: "Mock không camera — không có kết nối scene (trong bộ nhớ)." },
   "카메라 배치": { en: "Camera layout", vi: "Bố trí camera" },
   "카메라 컨트롤": { en: "Camera control", vi: "Điều khiển camera" },
   "조종 — 현재 PTZ": { en: "Drive — current PTZ", vi: "Điều khiển — PTZ hiện tại" },
@@ -323,9 +291,6 @@ const DICT = {
     { en: "This scene's ground level is unknown — it needs at least one parking slot or camera.",
       vi: "Không biết cao độ mặt đất của scene này — cần ít nhất một chỗ đỗ hoặc camera." },
   // 세워 둔 카메라의 설치 고치기(높이·방위·하향각)
-  "설치 높이·방위·하향각을 고칩니다":
-    { en: "Change the installed height, azimuth and downtilt",
-      vi: "Sửa chiều cao lắp đặt, phương vị và góc chúc" },
   "그대로": { en: "unchanged", vi: "giữ nguyên" },
   "옮기기": { en: "Move it", vi: "Di chuyển" },
   "고칠 카메라를 찾지 못했습니다 — 목록을 다시 읽으세요.":
@@ -373,8 +338,6 @@ const DICT = {
     { en: "blank = auto from height", vi: "để trống = tự đặt theo độ cao" },
   "사람이 부르는 별명 — 씬에 저장됩니다. 비우면 설치 높이로 만든 이름이 쓰입니다.":
     { en: "A human-facing alias — stored in the scene. Blank falls back to a name made from the mount height.", vi: "Biệt danh cho người đọc — lưu trong scene. Để trống thì dùng tên tạo từ độ cao lắp đặt." },
-  "{id} · :{port}{tag}":
-    { en: "{id} · :{port}{tag}", vi: "{id} · :{port}{tag}" },
   " · 레벨 저작(자세 고정)":
     { en: " · authored in level (pose fixed)", vi: " · tạo trong level (tư thế cố định)" },
   "끌어서 조준": { en: "Drag to aim", vi: "Kéo để ngắm" },
@@ -435,25 +398,14 @@ const DICT = {
   "제어 포트를 입력하세요 (시뮬레이터 제어 HTTP 포트, 기본 8095).":
     { en: "Enter the control port (the simulator's control HTTP port, default 8095).",
       vi: "Nhập cổng điều khiển (cổng HTTP điều khiển của trình mô phỏng, mặc định 8095)." },
-  "sim 기기가 없습니다 — CCTV 설정 탭에서 기기를 먼저 등록하세요.": { en: "No sim device — register one in the CCTV settings tab first.", vi: "Không có thiết bị sim — hãy đăng ký trong tab cài đặt CCTV trước." },
-  "무카메라 mock 기기 — 씬 연결 없음(인메모리). UE에 붙이려면 hucoms 타입 sim 기기를 사용하세요.": { en: "Camera-less mock device — no scene connection (in-memory). Use a hucoms-type sim device to attach to UE.", vi: "Thiết bị mock không camera — không có kết nối scene (trong bộ nhớ). Dùng thiết bị sim loại hucoms để nối UE." },
-  "무카메라 mock 기기는 연결 설정이 없습니다.": { en: "A camera-less mock device has no connection settings.", vi: "Thiết bị mock không camera không có cài đặt kết nối." },
-  "편집 중인 기기가 삭제되었습니다 — 새로고침 후 다시 시도하세요.": { en: "The device being edited was deleted — refresh and try again.", vi: "Thiết bị đang chỉnh sửa đã bị xóa — làm mới rồi thử lại." },
-  "씬 제어 설정 저장 + 재연결 완료": { en: "Scene-control settings saved + reconnected", vi: "Đã lưu cài đặt điều khiển scene + kết nối lại" },
-
   // settings
   "서비스 상태": { en: "Service Status", vi: "Trạng thái dịch vụ" },
-  "백엔드 …": { en: "Backend …", vi: "Backend …" },
-  "카메라 …": { en: "Camera …", vi: "Camera …" },
-  "검출기 …": { en: "Detector …", vi: "Detector …" },
-  "LPR …": { en: "LPR …", vi: "LPR …" },
   "상태 새로고침": { en: "Refresh status", vi: "Làm mới trạng thái" },
   "페이지를 열면 자동 확인합니다": { en: "Checked automatically when the page opens", vi: "Tự động kiểm tra khi mở trang" },
   "현재 연결": { en: "Current Connection", vi: "Kết nối hiện tại" },
   "불러오는 중…": { en: "Loading…", vi: "Đang tải…" },
   "기기 (장치)": { en: "Device", vi: "Thiết bị" },
   "활성 기기": { en: "Active device", vi: "Thiết bị đang dùng" },
-  "＋ 기기 추가": { en: "＋ Add device", vi: "＋ Thêm thiết bị" },
   "기기 편집": { en: "Edit device", vi: "Sửa thiết bị" },
   // 기기 속성의 설치 높이 — 값은 config 가 아니라 발행본(프로파일)에 있다.
   "예: 6.00": { en: "e.g. 6.00", vi: "vd: 6.00" },
@@ -524,36 +476,15 @@ const DICT = {
   "이 기기는 위치를 알려주지 않습니다 (상대 이동 전용)": { en: "This device does not report its position (relative move only)", vi: "Thiết bị này không báo vị trí (chỉ di chuyển tương đối)" },
   "상대 이동": { en: "Relative move", vi: "Di chuyển tương đối" },
   "기준기 (무카메라)": { en: "Reference (no camera)", vi: "Thiết bị chuẩn (không camera)" },
-  "Baro Reference CCTV — 전 기능 기준기 (무카메라)": { en: "Baro Reference CCTV — full-capability reference (no camera)", vi: "Baro Reference CCTV — thiết bị chuẩn đầy đủ (không camera)" },
-  "Baro Reference CCTV — 부분 기능 계열 (무카메라)": { en: "Baro Reference CCTV — partial-capability family (no camera)", vi: "Baro Reference CCTV — nhóm chức năng một phần (không camera)" },
   "현재 {p}": { en: "Now {p}", vi: "Hiện tại {p}" },
-  "마킹: ({x}, {y})": { en: "Marked: ({x}, {y})", vi: "Đã đánh dấu: ({x}, {y})" },
-  "— 드래그 영역": { en: "— drag area", vi: "— vùng kéo" },
-  "— 클릭 지점": { en: "— click point", vi: "— điểm nhấp" },
-  "· 화면을 조정한 뒤 저장하세요.": { en: "· Adjust the view, then save.", vi: "· Chỉnh màn hình rồi lưu." },
   "센터링 ({x}, {y}) → {p}": { en: "Centering ({x}, {y}) → {p}", vi: "Căn giữa ({x}, {y}) → {p}" },
   "센터링 실패": { en: "Centering failed", vi: "Căn giữa thất bại" },
   "박스줌 ({x1},{y1})-({x2},{y2}) → {p}": { en: "Box-zoom ({x1},{y1})-({x2},{y2}) → {p}", vi: "Phóng khung ({x1},{y1})-({x2},{y2}) → {p}" },
   "박스줌 실패": { en: "Box-zoom failed", vi: "Phóng khung thất bại" },
 
   // ── dynamic: spots ──
-  "저장됨: {p}": { en: "Saved: {p}", vi: "Đã lưu: {p}" },
-  "와이드샷 없음": { en: "No wide shot", vi: "Chưa có ảnh rộng" },
-  "저장된 주차면 없음": { en: "No saved spots", vi: "Chưa có chỗ đỗ đã lưu" },
   "이동": { en: "Go", vi: "Đi" },
-  "주차면 목록 실패": { en: "Spot list failed", vi: "Tải danh sách chỗ đỗ thất bại" },
-  "{name} 으로 이동 → {p}": { en: "Move to {name} → {p}", vi: "Đi tới {name} → {p}" },
   "이동 실패": { en: "Move failed", vi: "Di chuyển thất bại" },
-  "{name} 삭제됨": { en: "{name} deleted", vi: "Đã xóa {name}" },
-  "와이드샷 저장됨 (현재 PTZ 기준)": { en: "Wide shot saved (current PTZ)", vi: "Đã lưu ảnh rộng (PTZ hiện tại)" },
-  "와이드샷 저장 실패": { en: "Save wide shot failed", vi: "Lưu ảnh rộng thất bại" },
-  "와이드샷 복귀 → {p}": { en: "Return to wide shot → {p}", vi: "Về ảnh rộng → {p}" },
-  "와이드샷 복귀 실패": { en: "Return to wide shot failed", vi: "Về ảnh rộng thất bại" },
-  "저장 불가: 먼저 와이드샷에서 주차면을 클릭/드래그하세요.": { en: "Cannot save: first click/drag a spot in the wide shot.", vi: "Không thể lưu: hãy nhấp/kéo chỗ đỗ trên ảnh rộng trước." },
-  "주차면 저장: {name} ({x},{y}) → {p}": { en: "Spot saved: {name} ({x},{y}) → {p}", vi: "Đã lưu chỗ đỗ: {name} ({x},{y}) → {p}" },
-  "주차면 저장 실패": { en: "Save spot failed", vi: "Lưu chỗ đỗ thất bại" },
-
-
   // ── dynamic: detector test ──
   "테스트 중…": { en: "Testing…", vi: "Đang kiểm tra…" },
   "{x} 테스트 중…": { en: "Testing {x}…", vi: "Đang kiểm tra {x}…" },
@@ -561,7 +492,6 @@ const DICT = {
   "Detector 테스트 완료: {ok}/{total} 응답, 박스 {n}개": { en: "Detector test done: {ok}/{total} responded, {n} boxes", vi: "Kiểm tra Detector xong: {ok}/{total} phản hồi, {n} khung" },
   "테스트 실패": { en: "Test failed", vi: "Kiểm tra thất bại" },
   "Detector 테스트 실패": { en: "Detector test failed", vi: "Kiểm tra Detector thất bại" },
-  "결과 없음": { en: "No results", vi: "Không có kết quả" },
   "HTTP {s} · {c}개 · {ms}ms": { en: "HTTP {s} · {c} items · {ms}ms", vi: "HTTP {s} · {c} mục · {ms}ms" },
   "실패 · {ms}ms": { en: "fail · {ms}ms", vi: "lỗi · {ms}ms" },
   "응답은 정상이나 검출 항목은 없습니다.": { en: "Response OK but no detections.", vi: "Phản hồi OK nhưng không có phát hiện." },
@@ -665,11 +595,6 @@ const DICT = {
   "유지": { en: "Keep", vi: "Giữ" },
   "의 실측값 빌리기": { en: "— borrow its measurements", vi: "— mượn số đo của nó" },
   "클릭 센터링이 보정 없이 동작합니다.": { en: "Click-to-center runs uncorrected.", vi: "Nhấp căn giữa chạy không hiệu chỉnh." },
-  "지금 값을 그대로 둡니다": { en: "Leaves the current value untouched", vi: "Giữ nguyên giá trị hiện tại" },
-  "다른 카메라의 실측값입니다 — 캘리브레이션은 개체마다 다르므로, 적용한 뒤 '검증'을 돌려 이 개체에 맞는지 확인하세요.":
-    { en: "These are another camera's measurements. Calibration differs per unit — after applying, run 'Verify' to confirm it fits this one.",
-      vi: "Đây là số đo của camera khác. Hiệu chuẩn khác nhau theo từng máy — sau khi áp dụng, hãy chạy 'Kiểm tra'." },
-  "프로파일을 읽는 중…": { en: "Reading profile…", vi: "Đang đọc hồ sơ…" },
   "프로파일을 읽지 못했습니다": { en: "Could not read the profile", vi: "Không đọc được hồ sơ" },
 
   // 프로파일 관리 창구(캘리브레이션 페이지) — 복사·수입·적용·퇴역.
@@ -715,18 +640,12 @@ const DICT = {
   "zoomHfov 는 {z, h}(줌 눈금, 수평화각°) 를 z 오름차순으로 최소 2개. centeringGain 은 {z, k} 이며 없으면 조준 보정 없이 화각만 답합니다. 재지 않은 값이므로 문서에 '수입'으로 남고 잔차는 비어 있습니다.":
     { en: "zoomHfov takes at least two {z, h} pairs (zoom scale, horizontal FOV°) in ascending z. centeringGain takes {z, k}; without it the camera reports FOV but aims uncorrected. Nothing was measured here, so the document records 'import' and leaves the residual empty.",
       vi: "zoomHfov cần ít nhất hai cặp {z, h} theo z tăng dần. centeringGain là {z, k}; thiếu nó thì chỉ báo FOV mà không hiệu chỉnh ngắm. Không đo gì ở đây nên tài liệu ghi 'nhập' và bỏ trống phần dư." },
-  "발행된 리비전을 이 백엔드의 런타임에 깝니다. 옛 리비전을 고르면 되돌리기입니다.":
-    { en: "Loads a published revision into this backend's runtime. Pick an older one to roll back.",
-      vi: "Nạp bản sửa đã phát hành vào runtime. Chọn bản cũ để quay lui." },
   "이 카메라에는 아직 발행본이 없습니다.":
     { en: "This camera has no published profile yet.", vi: "Camera này chưa có hồ sơ phát hành." },
   "발행본과 지금 쓰는 값이 다릅니다 — 조준과 화각이 발행본 기준으로 틀립니다.":
     { en: "The published profile and the values in use disagree — aim and FOV are wrong relative to the published profile.",
       vi: "Hồ sơ phát hành và giá trị đang dùng khác nhau — ngắm và FOV sai so với hồ sơ." },
   "발행본 적용": { en: "Apply published", vi: "Áp dụng bản phát hành" },
-  "최신 발행본을 런타임에 깔아 이 차이를 없앱니다. 재측정은 필요 없습니다.":
-    { en: "Loads the latest published profile into the runtime and closes this gap. No re-measurement needed.",
-      vi: "Nạp hồ sơ mới nhất vào runtime để xóa chênh lệch. Không cần đo lại." },
   // 「재시작해야 적용된다」 계열 항목 4개를 지웠다(2026-08-19). 백엔드 0.17.0 부터 발행이 곧
   // 적용이고 화면은 그 문장을 쓰지 않는다 — 사전에 남겨 두면 다시 집어 쓰기 쉽다.
   // 삭제한 키: "rev {rev} 을 적용했습니다 — …(pm2 restart baro-backend)" ·
@@ -772,7 +691,6 @@ const DICT = {
   "{n}점": { en: "{n} pts", vi: "{n} điểm" },
   "점 없음": { en: "No points", vi: "Không có điểm" },
   "프리셋 구도에서 영상 위를 클릭하면 주차면 점이 추가됩니다.": { en: "Click the video in a preset framing to add a spot point.", vi: "Nhấp vào video ở bố cục cài đặt sẵn để thêm điểm chỗ đỗ." },
-  "녹색=호밍 성공 · 빨강=실패 · 노랑=처리중": { en: "green=homing OK · red=fail · yellow=in progress", vi: "xanh=dò OK · đỏ=thất bại · vàng=đang xử lý" },
   "클릭하면 이 프리셋을 선택하고 그 구도로 이동합니다.": { en: "Click to select this preset and move to its framing.", vi: "Nhấp để chọn cài đặt sẵn này và di chuyển tới bố cục của nó." },
   "이 프리셋 구도로 카메라 이동": { en: "Move the camera to this preset's framing", vi: "Di chuyển camera tới bố cục của cài đặt sẵn này" },
   "프리셋 추가됨 (현재 카메라 위치를 저장).": { en: "Preset added (saved current camera position).", vi: "Đã thêm cài đặt sẵn (đã lưu vị trí camera hiện tại)." },
@@ -787,8 +705,6 @@ const DICT = {
   "프리셋에 점이 없습니다 (먼저 점을 찍거나 VLM 자동 검출).": { en: "Preset has no points (place points or run VLM auto-detect first).", vi: "Cài đặt sẵn chưa có điểm (đặt điểm hoặc chạy VLM tự phát hiện trước)." },
   "번호판 호밍 시작 — 카메라가 점마다 줌인합니다.": { en: "Plate homing started — the camera zooms in on each point.", vi: "Bắt đầu dò biển số — camera phóng to từng điểm." },
   "호밍 시작 실패": { en: "Homing start failed", vi: "Bắt đầu dò thất bại" },
-  "이미 호밍이 진행 중입니다.": { en: "Homing is already running.", vi: "Đang dò rồi." },
-  "점 '{name}' 번호판 호밍 시작…": { en: "Plate homing for point '{name}'…", vi: "Dò biển số cho điểm '{name}'…" },
   "이 점은 과정 기록이 없습니다.": { en: "This point has no process record.", vi: "Điểm này không có bản ghi quá trình." },
   "점 '{name}' 번호판 호밍 과정 — {n}스텝": { en: "Plate-homing process for point '{name}' — {n} steps", vi: "Quá trình dò biển số điểm '{name}' — {n} bước" },
   "⏸ 정지": { en: "⏸ Pause", vi: "⏸ Tạm dừng" },
@@ -818,7 +734,6 @@ const DICT = {
   "과정": { en: "Process", vi: "Quá trình" },
   "전체 삭제": { en: "Delete all", vi: "Xóa tất cả" },
   "호밍 중": { en: "Homing", vi: "Đang dò" },
-  "호밍 종료 — 성공 {ok}/{total}": { en: "Homing done — {ok}/{total} succeeded", vi: "Dò xong — {ok}/{total} thành công" },
   "이 프리셋의 주차면 점 {n}개를 모두 삭제할까요?": { en: "Delete all {n} spot points of this preset?", vi: "Xóa toàn bộ {n} điểm chỗ đỗ của cài đặt sẵn này?" },
   "점 {n}개 삭제됨.": { en: "{n} points deleted.", vi: "Đã xóa {n} điểm." },
   "현재 프레임의 주차 차량을 VLM으로 자동 검출해 점으로 추가": { en: "Auto-detect parked cars in the current frame with a VLM and add them as points", vi: "Tự động phát hiện xe đỗ trong khung hiện tại bằng VLM và thêm làm điểm" },
@@ -841,12 +756,8 @@ const DICT = {
   "활성": { en: "Active", vi: "Đang dùng" },
   "— '연결 테스트'로 실물/시뮬·모델 확인": { en: "— use 'Test connection' to verify real/sim·model", vi: "— dùng 'Kiểm tra kết nối' để xác nhận thật/mô phỏng·model" },
   "점": { en: "point", vi: "điểm" },
-  "판 {w}px": { en: "plate {w}px", vi: "biển {w}px" },
-  "성공 {ok}/{total}": { en: "success {ok}/{total}", vi: "thành công {ok}/{total}" },
   "· 카메라 복귀 실패(수동 확인 필요)": { en: "· camera return failed (manual check needed)", vi: "· camera không về được (cần kiểm tra thủ công)" },
   "호밍 상태 조회 실패(재시도 중)": { en: "Homing status query failed (retrying)", vi: "Truy vấn trạng thái dò thất bại (đang thử lại)" },
-  "스텝 <b>{step}</b> · z{z} · 판폭 <b>{w}px</b>": { en: "step <b>{step}</b> · z{z} · plate width <b>{w}px</b>", vi: "bước <b>{step}</b> · z{z} · rộng biển <b>{w}px</b>" },
-  "스텝 <b>{step}</b> · z{z} · <span style=\"color:#e0556b\">번호판 없음(후보 {n})</span>": { en: "step <b>{step}</b> · z{z} · <span style=\"color:#e0556b\">no plate (candidates {n})</span>", vi: "bước <b>{step}</b> · z{z} · <span style=\"color:#e0556b\">không có biển (ứng viên {n})</span>" },
   "기하 폴백": { en: "geometry fallback", vi: "dự phòng hình học" },
   "내 차 판 선택(#{i})": { en: "my-car plate selected (#{i})", vi: "đã chọn biển xe của tôi (#{i})" },
   "접근 시도(부분/소형 판 — 더 가까이)": { en: "approach attempt (partial/small plate — closer)", vi: "thử tiếp cận (biển một phần/nhỏ — gần hơn)" },
@@ -860,7 +771,6 @@ const DICT = {
   "스트림": { en: "Stream", vi: "Luồng" },
   "스트림 연결 중…": { en: "Connecting stream…", vi: "Đang kết nối luồng…" },
   "MJPEG 스트림 사용 불가 → 스냅샷 폴링으로 전환": { en: "MJPEG stream unavailable → switching to snapshot polling", vi: "Không dùng được luồng MJPEG → chuyển sang chụp thăm dò" },
-  "⏸ 일시정지": { en: "⏸ Paused", vi: "⏸ Tạm dừng" },
   "이동 → {p}": { en: "Move → {p}", vi: "Di chuyển → {p}" },
   "절대 이동 → {p}": { en: "Absolute move → {p}", vi: "Di chuyển tuyệt đối → {p}" },
   "절대 이동 실패": { en: "Absolute move failed", vi: "Di chuyển tuyệt đối thất bại" },
@@ -870,8 +780,6 @@ const DICT = {
   "채우기": { en: "Fill", vi: "Điền" },
 
   // ── 스크린샷 ──
-  "📷 스크린샷": { en: "📷 Screenshot", vi: "📷 Chụp màn hình" },
-  "현재 화면을 이미지로 다운로드": { en: "Download the current view as an image", vi: "Tải khung hình hiện tại thành ảnh" },
   "스크린샷 저장: {name}": { en: "Screenshot saved: {name}", vi: "Đã lưu ảnh chụp: {name}" },
   "스크린샷 실패": { en: "Screenshot failed", vi: "Chụp màn hình thất bại" },
   "스크린샷 실패: 표시 중인 영상 프레임이 없습니다": { en: "Screenshot failed: no video frame is being shown", vi: "Chụp màn hình thất bại: không có khung hình đang hiển thị" },
@@ -881,7 +789,6 @@ const DICT = {
   // 이 축의 문구는 위상을 말한다: 정본은 시공 실측이고 자동 측정은 보조 출처다. 번역이
   // 그 위상을 뭉개면(예: measured 를 그냥 "measured height" 로) 화면이 자동을 정본처럼
   // 보이게 만든다 — 이 축이 가장 피해야 하는 오해다.
-  "Baro Calory · 설치 높이": { en: "Baro Calory · Installed Height", vi: "Baro Calory · Chiều cao lắp đặt" },
   "설치 높이": { en: "Installed height", vi: "Chiều cao lắp đặt" },
   "설치 높이 · 측량": { en: "Installed height · Survey", vi: "Chiều cao lắp đặt · Đo đạc" },
   "카메라가 지면에서 몇 미터에 달렸는가 — 시공 실측 입력(정본)과 영상 자동 측정(보조). 광학 곡선이 있어야 잴 수 있다.":
@@ -941,8 +848,6 @@ const DICT = {
   // "검출기" 는 이미 위(Detector 테스트)에 있다 — 같은 낱말이라 다시 넣지 않는다.
   "준비됨": { en: "Ready", vi: "Sẵn sàng" },
   "미설정": { en: "Not configured", vi: "Chưa cấu hình" },
-  "준비 상태 확인 중…": { en: "Checking readiness…", vi: "Đang kiểm tra mức sẵn sàng…" },
-  "준비 상태를 알 수 없습니다.": { en: "Readiness is unknown.", vi: "Không rõ mức sẵn sàng." },
   "사이드카 상태는 대기 중일 때만 보고됩니다.":
     { en: "Side-car readiness is reported only while the axis is idle.",
       vi: "Trạng thái side-car chỉ được báo khi trục đang rảnh." },
@@ -958,7 +863,6 @@ const DICT = {
   "측정이 수 분 동안 이 카메라를 점유합니다. 그동안 수동 조작은 거절됩니다. 시작할까요?":
     { en: "The measurement owns this camera for several minutes and manual moves are refused meanwhile. Start?",
       vi: "Phép đo sẽ chiếm camera này trong vài phút và mọi thao tác thủ công bị từ chối. Bắt đầu chứ?" },
-  "시작 중…": { en: "Starting…", vi: "Đang bắt đầu…" },
   "이 기기의 줌→화각 곡선이 없습니다 — 캘리브레이션을 먼저 발행하세요. (픽셀을 각으로 바꾸려면 초점거리가 필요합니다)":
     { en: "This device has no zoom→HFOV curve — publish a calibration first. (Pixels become angles only if the focal length is known.)",
       vi: "Thiết bị này chưa có đường cong zoom→HFOV — hãy phát hành hiệu chuẩn trước. (Pixel chỉ thành góc khi biết tiêu cự.)" },
