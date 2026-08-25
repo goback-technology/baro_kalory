@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { PAGES } from "../src/pages.mjs";
+import { PAGES, MPA_PAGES } from "../src/pages.mjs";
 
 const webUiDir = new URL("../", import.meta.url);
 
@@ -10,12 +10,15 @@ const webUiDir = new URL("../", import.meta.url);
 // 버전 파일이 서로 맞나」를 묻는 진짜 대조가 된다.
 const APPS = PAGES.map((p) => p.versionKey).filter(Boolean).sort();
 
-// 페이지가 공용 크롬을 부르는 자리. 바닐라 페이지는 HTML 인라인이고, React 로 옮긴 페이지는
-// HTML 이 마운트만 갖고 호출이 부트 모듈에 있다. **페이지를 옮길 때 이 표에 한 줄 적는 것이
-// 그 이관의 기록이다** — 옮길 때마다 테스트 본문을 뜯어고치는 대신.
+// 아직 자기 HTML 을 갖는 페이지가 공용 크롬을 부르는 자리. 바닐라는 HTML 인라인이고,
+// 페이지별 React 루트를 쓰는 화면은 호출이 부트 모듈에 있다. **페이지를 옮길 때 이 표에
+// 한 줄 적는 것이 그 이관의 기록이다** — 옮길 때마다 테스트 본문을 뜯어고치는 대신.
+// SPA 라우트로 옮긴 페이지는 셸이 크롬을 주므로 이 표에서 빠진다(아래 별도 테스트).
 const CHROME_CALL = {
   calibration: "src/pages/calibration/app.jsx",
 };
+
+const read = (rel) => readFile(new URL(rel, webUiDir), "utf8");
 
 test("각 프런트 앱은 자기 버전을 독립적으로 든다", async () => {
   // public/ 에 있는 이유: 이 파일은 페이지와 **함께 배포**되어야 한다(2026-07-28). 페이지가
@@ -33,7 +36,7 @@ test("각 프런트 앱은 자기 버전을 독립적으로 든다", async () =>
 test("페이지는 공용 크롬을 부르고, backend 가 프런트 버전을 대신 읽어 주지 않는다", async () => {
   // 버전 표시는 page-chrome.mjs 로 일원화됐다(2026-08-03 4앱 분리). 각 페이지는
   // initPageChrome({ page: "<id>" }) 를 부르고, 모듈이 app-versions.json 을 읽는다.
-  for (const p of PAGES) {
+  for (const p of MPA_PAGES) {
     const html = await readFile(new URL(`public/${p.id}.html`, webUiDir), "utf8");
     const bootRel = CHROME_CALL[p.id];
     const boot = bootRel ? await readFile(new URL(bootRel, webUiDir), "utf8") : html;
@@ -67,13 +70,27 @@ test("버전 파일은 「페이지 옆」에서 읽힌다 — 소스 문자열�
   }
 });
 
-test("home 카드는 모든 앱을 가리키고 각자의 버전 키를 단다", async () => {
-  const home = await readFile(new URL("public/home.html", webUiDir), "utf8");
-  for (const app of APPS) {
-    assert.match(home, new RegExp(`data-version-key="${app}"`), `${app} 버전 배지 누락`);
+// SPA 라우트에서는 페이지마다 크롬을 부르지 않는다 — 셸이 한 번 그리고 라우트가 그 안에
+// 들어온다. 그래서 계약이 「각 페이지가 부르는가」에서 「셸이 주는가 + 라우트 표가 옮긴
+// 페이지를 전부 덮는가」로 바뀐다. 덮지 못한 페이지는 대문으로 떨어져 조용히 사라진다.
+test("SPA 라우트는 셸이 크롬을 준다 — 라우트 표가 옮긴 페이지를 전부 덮는다", async () => {
+  const shell = await read("src/app/shell.jsx");
+  const app = await read("src/app/app.jsx");
+  assert.match(shell, /data-role="chrome"/, "셸에 크롬 자리가 없다");
+  assert.match(shell, /id="version"/, "셸에 버전 배지가 없다");
+  assert.doesNotMatch(shell, /v\.cctvVersion|v\.simulatorVersion|v\.frontendVersion/, "셸 잔여 의존");
+  for (const p of PAGES.filter((x) => x.spa)) {
+    assert.match(app, new RegExp(`\\b${p.id}:\\s*lazy\\(`), `${p.id} 라우트가 표에 없다 — 대문으로 떨어진다`);
   }
-  for (const p of PAGES) {
-    if (!p.slug) continue;   // 대문 자신은 카드가 없다
-    assert.match(home, new RegExp(`href="\\./${p.slug}"`), `${p.slug} 카드 링크 누락`);
+});
+
+test("대문 카드는 모든 앱을 가리키고 각자의 버전 키를 단다", async () => {
+  // 카드 목록의 계약은 src/pages/home/cards.test.mjs 가 값으로 문다(PAGES 파생·잠금·링크).
+  // 여기서는 **버전 축**만 본다: app-versions.json 의 키가 전부 카드에 실리는가.
+  const cards = await read("src/pages/home/page.jsx");
+  assert.match(cards, /data-version-key=\{card\.versionKey\}/, "카드가 버전 키를 달지 않는다");
+  const blurbs = await read("src/pages/home/cards.mjs");
+  for (const app of APPS) {
+    assert.match(blurbs, new RegExp(`^\\s*${app}: \\[`, "m"), `${app} 카드 문구 누락 — 이름만 남는다`);
   }
 });

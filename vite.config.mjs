@@ -13,7 +13,7 @@ import react from "@vitejs/plugin-react";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { kaloryCompat } from "./build/vite-kalory.mjs";
-import { PAGES } from "./src/pages.mjs";
+import { MPA_PAGES, pageFileOf } from "./src/pages.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -59,9 +59,12 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       // 진입점은 pages.mjs 에서 파생 — 손으로 베끼면 페이지 추가한 날 그 경로만 404 다.
-      input: Object.fromEntries(
-        PAGES.map((p) => [p.id, join(here, "public", p.slug ? `${p.slug}.html` : "home.html")]),
-      ),
+      // SPA 셸(index.html)이 첫 진입점이고, 아직 안 옮긴 페이지가 각자 자기 진입점을 갖는다.
+      // 전 페이지가 옮겨 가면 입력은 index 하나만 남는다.
+      input: Object.fromEntries([
+        ["index", join(here, "public", "index.html")],
+        ...MPA_PAGES.map((p) => [p.id, join(here, "public", pageFileOf(p))]),
+      ]),
     },
   },
 });
