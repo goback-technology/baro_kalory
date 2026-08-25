@@ -4,7 +4,7 @@
 // 있었다(2026-08-05 제거). 재발을 여기서 막는다.
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 
 const SRC = new URL("../src/i18n.mjs", import.meta.url);
 
@@ -70,11 +70,18 @@ test("식별자 키는 실제로 data-i18n-html 이 가리킨다", async () => {
   // 식별자 키는 한국어 원문으로 찾을 수 없다 — 화면에서 그 id 로 부르지 않으면 영영 죽은
   // 항목이 되고, 한국어 값까지 들고 있어서 살아 있는 것처럼 보인다.
   const src = await readFile(SRC, "utf8");
-  const pages = await Promise.all(
-    ["cctv", "discovery", "simulator", "settings", "calibration", "height", "home"]
-      .map((p) => readFile(new URL(`../public/${p}.html`, import.meta.url), "utf8").catch(() => "")),
-  );
-  const html = pages.join("\n");
+  // 화면을 **전수로** 훑는다 — 페이지 목록을 손으로 적어 두면 React 로 옮긴 화면이 목록에서
+  // 빠지는 순간 그 화면이 부르던 키가 전부 고아로 보고된다(또는 반대로, 죽은 키를 살아 있다고
+  // 봐 준다). 대상은 페이지 HTML 과 src 의 모듈·컴포넌트 전부다.
+  const html = (await Promise.all([
+    ...(await readdir(new URL("../public/", import.meta.url)))
+      .filter((f) => f.endsWith(".html"))
+      .map((f) => readFile(new URL(`../public/${f}`, import.meta.url), "utf8")),
+    ...(await readdir(new URL("../src/", import.meta.url), { recursive: true }))
+      .map((f) => f.replaceAll("\\", "/"))
+      .filter((f) => f.endsWith(".jsx") || f.endsWith(".mjs"))
+      .map((f) => readFile(new URL(`../src/${f}`, import.meta.url), "utf8")),
+  ])).join("\n");
   const orphans = [...src.matchAll(/^ {2}"([a-z][A-Za-z0-9]*\.[A-Za-z0-9]+)":/gm)]
     .map((m) => m[1])
     .filter((id) => !html.includes(`data-i18n-html="${id}"`));

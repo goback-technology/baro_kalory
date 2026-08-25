@@ -1,10 +1,21 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { PAGES } from "../src/pages.mjs";
 
 const webUiDir = new URL("../", import.meta.url);
 
-const APPS = ["calibration", "cctv", "discovery", "height", "settings", "simulator"];
+// 앱 목록은 **손으로 베끼지 않는다** — pages.mjs 가 정본이고, 여기서 다시 적으면 그 순간
+// 세 번째 미러다. 이렇게 두면 이 단언은 「내가 적은 목록과 맞나」가 아니라 「페이지 표와
+// 버전 파일이 서로 맞나」를 묻는 진짜 대조가 된다.
+const APPS = PAGES.map((p) => p.versionKey).filter(Boolean).sort();
+
+// 페이지가 공용 크롬을 부르는 자리. 바닐라 페이지는 HTML 인라인이고, React 로 옮긴 페이지는
+// HTML 이 마운트만 갖고 호출이 부트 모듈에 있다. **페이지를 옮길 때 이 표에 한 줄 적는 것이
+// 그 이관의 기록이다** — 옮길 때마다 테스트 본문을 뜯어고치는 대신.
+const CHROME_CALL = {
+  calibration: "src/pages/calibration/app.jsx",
+};
 
 test("각 프런트 앱은 자기 버전을 독립적으로 든다", async () => {
   // public/ 에 있는 이유: 이 파일은 페이지와 **함께 배포**되어야 한다(2026-07-28). 페이지가
@@ -22,24 +33,14 @@ test("각 프런트 앱은 자기 버전을 독립적으로 든다", async () =>
 test("페이지는 공용 크롬을 부르고, backend 가 프런트 버전을 대신 읽어 주지 않는다", async () => {
   // 버전 표시는 page-chrome.mjs 로 일원화됐다(2026-08-03 4앱 분리). 각 페이지는
   // initPageChrome({ page: "<id>" }) 를 부르고, 모듈이 app-versions.json 을 읽는다.
-  const pages = [
-    ["cctv", "public/cctv.html"],
-    ["discovery", "public/discovery.html"],
-    ["simulator", "public/simulator.html"],
-    ["settings", "public/settings.html"],
-    ["calibration", "public/calibration.html"],
-    ["height", "public/height.html"],
-    ["home", "public/home.html"],
-  ];
-  for (const [name, rel] of pages) {
-    const html = await readFile(new URL(rel, webUiDir), "utf8");
-    // React 페이지(calibration)는 크롬 호출이 부트 모듈에 있다 — HTML 은 마운트만 갖는다.
-    const boot = name === "calibration"
-      ? await readFile(new URL("src/pages/calibration/app.jsx", webUiDir), "utf8") : html;
-    assert.match(boot, new RegExp(`initPageChrome\\(\\{ page: "${name}" \\}\\)`), `${name} 는 공용 크롬을 불러야 한다`);
-    assert.match(html, /data-role="chrome"/, `${name} 헤더에 크롬 마운트가 없다`);
+  for (const p of PAGES) {
+    const html = await readFile(new URL(`public/${p.id}.html`, webUiDir), "utf8");
+    const bootRel = CHROME_CALL[p.id];
+    const boot = bootRel ? await readFile(new URL(bootRel, webUiDir), "utf8") : html;
+    assert.match(boot, new RegExp(`initPageChrome\\(\\{ page: "${p.id}" \\}\\)`), `${p.id} 는 공용 크롬을 불러야 한다`);
+    assert.match(html, /data-role="chrome"/, `${p.id} 헤더에 크롬 마운트가 없다`);
     // backend 응답의 프런트 버전 필드에 의존하면 따로 배포한 순간 값이 어긋난다.
-    assert.doesNotMatch(boot, /v\.cctvVersion|v\.simulatorVersion|v\.frontendVersion/, `${name} 잔여 의존`);
+    assert.doesNotMatch(boot, /v\.cctvVersion|v\.simulatorVersion|v\.frontendVersion/, `${p.id} 잔여 의존`);
   }
 });
 
@@ -71,7 +72,8 @@ test("home 카드는 모든 앱을 가리키고 각자의 버전 키를 단다",
   for (const app of APPS) {
     assert.match(home, new RegExp(`data-version-key="${app}"`), `${app} 버전 배지 누락`);
   }
-  for (const slug of ["cctv", "discovery", "simulator", "settings", "calibration", "height"]) {
-    assert.match(home, new RegExp(`href="\\./${slug}"`), `${slug} 카드 링크 누락`);
+  for (const p of PAGES) {
+    if (!p.slug) continue;   // 대문 자신은 카드가 없다
+    assert.match(home, new RegExp(`href="\\./${p.slug}"`), `${p.slug} 카드 링크 누락`);
   }
 });
