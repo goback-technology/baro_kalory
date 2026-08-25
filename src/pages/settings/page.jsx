@@ -56,6 +56,12 @@ export default function SettingsPage({ sub }) {
   useEffect(() => { if (!sub) location.replace(hrefFor("settings", tab)); }, [sub, tab]);
 
   const load = useCallback(async () => {
+    // 주소가 없으면 **부르지 않는다.** 부르면 그 요청이 지금 오리진의 /api/… 로 나가
+    // 엉뚱한 서버(정적 호스트면 404 HTML)를 만나고, 화면에는 게이트 배너 위에
+    // 「설정 로드 실패: Unexpected token '<' …」 라는 날것의 파싱 오류가 겹쳐 뜬다 —
+    // 첫 방문자에게 그건 곧 고장난 앱이다. 이 상태에서 할 일은 주소를 넣는 것뿐이고,
+    // 그 칸(서버 탭)은 설정을 안 읽어도 뜬다.
+    if (!API_BASE_EXPLICIT) return;
     try {
       const c = await getJson(api("/cctv/config"));
       const devTypes = (c.deviceTypes && c.deviceTypes.length) ? c.deviceTypes : FALLBACK_TYPES;

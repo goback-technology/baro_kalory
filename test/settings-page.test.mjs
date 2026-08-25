@@ -85,6 +85,11 @@ test("설정 페이지 — 탭은 주소에 실리고, 주소가 없으면 저�
 test("설정 페이지 — 설정 로드는 한 곳이고, 라우트가 자기 크롬을 다시 세우지 않는다", async () => {
   const page = await read(SET.page);
   assert.match(page, /getJson\(api\("\/cctv\/config"\)\)/, "부트에서 설정을 로드해야 한다");
+  // 주소가 없으면 부르지 않는다 — 부르면 지금 오리진의 /api/… 로 나가 엉뚱한 서버를 만나고,
+  // 게이트 배너 위에 날것의 파싱 오류가 겹친다(첫 방문자에게는 그게 곧 고장난 앱이다).
+  const load = page.slice(page.indexOf("const load = useCallback"), page.indexOf("useEffect(() => { load(); }"));
+  assert.ok(load.indexOf("if (!API_BASE_EXPLICIT) return;") < load.indexOf("getJson(api("),
+    "미설정 검사가 첫 요청 앞에 있어야 한다");
   assert.match(page, /export default function SettingsPage/, "라우트는 기본 내보내기다");
   assert.doesNotMatch(page, /createRoot|initPageChrome|createCameraSelect/,
     "라우트가 자기 문서·자기 크롬을 다시 세우면 안 된다");
