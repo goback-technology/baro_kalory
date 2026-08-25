@@ -1,10 +1,10 @@
-// Vite 호환 플러그인 — server.mjs·pack.mjs 가 하던 일 중 Vite 내장이 안 덮는 몫만 갖는다.
+// Vite 호환 플러그인 — 무빌드 시절의 정적 서버·패커가 하던 일 중 Vite 내장이 안 덮는 몫.
 //
 // 정본은 셋이고 전부 재사용이다 — 여기서 목록·규칙을 다시 쓰면 그 순간 미러 드리프트다:
 //   페이지 목록      → src/pages.mjs 의 PAGES
 //   정적 호스트 재작성 → pack.mjs 의 rewriteForStaticHost (I/O 없는 순수 함수, 테스트가 문다)
 //   /web/ 규약       → 페이지 HTML 이 "./web/*.mjs" 를 import 하는데 public/ 에 web/ 폴더가
-//                      없다. server.mjs 가 /web/ → src/ 로 매핑하던 것을 resolveId 가 잇는다.
+//                      없다. 옛 정적 서버가 /web/ → src/ 로 매핑하던 것을 resolveId 가 잇는다.
 //                      페이지 소스는 한 글자도 안 바꾼다 — 바닐라 페이지와 React 페이지가
 //                      같은 규약으로 공존하는 것이 파일럿의 전제다.
 //
@@ -21,7 +21,7 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const srcDir = join(repo, "src");
 const publicDir = join(repo, "public");
 
-// server.mjs 의 PAGE_ROUTES/PAGE_REDIRECTS 와 같은 표 — pages.mjs 에서 파생한다.
+// 확장자 없는 페이지 주소의 표 — pages.mjs 에서 파생한다(손으로 베낀 미러가 아니다).
 // "/v0" 은 cctv 의 옛 주소라 pages.mjs 에 없다(페이지가 아니라 별칭이다). 여기만 안다.
 const ROUTES = { "/": "/home.html", "/v0": "/cctv.html" };
 for (const p of PAGES) if (p.slug) ROUTES[`/${p.slug}`] = `/${p.slug}.html`;
@@ -39,7 +39,9 @@ export function kaloryCompat() {
       return null;
     },
 
-    // dev 전용: 확장자 없는 페이지 주소와 뒤끝 슬래시 별칭 — server.mjs 와 같은 동작.
+    // dev 전용: 확장자 없는 페이지 주소와 뒤끝 슬래시 별칭.
+    // 301 은 **쿼리를 보존한다** — ?api=reset 은 잘못 저장한 API base 로 벽돌이 된 화면의
+    // 탈출구라, 리다이렉트에서 증발하면 정확히 필요한 순간에 실패한다.
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const url = new URL(req.url, "http://x");
@@ -55,7 +57,7 @@ export function kaloryCompat() {
     },
 
     // build 전용: pack.mjs 가 dist 에 하던 재작성을 그대로 — 정적 표식 + ./<slug> → .html.
-    // dev 에는 적용하지 않는다(위 라우팅이 있으므로 원형 유지 — server.mjs 와 같은 철학).
+    // dev 에는 적용하지 않는다 — 위 라우팅이 확장자 없는 주소를 서빙하므로 원형을 유지한다.
     transformIndexHtml: {
       order: "post",
       handler(html, ctx) {

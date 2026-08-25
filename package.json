@@ -12,7 +12,6 @@
     "watch:css": "tailwindcss -i styles/tailwind.css -o public/app.css --watch",
     "build": "pnpm run build:css",
     "build:dist": "pnpm run build:css && vite build",
-    "start": "node server.mjs",
     "test": "node --test \"test/**/*.test.mjs\" \"src/**/*.test.mjs\""
   },
   "devDependencies": {

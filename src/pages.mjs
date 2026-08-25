@@ -1,7 +1,7 @@
 // 페이지 레지스트리 — 이 앱의 페이지 목록을 아는 유일한 곳(브라우저 쪽).
-// 헤더 nav·버전 배지·home 카드가 전부 이 표를 본다. pack.mjs 도 dist 파일 목록을 여기서
-// 파생시키므로, 페이지를 추가할 때 손으로 맞춰야 하는 미러는 개발 서버의 라우팅 표
-// (server.mjs PAGE_ROUTES)와 styles/tailwind.css 의 @source 둘뿐이다.
+// 헤더 nav·버전 배지·home 카드가 전부 이 표를 본다. pack.mjs 와 개발 서버 라우팅
+// (build/vite-kalory.mjs 의 ROUTES)도 이 표에서 파생시키므로, 페이지를 추가할 때 손으로
+// 맞춰야 하는 미러는 styles/tailwind.css 의 @source 하나뿐이다.
 export const PAGES = [
   { id: "home",        slug: "",            label: "홈",           versionKey: null,          badge: null },
   { id: "cctv",        slug: "cctv",        label: "CCTV 제어",     versionKey: "cctv",        badge: "CCTV" },

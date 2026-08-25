@@ -33,19 +33,21 @@ PTZ CCTV **커미셔닝 콘솔 웹 UI**. 카메라를 현장에 붙일 때 필�
 ```bash
 pnpm install
 pnpm build                                        # Tailwind — public/app.css 생성 (필수 1회)
-pnpm start                                        # :8180, backend http://127.0.0.1:8080
-node server.mjs --port 8180 --backend http://<백엔드호스트>:8080
+pnpm dev                                          # Vite 개발 서버 (:8180, /api 는 backend 로 프록시)
 ```
 
-`server.mjs` 는 **개발용 정적 서버 + API 프록시**다. 배포에서는 쓰지 않는다 — 정적 호스트나
-리버스 프록시가 그 역할을 한다. 기본 바인딩이 `127.0.0.1` 인 이유는 이 프록시가 무인증이기
-때문이다. LAN 노출은 `--host 0.0.0.0` 으로 **명시적 선택**이어야 한다.
+개발 서버는 **Vite** 다. 배포에서는 쓰지 않는다 — 정적 호스트나 리버스 프록시가 그 역할을
+한다. 기본 바인딩이 `127.0.0.1` 인 이유는 이 프록시가 무인증이기 때문이다. LAN 노출은
+`BARO_FRONTEND_HOST=0.0.0.0` 으로 **명시적 선택**이어야 한다.
 
-기본 포트가 `8180` 인 이유: `808x`(8081~) 는 UE 시뮬레이터 카메라의 HTTP 포트 규약이라 피한다.
+기본 포트가 `8180` 인 이유: `808x`(8081~) 는 시뮬레이터 카메라의 HTTP 포트 규약이라 피한다.
 
-플래그를 매번 치지 않으려면 `.env` 를 둔다(`cp .env.example .env`). `server.mjs` 가 node 내장
-`loadEnvFile` 로 직접 읽으므로 의존성이 늘지 않는다. 우선순위는 **CLI 플래그 > 이미 셸에 있는
-환경변수 > `.env` > 기본값** 이고, `.env` 는 gitignore 다 — 백엔드 주소는 커밋하지 않는다.
+주소를 매번 치지 않으려면 `.env` 를 둔다(`cp .env.example .env`). `vite.config.mjs` 가 node
+내장 `loadEnvFile` 로 직접 읽으므로 의존성이 늘지 않는다. `.env` 는 gitignore 다 — 백엔드
+주소는 커밋하지 않는다.
+
+무빌드 정적 서버(`server.mjs`)는 2026-08-25 퇴역했다. JSX 를 변환하지 못해 React 로 옮긴
+화면을 서빙할 수 없었고, 그 시점부터 아무도 띄우지 않는 코드였다.
 
 ## 상주 (pm2)
 
@@ -172,9 +174,9 @@ https://<사이트>/?api=reset          # 저장된 주소를 지우는 탈출�
 
 페이지 목록의 단일 출처는 `src/pages.mjs` 다 — 헤더 nav·버전 배지·홈 카드가 전부 이 표를 보고,
 `pack.mjs` 도 dist 파일 목록을 여기서 파생시킨다(`test/static-build.test.mjs` 가 그 정합과
-실파일 존재를 검사한다). 손으로 맞춰야 하는 미러는 둘 남았다 — `server.mjs` 의 `PAGE_ROUTES`
-(개발 서버 라우팅)와 `styles/tailwind.css` 의 `@source`(글로브가 아니라 파일 나열!). 이 둘은
-자동 검사가 없다 — 한 곳만 고치면 그 경로만 조용히 404 가 되거나 스타일이 빠진다.
+실파일 존재를 검사한다). 개발 서버 라우팅(`build/vite-kalory.mjs` 의 `ROUTES`)도 이 표에서
+파생된다. 손으로 맞춰야 하는 미러는 하나 남았다 — `styles/tailwind.css` 의 `@source`(글로브가
+아니라 파일 나열!). 자동 검사가 없어서, 빠뜨리면 그 화면만 조용히 스타일을 잃는다.
 
 ## 브라우저 모듈
 

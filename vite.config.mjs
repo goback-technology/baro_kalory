@@ -1,8 +1,8 @@
 // Vite 설정 — React 파일럿(plan.md §1·§2, 2026-08-22 확정)부터 dev 서버와 dist 빌드를
-// Vite 가 맡는다. server.mjs·pack.mjs 는 파일럿이 왕복을 증명하면 퇴역한다(§5).
+// Vite 가 맡는다. server.mjs 는 2026-08-25 퇴역했고, pack.mjs 는 정적 재작성 함수만 남았다.
 //
 // 지켜야 하는 기존 계약:
-//   - .env 의 BARO_* 이름 규칙 (server.mjs 와 동일 — 주소를 저장소에 박지 않는다)
+//   - .env 의 BARO_* 이름 규칙 (주소를 저장소에 박지 않는다)
 //   - /api/*·/home-frame/* 프록시 + `x-baro-upstream` 응답 헤더 (설정 탭이 「지금 어느
 //     backend 를 보나」를 이 헤더로 읽는다 — settings.html의 x-baro-upstream 참조)
 //   - base "./" — 정적 배포에서는 저장소 이름이 base path 가 되므로 링크는 전부 상대경로

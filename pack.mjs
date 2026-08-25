@@ -33,7 +33,7 @@ const SLUGS = PAGES.map((p) => p.slug).filter(Boolean);
 export const STATIC_MARKER = '<meta name="baro-static-build" content="1" />';
 
 // 재작성 규칙 없는 정적 호스트 호환 재작성 — I/O 없는 순수 함수(테스트가 이것을 문다).
-// 소스의 페이지 링크(./ ·./cctv)와 진입점(home.html)은 server.mjs 의 페이지 라우팅이 있어야
+// 소스의 페이지 링크(./ ·./cctv)와 진입점(home.html)은 개발 서버의 페이지 라우팅이 있어야
 // 성립한다. Pages·S3·python http.server 같은 호스트에선 확장자 없는 URL 도, index 없는 /
 // 진입도 404 다. dist 에서만 .html 실파일로 재작성한다 — 소스의 URL 정규형은 무변경.
 export function rewriteForStaticHost(html) {
