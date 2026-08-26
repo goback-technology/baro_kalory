@@ -127,6 +127,7 @@ export default function SimulatorPage() {
   S.current = {
     devices, activeCameraId, cameras, viewByPort, portInfo, endpointPort, slots,
     mapSelectedId, placing, lastPtz, tab, busyLabel, previewRunning, selectedSlot, edit, spawnForm,
+    catalog,
   };
 
   const log = useCallback((msg) => {
@@ -316,8 +317,12 @@ export default function SimulatorPage() {
         // 씬 교체 중엔 200 에 **빈** 카탈로그가 온다(2026-08-26 실측 — 차종 0개가 여기 굳어
         // 새로고침으로도 안 풀렸다). 내용이 있을 때만 굳힌다 — 비면 다음 읽기가 다시 묻는다.
         if (cat?.cars?.length) catalogRef.current = cat;
-        setCatalog(cat);
       }
+      // 화면 상태는 캐시 히트든 미스든 **항상 여기서** 선다. if 안에만 두면, 상태만 비우고
+      // 캐시는 남기는 invalidateScene(카메라 전환) 뒤의 loadScene 이 캐시 히트로 이 블록을
+      // 건너뛰어 차종·색상·번호판이 영구 공백이 된다(2026-08-27 새벽 실측 — 폴링은 도는데
+      // 회복 조건이 ref 만 봐서 영영 안 물었다).
+      setCatalog(cat);
       const [slotRes, carRes] = await Promise.all([
         getJson(api("/simulator/slots")),
         getJson(api("/simulator/cars")),
@@ -1117,7 +1122,9 @@ export default function SimulatorPage() {
     // 빈 카탈로그는 캐시에 안 굳는다(loadScene). 그런데 다시 묻는 문이 수동(새로고침)뿐이면
     // 씬 교체 중에 뜬 화면은 사람이 누르기 전까지 빈 채로 있다(2026-08-26 하루 두 번 실측 —
     // 차종·색상·번호판·구분이 전부 빈다). 캐시가 찰 때까지 폴링이 스스로 다시 묻는다.
-    if (!catalogRef.current) loadScene();
+    // **화면 상태도 본다** — 회복 조건이 ref 만 보면, 상태만 비우는 invalidateScene 뒤에
+    // 캐시가 따뜻한 채 화면만 죽은 상태를 폴링이 영영 못 알아챈다(2026-08-27 새벽 실측).
+    if (!catalogRef.current || !S.current.catalog) loadScene();
     // 조준(PTZ)은 이 화면만 바꾸는 값이 아니다 — 밖에서 돌아간 카메라 앞에서 화면이 옛
     // 자세를 계속 말하면 값이 "연동되지 않는다"로 보인다. 달라졌을 때만 고쳐 쓴다.
     const before = S.current.activeCameraId;

@@ -293,8 +293,13 @@ test("카메라를 바꾸면 그 시뮬레이터의 씬을 다시 읽는다", as
     "빈 카탈로그를 캐시에 굳히면 안 된다 — 다음 읽기가 다시 물을 수 있어야 한다");
   // 위 규칙만으로는 반쪽이다(2026-08-26 저녁 재발로 실측) — 안 굳혀도 다시 묻는 문이
   // 수동(새로고침)뿐이면, 씬 교체 중에 뜬 화면은 사람이 누르기 전까지 빈 채로 있다.
-  assert.match(src, /if \(!catalogRef\.current\) loadScene\(\);/,
-    "빈 카탈로그는 폴링이 스스로 회복해야 한다 — 새로고침 버튼은 회복 경로가 아니다");
+  assert.match(src, /if \(!catalogRef\.current \|\| !S\.current\.catalog\) loadScene\(\);/,
+    "빈 카탈로그는 폴링이 스스로 회복해야 한다 — ref 와 화면 상태 **양쪽**을 봐야 한다"
+    + " (ref 만 보면 invalidateScene 뒤 캐시 따뜻+화면 공백을 영영 못 알아챈다, 2026-08-27 실측)");
+  // 화면 상태는 캐시 히트든 미스든 loadScene 이 항상 세운다 — setCatalog 이 if 안에만 있으면
+  // 상태만 비우고 캐시를 남기는 invalidateScene(카메라 전환) 뒤에 화면이 영구 공백이 된다.
+  assert.match(src, /if \(cat\?\.cars\?\.length\) catalogRef\.current = cat;\s*\n\s*\}[\s\S]{0,400}?setCatalog\(cat\);/,
+    "setCatalog 은 캐시 분기 **밖**에서 항상 불려야 한다");
   assert.match(src, /getJson\(api\("\/simulator\/slots"\)\)/);
   assert.match(src, /getJson\(api\("\/simulator\/cars"\)\)/);
   assert.match(src, /await Promise\.all\(\[loadPtz\(\), refreshCameraPose\(\), loadScene\(\), refreshStatus\(\{ silent: true \}\)\]\)/);
