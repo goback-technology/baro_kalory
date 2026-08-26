@@ -15,6 +15,10 @@ const enc = encodeURIComponent;
 
 const BLANK_CAR = { kind: "car", carType: 0, color: 0, plateType: 0, city: "", prefix: "", kor: "", number: "" };
 
+// 카탈로그 색은 0..1 실수 RGB 다. 폼의 색 견본과 슬롯 목록의 색 점이 **같은 계산**을 쓴다 —
+// 두 벌이 되면 언젠가 같은 차를 다른 색으로 보여준다.
+const rgbCss = (c) => (c?.rgb ? `rgb(${c.rgb.map((v) => Math.round(v * 255)).join(",")})` : undefined);
+
 export function SetupPanel({
   locked, slots, catalog, carById,
   selectedSlot, selectedCar, onPickSlot, setSelectedCar,
@@ -115,6 +119,8 @@ export function SetupPanel({
               // 그려지지 않는 city 를 섞어 차와 다른 글자를 보여줄 수 있고(#309), 오토바이는
               // 레코드와 무관하게 붙는다(#300). 그 키가 없는 옛 시뮬에서만 조립으로 물러난다.
               const plate = car ? (car.plateRendered ?? plateText(car.plate)) : "";
+              // 점의 색은 그 차의 레코드에서 온다 — 목록에서 색으로 차를 찾을 수 있게.
+              const color = car ? (catalog?.colors || [])[Number(car.color) || 0] : null;
               return (
                 <button key={s.id} type="button" data-slot={s.id}
                         className={"sim-slot" + (s.occupied ? " occ" : "") + (s.id === selectedSlot ? " sel" : "")}
@@ -122,6 +128,10 @@ export function SetupPanel({
                         onClick={() => onPickSlot(s)}>
                   <b className="slot-name">{slotName(s)}</b>
                   <span className="slot-type">{s.type || ""}</span>
+                  {s.occupied && color?.rgb && <span className="slot-color" title={color.name} style={{
+                    width: 10, height: 10, borderRadius: 3, border: "1px solid #3a414c",
+                    display: "inline-block", flex: "none", background: rgbCss(color),
+                  }} />}
                   {s.occupied && <em className="slot-car">{s.carId || t("점유")}</em>}
                   {s.occupied && plate && <span className="slot-plate" title={plate}>{plate}</span>}
                 </button>
@@ -168,10 +178,7 @@ export function SetupPanel({
           </select>
           <span id="sim-color-chip" style={{
             width: 20, height: 20, borderRadius: 4, border: "1px solid #3a414c", display: "inline-block",
-            background: (() => {
-              const c = (catalog?.colors || [])[Number(form.color) || 0];
-              return c?.rgb ? `rgb(${c.rgb.map((v) => Math.round(v * 255)).join(",")})` : undefined;
-            })(),
+            background: rgbCss((catalog?.colors || [])[Number(form.color) || 0]),
           }} />
         </div>
         <div className="row" style={{ marginBottom: 8 }}>

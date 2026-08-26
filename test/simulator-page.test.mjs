@@ -772,6 +772,17 @@ test("목록 번호판은 차에 그려진 문자열이고, 한글 셀렉트는 
   // 빈 초기값이 목록에 없으면 브라우저는 첫 옵션(가)을 그려 놓고 빈 값을 보낸다(실측).
   assert.match(setup, /<option value="">—<\/option>/, "보이는 것과 보내는 것이 같아야 한다");
 });
+// 목록의 색 점과 폼의 색 견본이 딴 계산이면 언젠가 같은 차를 다른 색으로 보여준다.
+test("목록은 차 색을 폼의 색 견본과 같은 계산으로 보여준다", async () => {
+  const setup = await read("setup-panel.jsx");
+  assert.match(setup, /const rgbCss = \(c\) =>/);
+  assert.ok((setup.match(/background: rgbCss\(/g) || []).length >= 2,
+    "색 견본과 색 점이 같은 계산을 써야 한다");
+  assert.equal(setup.match(/rgb\.map/g)?.length, 1, "RGB 계산은 rgbCss 한 자리뿐이어야 한다");
+  // 점의 색은 그 차의 레코드에서 온다 — 폼에 지금 골라 둔 색이 아니라.
+  assert.match(setup, /\(catalog\?\.colors \|\| \[\]\)\[Number\(car\.color\) \|\| 0\]/);
+  assert.match(setup, /title=\{color\.name\}/, "점에 올리면 색 이름이 나와야 한다");
+});
 
 // 상태줄은 이 패널만의 것이 아니다 — 씬 재적재와 「전체 초기화」(씬 탭)도 같은 줄에 적는다.
 // 패널이 자기 상태로 들면 그 두 경로가 말할 자리를 잃는다.
