@@ -1106,6 +1106,10 @@ export default function SimulatorPage() {
   // 주기 호출로 쓸 함수가 아니다. 목록 변화는 탭을 열 때 refreshRig 가 잡는다.
   const pollTick = useCallback(async () => {
     refreshStatus({ silent: true });
+    // 빈 카탈로그는 캐시에 안 굳는다(loadScene). 그런데 다시 묻는 문이 수동(새로고침)뿐이면
+    // 씬 교체 중에 뜬 화면은 사람이 누르기 전까지 빈 채로 있다(2026-08-26 하루 두 번 실측 —
+    // 차종·색상·번호판·구분이 전부 빈다). 캐시가 찰 때까지 폴링이 스스로 다시 묻는다.
+    if (!catalogRef.current) loadScene();
     // 조준(PTZ)은 이 화면만 바꾸는 값이 아니다 — 밖에서 돌아간 카메라 앞에서 화면이 옛
     // 자세를 계속 말하면 값이 "연동되지 않는다"로 보인다. 달라졌을 때만 고쳐 쓴다.
     const before = S.current.activeCameraId;
@@ -1125,7 +1129,7 @@ export default function SimulatorPage() {
     fetchPorts();
     // 보고 있던 카메라가 움직였으면 영상 위의 주차면 핀도 옛 포즈로 그려져 있다.
     reproject();
-  }, [refreshStatus, applyPtz, scheduleRepose, fetchCameras, fetchPtzTable, fetchPorts, reproject]);
+  }, [refreshStatus, loadScene, applyPtz, scheduleRepose, fetchCameras, fetchPtzTable, fetchPorts, reproject]);
 
   // 사람이 뭔가 하고 있는 중이면 손대지 않는다. **편집 중은 여기서 빠진다** — 폼이 늘 열려
   // 있으므로 그걸로 쉬면 영영 쉰다(손대는 중인 칸은 dirty 가 폼 안에서 지킨다).
