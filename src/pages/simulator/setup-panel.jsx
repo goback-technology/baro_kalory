@@ -19,6 +19,13 @@ const BLANK_CAR = { kind: "car", carType: 0, color: 0, plateType: 0, city: "", p
 // 두 벌이 되면 언젠가 같은 차를 다른 색으로 보여준다.
 const rgbCss = (c) => (c?.rgb ? `rgb(${c.rgb.map((v) => Math.round(v * 255)).join(",")})` : undefined);
 
+// 어느 칸을 그리는 종류인지는 카탈로그가 말한다(plateTypes[].fields — 보드 #321 계약).
+// 표를 여기 하드코딩하면 시뮬이 종류를 늘릴 때마다 어긋난다. fields 가 없는 옛 카탈로그
+// (UE 플러그인 0.3.0 이하)에서만 네 칸 전부를 보여주던 기존 그대로 물러난다.
+const LEGACY_PLATE_FIELDS = ["city", "prefix", "kor", "number"];
+const plateFieldsOf = (catalog, plateType) =>
+  (catalog?.plateTypes || [])[Number(plateType) || 0]?.fields || LEGACY_PLATE_FIELDS;
+
 export function SetupPanel({
   locked, slots, catalog, carById,
   selectedSlot, selectedCar, onPickSlot, setSelectedCar,
@@ -35,6 +42,8 @@ export function SetupPanel({
   // 스물아홉 줄에서 여섯 대를 눈으로 골라내야 한다. 목록이 따로 오면 화면도 따로 보인다.
   const bikesOf = catalog?.motorcycles || [];
   const isBike = form.kind === "motorcycle";
+  // 이 종류가 그리는 칸만 보여준다 — 안 그리는 칸을 보여주면 입력이 차에 붙는 것처럼 읽힌다.
+  const has = (f) => plateFieldsOf(catalog, form.plateType).includes(f);
 
   const loadCarIntoForm = useCallback(async (id) => {
     const req = ++reqSeq.current;
@@ -68,11 +77,17 @@ export function SetupPanel({
     // 폼에 남은 한국식 조각을 실어 보내면 「그 값이 차에 붙었다」로 읽히므로 빈 판을 보낸다.
     plate: form.kind === "motorcycle"
       ? { type: 0, city: "", prefix: "", kor: "", number: "" }
-      : {
-        type: Number(form.plateType), city: form.city.trim(), prefix: form.prefix.trim(),
-        kor: form.kor, number: form.number.trim(),
-      },
-  }), [form]);
+      : (() => {
+        // 그 종류가 안 그리는 칸은 보내지 않는다(빈 값) — 실어 보내면 저장·반향은 되지만
+        // 그려지지 않아, 레코드와 차가 다른 말을 하게 된다(#309 가 정확히 그 사고였다).
+        const has = (f) => plateFieldsOf(catalog, form.plateType).includes(f);
+        return {
+          type: Number(form.plateType), city: has("city") ? form.city.trim() : "",
+          prefix: has("prefix") ? form.prefix.trim() : "",
+          kor: has("kor") ? form.kor : "", number: has("number") ? form.number.trim() : "",
+        };
+      })(),
+  }), [form, catalog]);
 
   const simSpawn = useCallback(async () => {
     if (!selectedSlot) { setStatus(t("먼저 슬롯을 선택하세요.")); return; }
@@ -192,19 +207,19 @@ export function SetupPanel({
                   onChange={(e) => setForm((f) => ({ ...f, plateType: e.target.value }))}>
             {(catalog?.plateTypes || []).map((p) => <option key={p.index} value={p.index}>{p.name}</option>)}
           </select>
-          <input id="sim-plate-city" style={{ width: 52 }} placeholder="서울" title="도시(선택)"
-                 value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} />
-          <input id="sim-plate-prefix" style={{ width: 48 }} placeholder="123" title="앞 3자리 (한국 신형)"
-                 value={form.prefix} onChange={(e) => setForm((f) => ({ ...f, prefix: e.target.value }))} />
-          <select id="sim-plate-kor" style={{ width: "auto", padding: 5 }} title="한글" value={form.kor}
+          {has("city") && <input id="sim-plate-city" style={{ width: 52 }} placeholder="서울" title="지역명"
+                 value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} />}
+          {has("prefix") && <input id="sim-plate-prefix" style={{ width: 48 }} placeholder="123" title="앞자리"
+                 value={form.prefix} onChange={(e) => setForm((f) => ({ ...f, prefix: e.target.value }))} />}
+          {has("kor") && <select id="sim-plate-kor" style={{ width: "auto", padding: 5 }} title="한글" value={form.kor}
                   onChange={(e) => setForm((f) => ({ ...f, kor: e.target.value }))}>
             {/* 초기값은 빈 값이다. 빈 항목이 목록에 없으면 브라우저는 첫 옵션(가)을 그려 놓고
                 빈 값을 보낸다 — 보이는 것과 보내는 것이 갈린다. 빈 항목을 실제로 둔다. */}
             <option value="">—</option>
             {(catalog?.korList || []).map((k) => <option key={k} value={k}>{k}</option>)}
-          </select>
-          <input id="sim-plate-number" style={{ width: 62 }} placeholder="4567" title="뒤 4자리"
-                 value={form.number} onChange={(e) => setForm((f) => ({ ...f, number: e.target.value }))} />
+          </select>}
+          {has("number") && <input id="sim-plate-number" style={{ width: 62 }} placeholder="4567" title="뒤 4자리"
+                 value={form.number} onChange={(e) => setForm((f) => ({ ...f, number: e.target.value }))} />}
           </>}
         </div>
         <div className="row">

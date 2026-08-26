@@ -783,6 +783,22 @@ test("목록은 차 색을 폼의 색 견본과 같은 계산으로 보여준다
   assert.match(setup, /\(catalog\?\.colors \|\| \[\]\)\[Number\(car\.color\) \|\| 0\]/);
   assert.match(setup, /title=\{color\.name\}/, "점에 올리면 색 이름이 나와야 한다");
 });
+// 어느 칸을 그리는 번호판 종류인지는 카탈로그가 말한다(plateTypes[].fields — 보드 #321 계약,
+// 시뮬 0.6.0 부터 7종). 표를 화면에 하드코딩하면 시뮬이 종류를 늘릴 때마다 어긋난다.
+test("번호판 칸은 카탈로그의 fields 계약대로만 보인다", async () => {
+  const setup = await read("setup-panel.jsx");
+  assert.match(setup, /const plateFieldsOf = \(catalog, plateType\) =>/);
+  assert.match(setup, /\?\.fields \|\| LEGACY_PLATE_FIELDS/,
+    "옛 카탈로그(fields 없음)에서는 네 칸 전부로 물러나야 한다");
+  // 네 칸 모두 조건부다 — 하나라도 무조건 그리면 「입력했는데 안 그려지는 칸」이 되살아난다.
+  for (const f of ["city", "prefix", "kor", "number"]) {
+    assert.match(setup, new RegExp('\\{has\\("' + f + '"\\) && <(input|select) id="sim-plate-' + f + '"'),
+      f + " 칸이 fields 계약을 안 본다");
+  }
+  // 보내는 쪽도 같은 계약 — 그 종류가 안 그리는 칸은 빈 값으로 나간다(#309 사고의 재발 방지).
+  assert.match(setup, /has\("city"\) \? form\.city\.trim\(\) : ""/);
+  assert.match(setup, /plateFieldsOf\(catalog, form\.plateType\)\.includes\(f\)/);
+});
 
 // 상태줄은 이 패널만의 것이 아니다 — 씬 재적재와 「전체 초기화」(씬 탭)도 같은 줄에 적는다.
 // 패널이 자기 상태로 들면 그 두 경로가 말할 자리를 잃는다.
