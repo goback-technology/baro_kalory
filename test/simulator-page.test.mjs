@@ -287,6 +287,10 @@ test("카메라를 바꾸면 그 시뮬레이터의 씬을 다시 읽는다", as
   assert.match(src, /const invalidateScene =/);
   assert.match(src, /catalogRef\.current = null/);
   assert.match(src, /getJson\(api\("\/simulator\/catalog"\)\)/);
+  // 씬 교체 중엔 200 에 빈 카탈로그가 온다 — 그것을 캐시에 굳히면 차종 셀렉트가 빈 채
+  // 고착되고, 새로고침으로도 안 풀린다(2026-08-26 실측). 내용이 있을 때만 굳힌다.
+  assert.match(src, /if \(cat\?\.cars\?\.length\) catalogRef\.current = cat;/,
+    "빈 카탈로그를 캐시에 굳히면 안 된다 — 다음 읽기가 다시 물을 수 있어야 한다");
   assert.match(src, /getJson\(api\("\/simulator\/slots"\)\)/);
   assert.match(src, /getJson\(api\("\/simulator\/cars"\)\)/);
   assert.match(src, /await Promise\.all\(\[loadPtz\(\), refreshCameraPose\(\), loadScene\(\), refreshStatus\(\{ silent: true \}\)\]\)/);

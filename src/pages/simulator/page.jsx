@@ -303,7 +303,13 @@ export default function SimulatorPage() {
   const loadScene = useCallback(async () => {
     try {
       let cat = catalogRef.current;
-      if (!cat) { cat = await getJson(api("/simulator/catalog")); catalogRef.current = cat; setCatalog(cat); }
+      if (!cat) {
+        cat = await getJson(api("/simulator/catalog"));
+        // 씬 교체 중엔 200 에 **빈** 카탈로그가 온다(2026-08-26 실측 — 차종 0개가 여기 굳어
+        // 새로고침으로도 안 풀렸다). 내용이 있을 때만 굳힌다 — 비면 다음 읽기가 다시 묻는다.
+        if (cat?.cars?.length) catalogRef.current = cat;
+        setCatalog(cat);
+      }
       const [slotRes, carRes] = await Promise.all([
         getJson(api("/simulator/slots")),
         getJson(api("/simulator/cars")),
