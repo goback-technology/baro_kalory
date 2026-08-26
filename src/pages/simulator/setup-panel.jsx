@@ -29,7 +29,7 @@ const plateFieldsOf = (catalog, plateType) =>
 export function SetupPanel({
   locked, slots, catalog, carById,
   selectedSlot, selectedCar, onPickSlot, setSelectedCar,
-  status, setStatus, onSceneChanged,
+  status, setStatus, onSceneChanged, runBusy,
 }) {
   const [form, setForm] = useState(BLANK_CAR);
   const [force, setForce] = useState(false);
@@ -89,37 +89,45 @@ export function SetupPanel({
       })(),
   }), [form, catalog]);
 
+  // 세 동작 모두 부모의 잠금(runBusy)을 잡는다 — 시뮬 왕복이 몇 초씩 걸리는데 화면이
+  // 침묵하면 「반응이 없다」로 읽힌다(2026-08-26 실사용 보고). 덮개가 이중 클릭도 막는다.
   const simSpawn = useCallback(async () => {
     if (!selectedSlot) { setStatus(t("먼저 슬롯을 선택하세요.")); return; }
-    try {
-      const r = await postJson(api("/simulator/cars"), { slotId: selectedSlot, force, ...carBody() });
-      // 카메라 스폰과 같은 방어 — 2xx 인데 본문이 비면 스폰은 됐는데 화면만 「실패」라고 말한다.
-      const car = r.car || null;
-      await onSceneChanged();   // 재적재가 status 를 비우므로, 성공 보고는 그 뒤에 한다
-      setStatus(car?.id ? t("스폰됨: {id}", { id: car.id }) : t("스폰됨 — 응답이 차량 정보를 싣지 않았습니다"));
-    } catch (e) { setStatus(t("스폰 실패") + ": " + e.message); }
-  }, [selectedSlot, force, carBody, onSceneChanged, setStatus]);
+    await runBusy("차량을 세우는 중…", async () => {
+      try {
+        const r = await postJson(api("/simulator/cars"), { slotId: selectedSlot, force, ...carBody() });
+        // 카메라 스폰과 같은 방어 — 2xx 인데 본문이 비면 스폰은 됐는데 화면만 「실패」라고 말한다.
+        const car = r.car || null;
+        await onSceneChanged();   // 재적재가 status 를 비우므로, 성공 보고는 그 뒤에 한다
+        setStatus(car?.id ? t("스폰됨: {id}", { id: car.id }) : t("스폰됨 — 응답이 차량 정보를 싣지 않았습니다"));
+      } catch (e) { setStatus(t("스폰 실패") + ": " + e.message); }
+    });
+  }, [selectedSlot, force, carBody, onSceneChanged, setStatus, runBusy]);
 
   const simApply = useCallback(async () => {
     if (!selectedCar) { setStatus(t("편집할 차량을 선택하세요.")); return; }
-    try {
-      const applied = selectedCar;
-      await reqJson("PATCH", api("/simulator/cars/") + enc(applied), carBody());
-      await onSceneChanged();
-      setStatus(t("적용됨: {id}", { id: applied }));
-    } catch (e) { setStatus(t("적용 실패") + ": " + e.message); }
-  }, [selectedCar, carBody, onSceneChanged, setStatus]);
+    await runBusy("적용하는 중…", async () => {
+      try {
+        const applied = selectedCar;
+        await reqJson("PATCH", api("/simulator/cars/") + enc(applied), carBody());
+        await onSceneChanged();
+        setStatus(t("적용됨: {id}", { id: applied }));
+      } catch (e) { setStatus(t("적용 실패") + ": " + e.message); }
+    });
+  }, [selectedCar, carBody, onSceneChanged, setStatus, runBusy]);
 
   const simDelete = useCallback(async () => {
     if (!selectedCar) { setStatus(t("삭제할 차량을 선택하세요.")); return; }
     const id = selectedCar;
-    try {
-      await reqJson("DELETE", api("/simulator/cars/") + enc(id));
-      setSelectedCar(null);   // 씬 재적재가 빈 슬롯에서 재확인하지만, 즉시 선점 해제
-      await onSceneChanged();
-      setStatus(t("삭제됨: {id}", { id }));
-    } catch (e) { setStatus(t("삭제 실패") + ": " + e.message); }
-  }, [selectedCar, setSelectedCar, onSceneChanged, setStatus]);
+    await runBusy("차량을 지우는 중…", async () => {
+      try {
+        await reqJson("DELETE", api("/simulator/cars/") + enc(id));
+        setSelectedCar(null);   // 씬 재적재가 빈 슬롯에서 재확인하지만, 즉시 선점 해제
+        await onSceneChanged();
+        setStatus(t("삭제됨: {id}", { id }));
+      } catch (e) { setStatus(t("삭제 실패") + ": " + e.message); }
+    });
+  }, [selectedCar, setSelectedCar, onSceneChanged, setStatus, runBusy]);
 
   return (
     <div id="sim-panel">
@@ -223,9 +231,11 @@ export function SetupPanel({
           </>}
         </div>
         <div className="row">
-          <button id="sim-spawn" disabled={locked} onClick={simSpawn}>이 슬롯에 스폰</button>
-          <button id="sim-apply" disabled={locked} onClick={simApply}>선택 차량에 적용</button>
-          <button id="sim-delete" disabled={locked} onClick={simDelete}>선택 차량 삭제</button>
+          {/* 대상이 없으면 버튼이 잔다 — 눌렀는데 아무 일도 없는 화면보다, 잠든 버튼이
+              「먼저 슬롯을 고르라」를 말한다. 가드 문구는 백스톱으로 남는다. */}
+          <button id="sim-spawn" disabled={locked || !selectedSlot} onClick={simSpawn}>이 슬롯에 스폰</button>
+          <button id="sim-apply" disabled={locked || !selectedCar} onClick={simApply}>선택 차량에 적용</button>
+          <button id="sim-delete" disabled={locked || !selectedCar} onClick={simDelete}>선택 차량 삭제</button>
           <label style={{ marginLeft: 8 }}>
             <input type="checkbox" id="sim-force" style={{ width: "auto" }} checked={force}
                    onChange={(e) => setForce(e.target.checked)} />

@@ -803,6 +803,30 @@ test("번호판 칸은 카탈로그의 fields 계약대로만 보인다", async 
   assert.match(setup, /has\("city"\) \? form\.city\.trim\(\) : ""/);
   assert.match(setup, /plateFieldsOf\(catalog, form\.plateType\)\.includes\(f\)/);
 });
+// 느린 왕복 동안 화면이 침묵하면 「반응이 없다」로 읽히고 사람이 또 누른다(2026-08-26
+// 실사용 보고 — 적용이 몇 초 걸리는데 표시가 없었다). 차량 3동작은 카메라 조작과 같은
+// 잠금을 잡고, 잠금은 공용 덮개(BusyCover) 한 벌로 보이고, 대상 없는 버튼은 아예 잔다.
+test("차량 3동작은 잠금을 잡고, 잠금은 공용 덮개로 보이고, 대상 없는 버튼은 잔다", async () => {
+  const src = await page();
+  const setup = await read("setup-panel.jsx");
+  // 세 동작 전부다 — 하나라도 빠지면 그 동작만 침묵으로 돌아간다.
+  assert.match(setup, /await runBusy\("차량을 세우는 중…"/);
+  assert.match(setup, /await runBusy\("적용하는 중…"/);
+  assert.match(setup, /await runBusy\("차량을 지우는 중…"/);
+  // 잠금원은 부모 하나다 — 카메라 조작과 같은 잠금이어야 pauseWhen·locked 와 한 몸이다.
+  assert.match(src, /const runBusy = useCallback\(async \(label, fn\) => \{/);
+  assert.match(src, /try \{ return await fn\(\); \} finally \{ setBusy\(false\); \}/,
+    "실패해도 잠금은 풀려야 한다");
+  // 잠금은 덮개로 보인다 — #busy 힌트 한 줄은 프리뷰 줄 밖(오른쪽 단·다른 탭)에서 안 보인다.
+  // 덮개의 생김새는 공용 한 벌(BusyCover)이다 — 화면이 제 덮개를 복붙하면 두 잠금이 갈린다.
+  assert.match(src, /import \{ BusyCover \} from "\.\.\/\.\.\/app\/busy-provider\.jsx"/);
+  assert.match(src, /\{locked && <BusyCover label=\{busyLabel\} \/>\}/);
+  assert.doesNotMatch(src, /data-role="busy"/, "덮개 DOM 은 BusyCover 만 만든다");
+  // 대상이 없으면 버튼이 잔다 — 눌렀는데 아무 일도 없는 것보다 낫다.
+  assert.match(setup, /id="sim-spawn" disabled=\{locked \|\| !selectedSlot\}/);
+  assert.match(setup, /id="sim-apply" disabled=\{locked \|\| !selectedCar\}/);
+  assert.match(setup, /id="sim-delete" disabled=\{locked \|\| !selectedCar\}/);
+});
 
 // 상태줄은 이 패널만의 것이 아니다 — 씬 재적재와 「전체 초기화」(씬 탭)도 같은 줄에 적는다.
 // 패널이 자기 상태로 들면 그 두 경로가 말할 자리를 잃는다.

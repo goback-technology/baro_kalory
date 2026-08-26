@@ -35,22 +35,29 @@ export function BusyProvider({ children }) {
   return (
     <Ctx.Provider value={value}>
       {children}
-      {label !== null && (
-        <div data-role="busy" style={{
-          position: "fixed", inset: 0, zIndex: 40, cursor: "progress",
-          background: "color-mix(in srgb, var(--color-bg) 45%, transparent)",
-          display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 24,
-        }}>
-          {label && (
-            <span style={{
-              font: "13px var(--font-mono)", color: "var(--color-fg)",
-              background: "var(--color-panel, var(--color-bg))",
-              border: "1px solid var(--color-line, #444)", borderRadius: 4, padding: "6px 12px",
-            }}>{label}</span>
-          )}
-        </div>
-      )}
+      {label !== null && <BusyCover label={label} />}
     </Ctx.Provider>
+  );
+}
+
+// 덮개의 생김새는 이 한 벌뿐이다. 프로바이더 밖에서 자기 잠금 상태를 따로 드는 화면
+// (시뮬레이터 — 폴링 일시정지와 한 몸인 로컬 busyLabel)도 **이 컴포넌트로** 그린다.
+// 화면마다 덮개를 복붙하면 언젠가 한쪽만 고쳐져 다른 잠금처럼 보인다.
+export function BusyCover({ label }) {
+  return (
+    <div data-role="busy" style={{
+      position: "fixed", inset: 0, zIndex: 40, cursor: "progress",
+      background: "color-mix(in srgb, var(--color-bg) 45%, transparent)",
+      display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 24,
+    }}>
+      {label && (
+        <span style={{
+          font: "13px var(--font-mono)", color: "var(--color-fg)",
+          background: "var(--color-panel, var(--color-bg))",
+          border: "1px solid var(--color-line, #444)", borderRadius: 4, padding: "6px 12px",
+        }}>{label}</span>
+      )}
+    </div>
   );
 }
 

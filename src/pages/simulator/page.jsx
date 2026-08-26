@@ -14,6 +14,7 @@ import { createCameraPreview } from "../../camera/preview.mjs";
 import { useJobPoll } from "../../lib/use-job-poll.mjs";
 import { readPref, writePref } from "../../lib/prefs.mjs";
 import { useStagePointer } from "../../components/use-stage-pointer.mjs";
+import { BusyCover } from "../../app/busy-provider.jsx";
 import { RigMap } from "./map.jsx";
 import { EndpointPanel } from "./endpoint-panel.jsx";
 import { ScenePanel } from "./scene-panel.jsx";
@@ -135,6 +136,13 @@ export default function SimulatorPage() {
   // 이 표시가 안 보이는 탭에서는 화면이 그냥 굳은 것처럼 보인다.
   const setBusy = useCallback((on, label) => setBusyLabel(on ? t(label || "카메라 이동 중…") : ""), []);
   const locked = !!busyLabel;
+  // 느린 왕복 동안 화면이 침묵하면 사람이 「반응이 없다」로 읽고 버튼을 또 누른다
+  // (2026-08-26 실사용 보고). 차량 스폰·적용·삭제도 카메라 조작과 같은 잠금을 쓴다 —
+  // 잠금원이 하나여야 pauseWhen·locked 와 한 몸으로 움직인다.
+  const runBusy = useCallback(async (label, fn) => {
+    setBusy(true, label);
+    try { return await fn(); } finally { setBusy(false); }
+  }, [setBusy]);
 
   const slotPitchCm = useMemo(() => measureSlotPitchCm(slots), [slots]);
   const mapView = useMemo(() => computeMapView(slots, cameras), [slots, cameras]);
@@ -1434,8 +1442,13 @@ export default function SimulatorPage() {
         locked={locked} slots={slots} catalog={catalog} carById={carById}
         selectedSlot={selectedSlot} selectedCar={selectedCar}
         onPickSlot={pickSlot} setSelectedCar={setSelectedCar}
-        status={carStatus} setStatus={setCarStatus} onSceneChanged={loadScene}
+        status={carStatus} setStatus={setCarStatus} onSceneChanged={loadScene} runBusy={runBusy}
       />
+
+      {/* 잠금 중임은 어느 탭·어느 단에서든 보여야 한다 — #busy 힌트 한 줄은 프리뷰 줄 밖에서
+          안 보인다. 덮개가 입력까지 막아 이중 클릭이 없다. 생김새는 공용 한 벌(BusyCover) —
+          이 화면의 잠금원이 로컬 busyLabel(폴링 일시정지와 한 몸)이라 그것을 그대로 그린다. */}
+      {locked && <BusyCover label={busyLabel} />}
     </main>
   );
 }
