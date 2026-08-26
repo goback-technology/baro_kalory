@@ -13,7 +13,7 @@ import { slotName, slotNameById, plateText } from "./actions.mjs";
 
 const enc = encodeURIComponent;
 
-const BLANK_CAR = { carType: 0, color: 0, plateType: 0, city: "", prefix: "", kor: "", number: "" };
+const BLANK_CAR = { kind: "car", carType: 0, color: 0, plateType: 0, city: "", prefix: "", kor: "", number: "" };
 
 export function SetupPanel({
   locked, slots, catalog, carById,
@@ -27,6 +27,10 @@ export function SetupPanel({
 
   const carsOf = catalog?.cars || [];
   const carCount = carsOf.length || catalog?.carCount || 0;
+  // 차량과 오토바이는 카탈로그부터 딴 목록이다(cars/motorcycles) — 한 셀렉트에 섞으면
+  // 스물아홉 줄에서 여섯 대를 눈으로 골라내야 한다. 목록이 따로 오면 화면도 따로 보인다.
+  const bikesOf = catalog?.motorcycles || [];
+  const isBike = form.kind === "motorcycle";
 
   const loadCarIntoForm = useCallback(async (id) => {
     const req = ++reqSeq.current;
@@ -34,6 +38,8 @@ export function SetupPanel({
       const { car } = await getJson(api("/simulator/cars/") + enc(id));
       if (req !== reqSeq.current) return;
       setForm({
+        // 구분은 인덱스가 말한다 — 오토바이는 카탈로그의 motorcycles 인덱스 대역에 산다.
+        kind: (catalog?.motorcycles || []).some((m) => m.index === car.carType) ? "motorcycle" : "car",
         carType: car.carType, color: car.color, plateType: car.plate.type,
         city: car.plate.city || "", prefix: car.plate.prefix || "",
         kor: car.plate.kor || "", number: car.plate.number || "",
@@ -44,7 +50,7 @@ export function SetupPanel({
       // 「선택 차량에 적용」이 그 낡은 값으로 PATCH 하므로, 실패는 말한다.
       setStatus(t("차량 조회 실패") + ": " + e.message);
     }
-  }, [setStatus]);
+  }, [setStatus, catalog]);
 
   // 고른 차가 바뀌면 그 차의 값을 폼에 올린다. 부모는 「무엇을 골랐는가」만 말하고, 그것을
   // 읽어 오는 일은 폼을 가진 이쪽이 한다.
@@ -54,10 +60,14 @@ export function SetupPanel({
 
   const carBody = useCallback(() => ({
     carType: Number(form.carType), color: Number(form.color),
-    plate: {
-      type: Number(form.plateType), city: form.city.trim(), prefix: form.prefix.trim(),
-      kor: form.kor, number: form.number.trim(),
-    },
+    // 오토바이 번호판은 레코드가 아니라 시뮬레이터가 정한다(팀 결정 — #300, 베트남식 자동).
+    // 폼에 남은 한국식 조각을 실어 보내면 「그 값이 차에 붙었다」로 읽히므로 빈 판을 보낸다.
+    plate: form.kind === "motorcycle"
+      ? { type: 0, city: "", prefix: "", kor: "", number: "" }
+      : {
+        type: Number(form.plateType), city: form.city.trim(), prefix: form.prefix.trim(),
+        kor: form.kor, number: form.number.trim(),
+      },
   }), [form]);
 
   const simSpawn = useCallback(async () => {
@@ -101,7 +111,10 @@ export function SetupPanel({
             ? <span className="hint">주차면이 없습니다. sim 레벨에 BP_ParkingSlot 배치가 필요합니다.</span>
             : slots.map((s) => {
               const car = s.carId ? carById.get(s.carId) : null;
-              const plate = car ? plateText(car.plate) : "";
+              // 목록의 번호판은 차에 실제 그려진 문자열(plateRendered)이다 — 레코드 조립은
+              // 그려지지 않는 city 를 섞어 차와 다른 글자를 보여줄 수 있고(#309), 오토바이는
+              // 레코드와 무관하게 붙는다(#300). 그 키가 없는 옛 시뮬에서만 조립으로 물러난다.
+              const plate = car ? (car.plateRendered ?? plateText(car.plate)) : "";
               return (
                 <button key={s.id} type="button" data-slot={s.id}
                         className={"sim-slot" + (s.occupied ? " occ" : "") + (s.id === selectedSlot ? " sel" : "")}
@@ -126,12 +139,27 @@ export function SetupPanel({
           </span>
         </div>
         <div className="row" style={{ marginBottom: 6 }}>
+          {bikesOf.length > 0 && <>
+            <label>구분</label>
+            <select id="sim-kind" style={{ width: "auto", padding: 5 }} value={form.kind}
+                    onChange={(e) => {
+                      const kind = e.target.value;
+                      // 목록이 바뀌면 인덱스도 그 목록의 첫 칸으로 — 남의 목록 인덱스를 들고
+                      // 있으면 화면에 보이는 이름과 전송되는 값이 갈린다.
+                      setForm((f) => ({ ...f, kind, carType: kind === "motorcycle" ? (bikesOf[0]?.index ?? 0) : 0 }));
+                    }}>
+              <option value="car">차량</option>
+              <option value="motorcycle">오토바이</option>
+            </select>
+          </>}
           <label>차종</label>
           <select id="sim-cartype" style={{ width: "auto", padding: 5 }} value={form.carType}
                   onChange={(e) => setForm((f) => ({ ...f, carType: e.target.value }))}>
-            {Array.from({ length: carCount }, (_, i) => (
-              <option key={i} value={i}>{carsOf[i]?.name || `${t("차종")} ${i}`}</option>
-            ))}
+            {isBike
+              ? bikesOf.map((m) => <option key={m.index} value={m.index}>{m.name}</option>)
+              : Array.from({ length: carCount }, (_, i) => (
+                <option key={i} value={i}>{carsOf[i]?.name || `${t("차종")} ${i}`}</option>
+              ))}
           </select>
           <label>색상</label>
           <select id="sim-color" style={{ width: "auto", padding: 5 }} value={form.color}
@@ -148,6 +176,11 @@ export function SetupPanel({
         </div>
         <div className="row" style={{ marginBottom: 8 }}>
           <label>번호판</label>
+          {isBike ? (
+            // 오토바이에 한국식 입력칸을 보여주면 그 값이 차에 붙는 것처럼 읽힌다 — 실제로는
+            // 시뮬레이터가 정한다(#300). 실제 붙은 문자열은 슬롯 목록이 보여준다.
+            <span className="hint" style={{ margin: 0 }}>시뮬레이터가 자동 부여합니다 — 실제 문자열은 슬롯 목록에 표시됩니다</span>
+          ) : <>
           <select id="sim-platetype" style={{ width: "auto", padding: 5 }} value={form.plateType}
                   onChange={(e) => setForm((f) => ({ ...f, plateType: e.target.value }))}>
             {(catalog?.plateTypes || []).map((p) => <option key={p.index} value={p.index}>{p.name}</option>)}
@@ -158,10 +191,14 @@ export function SetupPanel({
                  value={form.prefix} onChange={(e) => setForm((f) => ({ ...f, prefix: e.target.value }))} />
           <select id="sim-plate-kor" style={{ width: "auto", padding: 5 }} title="한글" value={form.kor}
                   onChange={(e) => setForm((f) => ({ ...f, kor: e.target.value }))}>
+            {/* 초기값은 빈 값이다. 빈 항목이 목록에 없으면 브라우저는 첫 옵션(가)을 그려 놓고
+                빈 값을 보낸다 — 보이는 것과 보내는 것이 갈린다. 빈 항목을 실제로 둔다. */}
+            <option value="">—</option>
             {(catalog?.korList || []).map((k) => <option key={k} value={k}>{k}</option>)}
           </select>
           <input id="sim-plate-number" style={{ width: 62 }} placeholder="4567" title="뒤 4자리"
                  value={form.number} onChange={(e) => setForm((f) => ({ ...f, number: e.target.value }))} />
+          </>}
         </div>
         <div className="row">
           <button id="sim-spawn" disabled={locked} onClick={simSpawn}>이 슬롯에 스폰</button>

@@ -22,7 +22,7 @@ import {
   MOVE_SPEED, ORACLE_TOLERANCE_PX,
   SIM_ACTIVE_CAMERA_KEY, SIM_PREVIEW_WANTED_KEY, SIM_CROSSHAIR_KEY,
   ptzSnapshot, readyStateOf, statusTextFromSimulatorState,
-  slotName, slotNameById, sortSlots, plateText,
+  slotName, slotNameById, sortSlots,
   mountYawOf, viewOf, tiltposOf, hfovLimitsOf, viewYawOf, hfovOf,
   rigSignature, portBand, pickSpawnPorts, bandFullNotice, portRangeHint,
   spawnRequestFrom, spawnOutcome, installPatchFrom, driveChangeOf,

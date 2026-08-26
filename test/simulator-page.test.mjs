@@ -694,7 +694,7 @@ test("라우트는 DOM 을 직접 잡지 않는다 — ref 로 잡는 것은 명
 test("오른쪽 단 — 주차면 목록과 차량 폼이 갖는 것", async () => {
   const setup = await read("setup-panel.jsx");
   for (const id of ["sim-panel", "slot-card", "sim-slots", "sim-sel-slot",
-                    "sim-cartype", "sim-color", "sim-color-chip", "sim-platetype",
+                    "sim-kind", "sim-cartype", "sim-color", "sim-color-chip", "sim-platetype",
                     "sim-plate-city", "sim-plate-prefix", "sim-plate-kor", "sim-plate-number",
                     "sim-spawn", "sim-apply", "sim-delete", "sim-force", "sim-status"]) {
     assert.match(setup, new RegExp(`id="${id}"`), `${id} 누락`);
@@ -746,6 +746,31 @@ test("차량 쓰기 셋 — 창구와 순서", async () => {
   const del = setup.slice(setup.indexOf("const simDelete ="));
   assert.ok(del.indexOf("setSelectedCar(null)") < del.indexOf("await onSceneChanged()"),
     "선점 해제가 재적재보다 먼저여야 한다");
+});
+// 카탈로그는 차량과 오토바이를 딴 목록으로 준다(cars/motorcycles). 한 셀렉트에 섞으면
+// 스물아홉 줄에서 여섯 대를 눈으로 골라내야 하고, 오토바이에 한국식 번호판 칸을 보여주면
+// 그 값이 차에 붙는 것처럼 읽힌다 — 실제로는 시뮬레이터가 정한다(보드 #300 확정).
+test("오토바이는 딴 목록이다 — 섞지 않고, 번호판은 시뮬레이터의 것", async () => {
+  const setup = await read("setup-panel.jsx");
+  assert.match(setup, /const bikesOf = catalog\?\.motorcycles \|\| \[\];/);
+  assert.match(setup, /bikesOf\.map\(\(m\) => <option key=\{m\.index\} value=\{m\.index\}>\{m\.name\}<\/option>\)/,
+    "오토바이 목록은 제 인덱스(23~)로 서야 한다 — 자리번호로 세우면 남의 차종이 나간다");
+  // 구분을 바꾸면 인덱스도 그 목록의 첫 칸으로 — 남의 목록 인덱스가 남으면 표시와 전송이 갈린다.
+  assert.match(setup, /carType: kind === "motorcycle" \? \(bikesOf\[0\]\?\.index \?\? 0\) : 0/);
+  // 편집 대상의 구분은 인덱스가 말한다 — 오토바이를 골랐는데 폼이 차량 목록이면 안 된다.
+  assert.match(setup, /kind: \(catalog\?\.motorcycles \|\| \[\]\)\.some\(\(m\) => m\.index === car\.carType\) \? "motorcycle" : "car"/);
+  // 폼에 남은 한국식 조각을 오토바이에 실어 보내지 않는다.
+  assert.match(setup, /plate: form\.kind === "motorcycle"\s*\n\s*\? \{ type: 0, city: "", prefix: "", kor: "", number: "" \}/);
+});
+
+// 목록의 번호판이 차에 그려진 것과 다르면 목록을 믿을 수 없다 — 조립(plateText)은 어느
+// 렌더러도 안 그리는 city 를 섞는다(보드 #309, 2026-08-26 실측). plateRendered 가 정본이다.
+test("목록 번호판은 차에 그려진 문자열이고, 한글 셀렉트는 빈 값을 시인한다", async () => {
+  const setup = await read("setup-panel.jsx");
+  assert.match(setup, /car\.plateRendered \?\? plateText\(car\.plate\)/,
+    "차에 실제 그려진 문자열이 정본이다 — 키가 없는 옛 시뮬만 조립으로 물러난다");
+  // 빈 초기값이 목록에 없으면 브라우저는 첫 옵션(가)을 그려 놓고 빈 값을 보낸다(실측).
+  assert.match(setup, /<option value="">—<\/option>/, "보이는 것과 보내는 것이 같아야 한다");
 });
 
 // 상태줄은 이 패널만의 것이 아니다 — 씬 재적재와 「전체 초기화」(씬 탭)도 같은 줄에 적는다.
