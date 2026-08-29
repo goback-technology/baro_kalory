@@ -23,6 +23,13 @@ export function useCamera() {
 export function CameraProvider({ children, log = () => {} }) {
   const selectRef = useRef(null);
   const widgetRef = useRef(null);
+  // **로그 함수를 의존성으로 삼지 않는다.** 기본값 `() => {}` 는 렌더마다 새 함수라, 이것을
+  // 위젯 이펙트의 의존성에 두면 렌더 한 번이 위젯을 부수고 다시 만든다 — 그 재생성이
+  // load() 로 새 목록 배열을 만들고, setList 가 또 렌더를 부르는 **자기지속 루프**가 된다
+  // (2026-08-27 실측: /cctv/devices 초당 16회, 그 위에서 캘리브레이션 카드가 계속 재초기화돼
+  // 「불러오기가 안 된다」로 보였다). 최신 함수는 ref 로 따라간다.
+  const logRef = useRef(log);
+  logRef.current = log;
   const releases = useRef(new Set());
   const [activeId, setActiveId] = useState(null);
   const [list, setList] = useState([]);
@@ -46,7 +53,7 @@ export function CameraProvider({ children, log = () => {} }) {
     if (!el) return undefined;
     const widget = createCameraSelect({
       select: el,
-      log,
+      log: (...a) => logRef.current(...a),
       refreshOnVisible: true,
       beforeChange: releaseAll,
       onChange: (id) => { setActiveId(id); setList(widget.list()); },
@@ -58,7 +65,9 @@ export function CameraProvider({ children, log = () => {} }) {
     widget.load().finally(() => { setActiveId(widget.activeId()); setList(widget.list()); setLoaded(true); });
     el.addEventListener("change", () => setSwitching(true));
     return () => { widget.destroy(); widgetRef.current = null; };
-  }, [releaseAll, log]);
+    // 위젯은 이 화면의 수명 동안 **한 번만** 만든다 — 이 목록에 렌더마다 바뀌는 값을
+    // 더하면 위 루프가 되살아난다. releaseAll 은 useCallback([]) 으로 고정돼 있다.
+  }, [releaseAll]);
 
   // 진행 중인 작업이 카메라를 바꾸지 못하게 잠근다(캘리브레이션 스윕 같은 것).
   const setEnabled = useCallback((on) => widgetRef.current?.setEnabled(on), []);

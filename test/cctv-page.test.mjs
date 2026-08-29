@@ -114,6 +114,25 @@ test("카메라 드롭다운은 한 목록이다 — 서버가 병합한 /cctv/d
   assert.ok(!src.includes("/simulator/devices"), "병합은 서버의 일이다 — 화면이 두 목록을 합치지 않는다");
   assert.ok(!src.includes("/cctv/capabilities"), "활성 판정도 /cctv/devices 의 active 하나다");
 });
+// 헤더 셀렉터 위젯은 **한 번만** 만든다. 그 이펙트의 의존성에 렌더마다 새로 생기는 값을
+// 두면(기본값 `log = () => {}` 가 정확히 그랬다) 렌더 한 번이 위젯을 부수고 다시 만들고,
+// 재생성의 load() 가 새 목록 **배열**을 만들어 setList 가 또 렌더를 부른다 — 멈추지 않는다.
+// 2026-08-27 실측: /cctv/devices 초당 16회, 그 위에서 캘리브레이션 카드가 계속 재초기화돼
+// 「불러오기가 안 된다」로 보였다. 값(cam)이 매번 새것이 되니 그것을 의존성에 적은 화면의
+// 이펙트가 전부 따라 돌았기 때문이다.
+test("카메라 위젯은 한 번만 만든다 — 렌더마다 바뀌는 값을 의존성에 두지 않는다", async () => {
+  const provider = await readFile(new URL("../src/camera/provider.jsx", import.meta.url), "utf8");
+  const eff = provider.slice(provider.indexOf("const el = selectRef.current;"),
+                            provider.indexOf("const setEnabled ="));
+  const deps = eff.match(/\}, \[([^\]]*)\]\);/)?.[1] ?? "";
+  assert.equal(deps.trim(), "releaseAll",
+    "위젯 이펙트의 의존성은 고정된 것뿐이어야 한다 — 지금: [" + deps + "]");
+  // 로그 함수는 ref 로 따라간다. 인자로 그대로 넘기면 그것이 곧 불안정한 의존성이 된다.
+  assert.match(provider, /const logRef = useRef\(log\);/);
+  assert.match(eff, /log: \(\.\.\.a\) => logRef\.current\(\.\.\.a\)/);
+  // 컨텍스트 값도 고정한다 — 이것이 풀리면 같은 폭주가 화면 쪽에서 다시 시작된다.
+  assert.match(provider, /const value = useMemo\(\(\) => \(\{/);
+});
 
 // 3D 박스가 서는 자리가 설치 높이 위다 — 높이를 모르면 큐보이드의 거리와 크기가 통째로
 // 배율만큼 틀린다. 그래서 PTZ 옆에 늘 보인다.
