@@ -19,7 +19,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 // server.mjs 와 같은 규칙: .env 는 있으면 읽고 없으면 조용히 기본값. 값은 커밋하지 않는다.
 try { process.loadEnvFile(resolve(here, ".env")); } catch {}
 
-const backend = process.env.BARO_BACKEND_URL || "http://127.0.0.1:8080";
+const backend = process.env.BARO_BACKEND_URL || "http://127.0.0.1:3002/calory";
 // 화면(설정 탭)이 읽는 「지금 보는 backend」 라벨 — server.mjs 의 backendLabel 과 동일 규칙.
 const backendUrl = new URL(backend);
 const backendLabel = `${backendUrl.origin}${backendUrl.pathname.replace(/\/$/, "")}`;
