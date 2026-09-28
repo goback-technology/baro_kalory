@@ -4,8 +4,13 @@ dist/
 # Tailwind 산출물 — clone 후 `pnpm build` 로 만든다. 커밋하지 않는다.
 public/app.css
 
-# 로컬 전용
-localfiles/
+# 로컬 전용 — **캐시·임시·받아 본 응답은 전부 `.localfiles/` 안에 쓴다.**
+# 루트에 흘리면 `git add -A` 한 번에 저장소로 들어간다(2026-09-23: Apps Script 오류 페이지가
+# `body.txt` 로 루트에 한 달간 남아 있었다). README 만 추적해 clone 직후에도 자리가 있게 한다 —
+# 쓰는 쪽이 mkdir 을 신경 쓰지 않아도 된다. 규칙은 `.localfiles/README.md`,
+# 지키는 것은 `test/repo-hygiene.test.mjs`.
+.localfiles/*
+!.localfiles/README.md
 .env
 
 *.log
