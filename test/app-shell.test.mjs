@@ -67,7 +67,7 @@ test("게이트 — 확인은 /version 한 번이고, 늦으면 끊는다", asyn
   const gate = await read("backend-gate.jsx");
   // 헬스체크를 따로 더 치면 부팅마다 왕복이 두 번이 되고, 두 결과가 어긋나는 상태가 생긴다.
   // 버전 배지와 연결 판정은 **같은 응답**에서 나와야 한다.
-  assert.equal(gate.match(/fetch\(/g)?.length, 1, "probe 는 한 번뿐이다");
+  assert.equal(gate.match(/apiFetch\(/g)?.length, 1, "probe 는 한 번뿐이다");
   assert.match(gate, /api\("\/version"\)/);
   // 응답이 영영 안 오면 화면이 probing 에 갇힌다 — probing 은 children 을 그리므로,
   // 사용자는 「연결됐다」로 오해한 채 빈 화면을 보게 된다.

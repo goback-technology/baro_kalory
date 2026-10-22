@@ -56,10 +56,11 @@ src/
   app/          셸·라우팅·게이트    main · app · shell · router · routes · backend-gate
                                     gate · busy-provider · theme
   camera/       활성 카메라 + 프리뷰 provider · select · preview · use-preview
-                                    mjpeg-player · motion-settle
+                                    mjpeg-player · motion-settle · analytics
+                                    control · control-status
   i18n/         언어               index(규칙 ~100줄) · dict(데이터 ~900줄)
   components/   공용 React 부품     ptz-pad · use-stage-pointer
-  lib/          화면 무관 공용      api · format · prefs · use-job-poll
+  lib/          화면 무관 공용      api · control-session · format · prefs · use-job-poll
   pages/<id>/   화면 하나          page.jsx · actions.mjs · <id>.css (+ 그 화면만 쓰는 것)
 ```
 
@@ -81,6 +82,15 @@ src/
 - **`?api=` 는 해시 앞에만 둔다**(`index.html?api=reset#/settings`). API base 는
   `location.search` 에서 읽으므로 해시 안의 쿼리는 그 파서에 닿지 않는다.
 - API 계약: `src/lib/api.mjs` — base 주입 체인이 여기 있다(`memo.md` 참조).
+- 인증·카메라 요청: `src/lib/control-session.mjs` — API 주소별 세션 토큰, 카메라별 수동 lease,
+  기능 협상, 카메라 ID 경로 변환, 전환 중 늦은 요청 무효화를 담당한다. 일반 요청은 `apiFetch`나
+  `reqJson` 계열을 거쳐 이 계약을 공유한다.
+- 공통 제어 표면: `src/camera/control.mjs`·`control-status.jsx` — 상태·복구 재시도·제어권 반납·
+  감사 기록 페이지 조회. `src/app/app.jsx`가 카메라 사용 라우트에 공통으로 배치한다.
+- 내장 분석: `src/camera/analytics.mjs` — SSE 상태·검출과 frameId별 JPEG 대응, 스트림 세대,
+  Blob 수명 관리. `src/pages/cctv/native-analytics-panel.jsx`가 표시·정지·현재 JPEG ONI 분석을
+  맡는다. 일반 RTSP 프리뷰와 좌표·영상 계약이 다르다(`memo.md` 참조).
+- 제어 토큰 입력: `src/pages/settings/server-panel.jsx`의 `ControlTokenCard`.
 - **`/web/` 규약이 남아 있다** — 셸이 `./web/app/main.jsx` 를 부르고 `build/vite-kalory.mjs`
   의 `resolveId` 가 그것을 `src/` 로 잇는다(dev·build 가 같은 훅을 탄다).
 - **테스트가 두 자리에 있다** — 단위 테스트는 대상 옆(`src/**/*.test.mjs`), 여러 화면을
@@ -125,6 +135,12 @@ pm2 logs kalory-dev --lines 30
 - **테스트 언어는 `t()` 로 양쪽을 맞춘다.** 한국어 리터럴 조각을 기대값으로 쓰면 노드가
   언어를 ko 로 고정해 둔 덕에 통과할 뿐이고, 실제로는 아무것도 검증하지 않는다
   (2026-08-25 그런 단언 넷이 발견됐다).
+- 제어 회귀: `src/lib/control-session.test.mjs`는 토큰 범위·기능 협상·lease·선점·전환 경합을,
+  `src/camera/control.test.mjs`는 제어 상태·복구·기록 응답을 검증한다.
+  `test/camera-control-status.test.mjs`·`test/settings-page.test.mjs`는 공통 상태줄과 인증 카드의
+  배선을 확인한다.
+- 내장 분석 회귀: `src/camera/analytics.test.mjs`는 JPEG·검출 대응과 늦은 프레임 폐기를,
+  `test/native-analytics-panel.test.mjs`는 표시·정지·동일 Blob 분석 배선을 확인한다.
 
 ## Notes
 

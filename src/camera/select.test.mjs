@@ -109,3 +109,55 @@ test("destroy 는 재조회 리스너를 남기지 않는다 — 버린 인스�
     globalThis.fetch = realFetch;
   }
 });
+
+test("roster refresh releases the old camera before notifying the shared selected ID", async () => {
+  const originalFetch = globalThis.fetch, events = [];
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ list: [{ id: "a" }, { id: "b" }], active: "b" }) });
+  const select = makeSelect();
+  const cam = createCameraSelect({ select,
+    beforeChange: async (previous, next) => { events.push(["release", previous, next]); },
+    onChange: (next, previous) => { events.push(["selected", next, previous]); },
+  });
+  try {
+    cam.sync([{ id: "a" }, { id: "b" }], "a");
+    await cam.load();
+    assert.deepEqual(events, [["release", "a", "b"], ["selected", "b", "a"]]);
+    assert.equal(cam.activeId(), "b");
+    assert.equal(select.value, "b");
+  } finally { cam.destroy(); globalThis.fetch = originalFetch; }
+});
+
+test("a roster response arriving after selector disposal cannot publish its camera ID", async () => {
+  const originalFetch = globalThis.fetch;
+  let finish;
+  const pending = new Promise((resolve) => { finish = resolve; });
+  globalThis.fetch = () => pending;
+  const events = [], cam = createCameraSelect({ select: makeSelect(), onChange: (id) => events.push(id) });
+  try {
+    const loading = cam.load();
+    cam.destroy();
+    finish({ ok: true, json: async () => ({ list: [{ id: "a" }], active: "a" }) });
+    await loading;
+    assert.deepEqual(events, []);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("a roster fetch predating a user selection cannot revert that selection", async () => {
+  const originalFetch = globalThis.fetch;
+  let finish, onSelect;
+  const pending = new Promise((resolve) => { finish = resolve; });
+  globalThis.fetch = (url, options = {}) => options.method === "POST"
+    ? Promise.resolve({ ok: true, json: async () => ({ ok: true }) }) : pending;
+  const selected = [], select = makeSelect();
+  select.addEventListener = (event, handler) => { if (event === "change") onSelect = handler; };
+  const cam = createCameraSelect({ select, onChange: (id) => selected.push(id) });
+  try {
+    cam.sync([{ id: "a" }, { id: "b" }], "a");
+    const loading = cam.load();
+    await onSelect({ target: { value: "b" } });
+    finish({ ok: true, json: async () => ({ list: [{ id: "a" }, { id: "b" }], active: "a" }) });
+    await loading;
+    assert.deepEqual(selected, ["b"]);
+    assert.equal(cam.activeId(), "b");
+  } finally { cam.destroy(); globalThis.fetch = originalFetch; }
+});

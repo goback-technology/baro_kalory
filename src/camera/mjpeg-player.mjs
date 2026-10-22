@@ -1,3 +1,4 @@
+import { apiFetch } from "../lib/api.mjs";
 // MJPEG(multipart/x-mixed-replace) player: fetch + per-part parsing + <img> painting
 // via blob URLs. Exists because a plain <img src="stream"> gives no per-frame events,
 // so the UI cannot show delivered fps — parsing ourselves gives exact frame timing.
@@ -30,7 +31,7 @@ export function createMjpegPlayer({ img, onFps = () => {}, onError = () => {} } 
     fpsTick = createFpsCounter();
     running = (async () => {
       try {
-        const res = await fetch(url, { signal: my.signal, cache: "no-store" });
+        const res = await apiFetch(url, { signal: my.signal, cache: "no-store" });
         // status 를 오류에 실어 보낸다 — 호출부가 "일시 장애"와 "이 기기엔 스트림이 없음"을
         // 구분해야 하는데, 메시지 문자열을 파싱하게 두면 조용히 어긋난다.
         if (!res.ok || !res.body) {

@@ -15,6 +15,9 @@ import { t } from "../i18n/index.mjs";
 export function createCameraSelect({ select, onChange, beforeChange, onSettled, log = () => {}, refreshOnVisible = false }) {
   let cameras = [];
   let activeId = null;
+  let destroyed = false;
+  let revision = 0;
+  let changing = false;
   let enabled = true;         // setEnabled(false) 중엔 목록이 2대 이상이어도 잠근다
 
   function applyDisabled() {
@@ -51,13 +54,21 @@ export function createCameraSelect({ select, onChange, beforeChange, onSettled, 
   }
 
   async function load() {
+    if (changing || destroyed) return;
+    const requestRevision = ++revision;
     try {
       // 단 하나의 목록, 단 하나의 요청. 병합(등록 기기 + 씬에 세워진 카메라)과 활성 판정
       // (지금 몰고 있는 카메라 — config 의 접힌 active 가 아니라 런타임의 사실)은 전부
       // 서버가 끝내서 보낸다. 화면이 두 목록을 다시 합치면 그 봉합선이 반드시 보인다.
       const roster = await getJson(api("/cctv/devices"));
+      if (destroyed || requestRevision !== revision) return;
+      const previous = activeId;
+      if (previous && previous !== roster.active && beforeChange) await beforeChange(previous, roster.active || null);
+      if (destroyed || requestRevision !== revision) return;
       sync(roster.list || [], roster.active || null);
+      if (onChange) await onChange(activeId, previous);
     } catch (error) {
+      if (destroyed || requestRevision !== revision) return;
       select.replaceChildren(new Option(t("CCTV 로드 실패"), ""));
       select.disabled = true;
       select.title = t("CCTV 목록을 불러오지 못했습니다") + `: ${error.message}`;
@@ -67,7 +78,9 @@ export function createCameraSelect({ select, onChange, beforeChange, onSettled, 
   async function onSelectChange(event) {
     const id = event.target.value;
     const previous = activeId;
-    if (!id || id === previous) return;
+    if (!id || id === previous || changing || destroyed) return;
+    revision += 1;
+    changing = true;
     select.disabled = true;
     try {
       // 놓아주기가 먼저다 — 순서를 바꾸면 이전 카메라가 점유된 채 남는다(위 주석 참조).
@@ -81,6 +94,7 @@ export function createCameraSelect({ select, onChange, beforeChange, onSettled, 
       select.value = previous || "";
       log(t("CCTV 전환 실패") + `: ${error.message}`);
     } finally {
+      changing = false;
       applyDisabled();
       if (onSettled) onSettled();
     }
@@ -98,6 +112,8 @@ export function createCameraSelect({ select, onChange, beforeChange, onSettled, 
   // 것이라, 떼지 않으면 버린 인스턴스가 탭 복귀마다 목록을 다시 불러온다 — 화면 전환이
   // 페이지 로드 없이 일어나면(SPA) 왕복 횟수만큼 같은 요청이 겹쳐 나간다.
   function destroy() {
+    destroyed = true;
+    revision += 1;
     select.removeEventListener("change", onSelectChange);
     if (refreshOnVisible) document.removeEventListener("visibilitychange", onVisibilityChange);
   }

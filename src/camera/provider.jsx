@@ -11,6 +11,7 @@
 // 가 안전망이었지만, SPA 에는 그 이벤트가 오지 않는다.
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createCameraSelect } from "./select.mjs";
+import { getControlIdentity, setCameraControlTarget, releaseCameraControl } from "../lib/api.mjs";
 
 const Ctx = createContext(null);
 
@@ -21,7 +22,8 @@ export function useCamera() {
 }
 
 export function CameraProvider({ children, log = () => {} }) {
-  const selectRef = useRef(null);
+  const [selectEl, setSelectEl] = useState(null);
+  const selectRef = useCallback((el) => setSelectEl(el), []);
   const widgetRef = useRef(null);
   // **로그 함수를 의존성으로 삼지 않는다.** 기본값 `() => {}` 는 렌더마다 새 함수라, 이것을
   // 위젯 이펙트의 의존성에 두면 렌더 한 번이 위젯을 부수고 다시 만든다 — 그 재생성이
@@ -49,25 +51,35 @@ export function CameraProvider({ children, log = () => {} }) {
   }, []);
 
   useEffect(() => {
-    const el = selectRef.current;
+    const el = selectEl;
     if (!el) return undefined;
+    let alive = true;
+    setLoaded(false);
     const widget = createCameraSelect({
       select: el,
       log: (...a) => logRef.current(...a),
       refreshOnVisible: true,
-      beforeChange: releaseAll,
-      onChange: (id) => { setActiveId(id); setList(widget.list()); },
+      beforeChange: async (previous) => { await releaseAll(); await releaseCameraControl(previous); },
+      onChange: (id) => { if (alive) { setCameraControlTarget(id); setActiveId(id); setList(widget.list()); } },
       onSettled: () => setSwitching(false),
     });
     widgetRef.current = widget;
     // 목록을 못 받아도 loaded 는 세운다 — 미연결에서도 화면이 「아무 일도 안 일어나는」
     // 상태로 굳지 않고, 자기 방식으로 그 사실을 말할 수 있어야 한다.
-    widget.load().finally(() => { setActiveId(widget.activeId()); setList(widget.list()); setLoaded(true); });
-    el.addEventListener("change", () => setSwitching(true));
-    return () => { widget.destroy(); widgetRef.current = null; };
-    // 위젯은 이 화면의 수명 동안 **한 번만** 만든다 — 이 목록에 렌더마다 바뀌는 값을
+    Promise.allSettled([widget.load(), getControlIdentity()]).then(() => {
+      if (!alive) return;
+      setCameraControlTarget(widget.activeId());
+      setActiveId(widget.activeId()); setList(widget.list()); setLoaded(true);
+    });
+    const markSwitching = () => setSwitching(true);
+    el.addEventListener("change", markSwitching);
+    return () => {
+      alive = false; el.removeEventListener("change", markSwitching);
+      widget.destroy(); widgetRef.current = null; setCameraControlTarget(null);
+    };
+    // 위젯은 select DOM의 수명 동안 한 번 만든다 — 이 목록에 렌더마다 바뀌는 값을
     // 더하면 위 루프가 되살아난다. releaseAll 은 useCallback([]) 으로 고정돼 있다.
-  }, [releaseAll]);
+  }, [releaseAll, selectEl]);
 
   // 진행 중인 작업이 카메라를 바꾸지 못하게 잠근다(캘리브레이션 스윕 같은 것).
   const setEnabled = useCallback((on) => widgetRef.current?.setEnabled(on), []);

@@ -15,6 +15,7 @@
 // backend 도 같은 마운트에 있다고 본다 — 루트(/)든 /barocalory/ 든 /<repo>/ 든 같은 코드가
 // 맞는 곳을 친다. 다른 오리진의 backend 를 쓰려면 base 를 명시 지정하면 그쪽이 이긴다.
 import { readPref, removePref } from "./prefs.mjs";
+import { createControlSession } from "./control-session.mjs";
 
 export const API_BASE_KEY = "baro-api-base";
 
@@ -106,7 +107,15 @@ export const API_BASE_EXPLICIT = resolved.source !== "none";
 
 // fetch 경로: api("/ptz") → "<base>/api/ptz". base 는 마운트까지 포함한 완전한 주소다
 // (미지정이면 이 앱의 마운트). backend 는 base-agnostic 이라 프록시 경유든 직결이든 통한다.
-export const api = (p) => `${API_BASE}/api${p}`;
+const controlSession = createControlSession({ base: API_BASE });
+export const api = (p) => controlSession.url(`${API_BASE}/api${p}`);
+export const apiFetch = (url, options) => controlSession.fetch(url, options);
+export const getControlIdentity = (options) => controlSession.identity(options);
+export const setCameraControlTarget = (id) => controlSession.setCamera(id);
+export const releaseCameraControl = (id) => controlSession.release(id);
+export const hasCameraLease = (id) => controlSession.hasLease(id);
+export const setControlToken = (value) => controlSession.setToken(value);
+export const hasControlToken = () => controlSession.hasToken();
 // fetch 를 안 타는 경로(img src·MJPEG 스트림·home-frame)용 — api() 만 고치면 이쪽이
 // 조용히 동일출처에 남아 원격 base 에서만 이미지가 깨진다. 반드시 이 헬퍼를 쓸 것.
 export const asset = (p) => `${API_BASE}${p}`;
@@ -129,7 +138,7 @@ export async function reqJson(method, url, data) {
     opt.headers = { "content-type": "application/json" };
     opt.body = JSON.stringify(data);
   }
-  const r = await fetch(url, opt);
+  const r = await apiFetch(url, opt);
   const j = await r.json();
   if (!r.ok) {
     // 상태코드를 실어 보낸다 — 호출부가 "이 기기엔 그 능력이 없다"(501)와 진짜 장애를

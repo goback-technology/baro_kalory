@@ -51,6 +51,10 @@
 
 ## 현재 스냅샷
 
+- **FlexWATCH·제어권 연동 개발 상태**: `dev/flex_watch`에 내장 analytics 패널, 현재 프레임
+  ONI 분석, 주소별 제어 토큰, 카메라 ID 기반 요청, 수동 lease, 공통 제어 상태·복구·사용 기록을
+  구현했다. 구현 완료일은 2026-10-15, 문서 정리·재검증일은 2026-10-22다. 운영 배포와
+  실제 카메라 구동 검증은 수행하지 않았다. 사용법은 루트 `readme.md`, 이어 할 일은 `plan.md`.
 - **상태: React SPA 전환 완료**(2026-08-25). 대문 + 6 화면(cctv · discovery · simulator ·
   settings · calibration · height)이 **한 문서의 해시 라우트**로 선다(`#/cctv` …).
   옛 주소(`…/cctv.html`)는 빌드가 발행하는 리다이렉트 셸이 받는다. 남은 계획은 `plan.md`.
@@ -72,6 +76,8 @@
   분기한다**(`reload.required` · `optics.source` · `settleMs` 유무). 이렇게 두면 옛 계약이
   사라질 때 옛 갈래가 저절로 죽는다. 이 규칙을 모르면 버전 비교 분기를 되살리게 된다
   (`memo.md` 「캘리브레이션」).
+- **제어 API도 응답으로 협상한다.** `/api/control/identity`의 `features.cameraScoped`·
+  `features.audit`를 읽는다. 404만 구형 계약이며, 인증·통신 오류는 우회하지 않는다.
 
 ## 공개 저장소 규칙
 

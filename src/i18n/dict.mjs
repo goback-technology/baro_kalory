@@ -7,6 +7,47 @@
 // 것만으로 이미 키를 가진다 — 따로 키를 짓고 관리하는 표가 없다.
 // ko source -> { en, vi }. ko is the key itself (returned as-is for lang "ko").
 export const DICT = {
+  "카메라 제어 상태 응답을 확인할 수 없습니다.": { en: "Cannot verify the camera control response.", vi: "Không thể xác minh phản hồi trạng thái điều khiển camera." },
+  "설치 높이 측정": { en: "Installation height measurement", vi: "Đo chiều cao lắp đặt" },
+  "카메라 작업": { en: "Camera job", vi: "Tác vụ camera" },
+  "{job} 진행 중": { en: "{job} in progress", vi: "Đang thực hiện {job}" },
+  "작업이 카메라를 사용하고 있습니다. 중지는 해당 작업 화면에서 할 수 있습니다.": { en: "A job is using this camera. Stop it from its task screen.", vi: "Một tác vụ đang sử dụng camera. Có thể dừng tại màn hình tác vụ đó." },
+  "카메라 원위치 복귀 중": { en: "Returning camera to its original position", vi: "Đang đưa camera về vị trí ban đầu" },
+  "카메라 복구 필요": { en: "Camera recovery required", vi: "Camera cần được khôi phục" },
+  "원위치 복귀에 실패해 카메라 제어가 잠겨 있습니다.": { en: "Camera control is locked because returning to the original position failed.", vi: "Điều khiển camera bị khóa do không thể trở về vị trí ban đầu." },
+  "카메라 제어 상태 미확인": { en: "Camera control status unavailable", vi: "Chưa xác định trạng thái điều khiển camera" },
+  "원위치 복귀 재시도": { en: "Retry return to original position", vi: "Thử lại việc trở về vị trí ban đầu" },
+  // Camera-native analytics uses the packet's JPEG and an explicitly held ONI input.
+  "카메라 내장 분석": { en: "Camera analytics", vi: "Phân tích trong camera" },
+  "내장 분석 미지원": { en: "Camera analytics unsupported", vi: "Không hỗ trợ phân tích trong camera" },
+  "내장 AI 모델 꺼짐": { en: "Camera AI model disabled", vi: "Mô hình AI trong camera đã tắt" },
+  "수신 대기": { en: "Ready to receive", vi: "Sẵn sàng nhận" },
+  "연결 중": { en: "Connecting", vi: "Đang kết nối" },
+  "수신 중": { en: "Receiving", vi: "Đang nhận" },
+  "AI 메타데이터 대기": { en: "Waiting for AI metadata", vi: "Đang chờ siêu dữ liệu AI" },
+  "재연결 중": { en: "Reconnecting", vi: "Đang kết nối lại" },
+  "결과 지연": { en: "Results delayed", vi: "Kết quả bị trễ" },
+  "수신 오류": { en: "Receive error", vi: "Lỗi nhận dữ liệu" },
+  "수신 시작": { en: "Start receiving", vi: "Bắt đầu nhận" },
+  "수신 정지": { en: "Stop receiving", vi: "Dừng nhận" },
+  "현재 프레임 ONI 분석": { en: "Analyze this frame with ONI", vi: "Phân tích khung hình này bằng ONI" },
+  "화면 고정": { en: "Frame held", vi: "Đã giữ khung hình" },
+  "검출 갱신 후 {s}초": { en: "Detection updated {s}s ago", vi: "Phát hiện đã cập nhật {s} giây trước" },
+  "지난 결과": { en: "Stale result", vi: "Kết quả cũ" },
+  "내장 검출 대응 영상": { en: "Frame associated with camera detections", vi: "Khung hình tương ứng với phát hiện trong camera" },
+  "영상 크기와 검출 좌표가 일치하지 않습니다": { en: "Image dimensions do not match detection coordinates", vi: "Kích thước ảnh không khớp với tọa độ phát hiện" },
+  "검출 대응 영상을 읽을 수 없습니다": { en: "Cannot load the associated frame", vi: "Không thể tải khung hình tương ứng" },
+  "내장 검출 박스": { en: "Camera detection boxes", vi: "Hộp phát hiện trong camera" },
+  "내장 검출 {n}개": { en: "Camera detections: {n}", vi: "Phát hiện trong camera: {n}" },
+  "같은 패킷의 영상과 결과입니다. 카메라의 추론 시각과 촬영 시각이 정확히 일치하는지는 확인되지 않았습니다.":
+    { en: "Image and results come from the same packet. Exact synchronization of inference and capture times has not been verified.",
+      vi: "Ảnh và kết quả thuộc cùng một gói dữ liệu. Chưa xác minh thời gian suy luận và chụp ảnh đồng bộ chính xác." },
+  "영상·결과 대응 ⓘ": { en: "Frame association ⓘ", vi: "Khung hình tương ứng ⓘ" },
+  "수신을 시작하면 내장 검출과 대응 영상이 표시됩니다.":
+    { en: "Start receiving to show camera detections and their associated frames.", vi: "Bắt đầu nhận để xem phát hiện trong camera và khung hình tương ứng." },
+  "고정된 프레임을 ONI로 분석 중…": { en: "Analyzing the held frame with ONI…", vi: "Đang phân tích khung hình đã giữ bằng ONI…" },
+  "고정된 프레임 분석": { en: "Held frame analysis", vi: "Phân tích khung hình đã giữ" },
+  "차량 {n}개 · {ms}ms": { en: "Vehicles: {n} · {ms}ms", vi: "Xe: {n} · {ms}ms" },
   // 백엔드 미연결 게이트 (page-chrome) — 이 UI 는 백엔드와 분리 배포되므로 첫 방문자가
   // "왜 아무것도 안 보이나"를 알 수 있어야 한다.
   "백엔드 API 주소가 설정되지 않았습니다":
@@ -897,6 +938,28 @@ export const DICT = {
   "측정값 {v} m 를 자동 측정(measured)으로 발행합니다. 정본은 시공 실측이며 이 값은 보조 출처로 남습니다.":
     { en: "Publish {v} m as an automatic measurement (source: measured). The primary source is still the installer's measurement; this stays secondary.",
       vi: "Phát hành {v} m dưới dạng đo tự động (source: measured). Nguồn chính vẫn là số đo khi lắp đặt; giá trị này là nguồn phụ." },
+  "카메라 제어 인증": { en: "Camera control authentication", vi: "Xác thực điều khiển camera" },
+  "제어 토큰": { en: "Control token", vi: "Token điều khiển" },
+  "토큰 삭제": { en: "Remove token", vi: "Xóa token" },
+  "토큰은 이 API 주소에만 사용하며 현재 브라우저 탭 세션에 저장합니다.": { en: "The token is used only for this API address and stored in this browser tab's session.", vi: "Token chỉ dùng cho địa chỉ API này và được lưu trong phiên của tab trình duyệt này." },
+  "이 서버는 제어 인증 정보를 제공하지 않습니다.": { en: "This server does not provide control authentication information.", vi: "Máy chủ này không cung cấp thông tin xác thực điều khiển." },
+  "인증됨": { en: "Authenticated", vi: "Đã xác thực" },
+  "카메라 제어에 인증 토큰이 필요합니다.": { en: "An authentication token is required to control cameras.", vi: "Cần token xác thực để điều khiển camera." },
+  "기존 로컬 제어 모드 · 사용자 인증 없음": { en: "Legacy local control mode · no user authentication", vi: "Chế độ điều khiển cục bộ cũ · không xác thực người dùng" },
+
+  "수동 제어권 사용 중": { en: "Manual control ownership active", vi: "Đang giữ quyền điều khiển thủ công" },
+  "제어권 반납": { en: "Release control", vi: "Trả quyền điều khiển" },
+
+  "카메라 사용 기록 응답을 확인할 수 없습니다.": { en: "Unable to verify the camera usage history response.", vi: "Không thể xác minh phản hồi lịch sử sử dụng camera." },
+  "사용 기록": { en: "Usage history", vi: "Lịch sử sử dụng" },
+  "오래된 기록부터 시간순으로 표시합니다.": { en: "Records are shown in chronological order, oldest first.", vi: "Bản ghi được hiển thị theo thứ tự thời gian, cũ nhất trước." },
+  "호출자": { en: "Actor", vi: "Chủ thể" },
+  "사용 기록이 없습니다.": { en: "No usage records.", vi: "Chưa có bản ghi sử dụng." },
+  "처음부터 다시 읽기": { en: "Reload from beginning", vi: "Tải lại từ đầu" },
+  "다음 25개": { en: "Next 25", vi: "25 bản ghi tiếp theo" },
+
+  "작업": { en: "Operation", vi: "Tác vụ" },
+  "결과": { en: "Result", vi: "Kết quả" },
 };
 
 // Elements with inline markup: key -> full innerHTML per language (data-i18n-html="<key>").

@@ -14,6 +14,8 @@ PTZ CCTV **커미셔닝 콘솔 웹 UI**. 카메라를 현장에 붙일 때 필�
 - [빌드](#빌드)
 - [정적 배포 (GitHub Pages)](#정적-배포-github-pages)
 - [백엔드 주소 지정](#백엔드-주소-지정)
+- [카메라 제어 인증과 사용 기록](#카메라-제어-인증과-사용-기록)
+- [FlexWATCH 내장 분석](#flexwatch-내장-분석)
 - [화면](#화면)
 - [src 의 구조](#src-의-구조)
 - [테마](#테마)
@@ -59,12 +61,12 @@ pnpm dev                                          # Vite 개발 서버 (:8180, /
 ## 상주 (pm2)
 
 개발기에서 계속 띄워 둘 때는 pm2 에 맡긴다. 저장소 루트의 `ecosystem.config.cjs` 하나로 뜬다
-(앱 이름 `calory-ui`).
+(앱 이름 `kalory-dev`).
 
 ```bash
 pm2 start ecosystem.config.cjs
 pm2 save            # 이걸 빠뜨리면 다음 resurrect 에서 없던 일이 된다
-pm2 logs calory-ui --lines 30
+pm2 logs kalory-dev --lines 30
 ```
 
 **설정값은 `ecosystem.config.cjs` 에 두지 않는다 — `.env` 가 유일한 출처다.** pm2 의 `env` 로
@@ -76,13 +78,13 @@ pm2 logs calory-ui --lines 30
 - 주소가 `~/.pm2/dump.pm2` 로 복사돼 굳는다. 이 저장소는 공개이고 백엔드 주소를 커밋하지 않는
   것이 규칙인데, 저장소 밖에 사본이 하나 더 생긴다.
 
-스냅샷을 비워 뒀으므로 이 저장소에서는 **`.env` 를 고치고 `pm2 restart calory-ui` 하면 반영된다**
+스냅샷을 비워 뒀으므로 이 저장소에서는 **`.env` 를 고치고 `pm2 restart kalory-dev` 하면 반영된다**
 (2026-08-17 실측 — `pm2 jlist` 의 `pm2_env` 에 `BARO_*` 가 없음을 확인하고, 값을 바꿔 재시작해
 기동 로그가 새 주소를 찍는 것까지 봤다). 반대로 **`ecosystem.config.cjs` 를 고쳤을 때는 재시작으로
 안 된다** — pm2 가 실행 중 항목에 설정을 캐시하므로 등록을 다시 만들어야 한다.
 
 ```bash
-pm2 delete calory-ui && pm2 start ecosystem.config.cjs && pm2 save
+pm2 delete kalory-dev && pm2 start ecosystem.config.cjs && pm2 save
 ```
 
 **Windows 에는 부팅 훅이 없다.** `pm2 startup` 은 systemd/launchd 를 찾다가
@@ -138,8 +140,8 @@ Pages 는 순수 정적 호스트라 다음이 불가능하다.
 - **CORS**: 백엔드가 이 사이트의 오리진(`https://<계정>.github.io`)을 허용해야 한다. 이
   저장소가 고칠 수 있는 문제가 아니다. MJPEG 프리뷰도 `fetch` 로 읽으므로 스트림 경로까지
   같은 허용이 필요하다.
-- **터널은 곧 공개 노출이다.** 이 백엔드는 카메라 접속정보를 다루는데 무인증이므로, 터널을
-  열어 둔 채 방치하지 말고 접근 제어를 앞에 두거나 쓸 때만 띄운다.
+- **제어 인증과 읽기 접근은 별도다.** 제어 인증을 지원하는 백엔드는 변경 요청에 토큰을
+  요구할 수 있다. 이미지·이벤트 등 읽기 API까지 보호하는지는 배포 설정을 별도로 확인한다.
 
 ## 백엔드 주소 지정
 
@@ -165,6 +167,40 @@ https://<사이트>/?api=reset          # 저장된 주소를 지우는 탈출�
 
 **백엔드 주소를 이 저장소에 커밋하지 않는다.** 배포 시 주입하거나 사용자가 지정한다.
 
+## 카메라 제어 인증과 사용 기록
+
+설정 → 서버의 **카메라 제어 인증**에서 백엔드가 발급한 토큰을 입력한다. 인증 상태는
+`GET /api/control/identity` 응답의 호출자 종류와 ID로 확인한다. 토큰은 마운트 경로까지 포함한
+API 주소별로 **현재 탭의 sessionStorage**에 저장하며 URL이나 localStorage에 넣지 않는다.
+API 주소를 바꾸면 그 주소에 맞는 토큰을 따로 입력해야 한다.
+
+- 지원 서버에서는 카메라 요청을 `/api/cctv/devices/:cameraId/...`로 보낸다. 수동 조작 전에
+  제어권(lease)을 얻고, 만료가 가까우면 갱신한다. 만료·선점으로 거절된 이동은 자동 재실행하지
+  않는다. 작업 시작 시에는 이 탭의 수동 제어권을 함께 보내 작업 점유로 전환한다.
+- 상단 상태줄에 호출자·목적·진행 중 작업·복구 필요 여부를 표시한다. 이 탭이 가진 수동
+  제어권은 **제어권 반납**으로 놓을 수 있고, 복구가 가능한 상태에는 **원위치 복귀 재시도**가
+  나타난다. 작업 중지는 해당 작업 화면에서 한다. 사람·AI 우선순위와 만료는 서버가 판정한다.
+- **사용 기록**은 카메라별 감사 기록을 오래된 순서로 읽는다. **다음 25개**로 이어 읽고,
+  **처음부터 다시 읽기**로 조회를 초기화한다. 시각·호출자·작업·명령·결과를 확인할 수 있다.
+- 카메라 전환 전에는 스트림과 이 탭의 수동 제어권을 반납한다. 토큰 교체·삭제도 이전 토큰으로
+  반납을 시도한다. 통신이 끊긴 경우 남은 점유는 서버의 만료 정책을 따른다.
+- 인증 정보 API의 **404만** 구형 서버로 취급한다. 인증 실패나 통신 오류를 구형 계약으로
+  우회하지 않는다. 구형 서버의 제어 상태를 확인할 수 없다고 해서 유휴 상태로 표시하지 않는다.
+
+## FlexWATCH 내장 분석
+
+CCTV 화면의 **카메라 내장 분석**은 해당 카메라의 analytics 상태를 확인하고, **수신 시작**을
+누르면 SSE 이벤트와 그 검출에 대응하는 JPEG를 읽는다. 지원 여부와 모델 활성 상태는
+백엔드 응답을 따른다. 미지원·모델 꺼짐·연결 중·결과 지연·오류를 구분해 표시한다.
+
+검출 박스는 각 패킷의 `image.width/height` 좌표로 해당 JPEG에만 겹친다. 일반 RTSP 프리뷰의
+논리 좌표나 다른 시점의 스냅샷에 겹치지 않는다. 같은 패킷에 담긴 영상·결과라는 대응만
+보장하며, 카메라 내부의 추론 시각과 촬영 시각이 정확히 일치한다고 가정하지 않는다.
+
+**현재 프레임 ONI 분석**은 표시된 JPEG를 고정하고 그 Blob을 백엔드의
+`POST /api/inference/vehicle-det`로 보낸다. 새 스냅샷을 대신 가져오지 않는다. 탭이 숨겨지면
+내장 분석 구독을 정지하며, 돌아온 뒤 재개는 **수신 시작**으로 한다.
+
 ## 화면
 
 셸 하나(`public/index.html`)에 라우트가 붙는 **SPA** 다. 경로가 아니라 **해시**를 쓰는 이유는
@@ -175,7 +211,7 @@ https://<사이트>/?api=reset          # 저장된 주소를 지우는 탈출�
 | 해시 | 라우트 | 무엇 |
 |---|---|---|
 | `#/` | `src/pages/home/` | 대문 — 앱 카드·버전 |
-| `#/cctv` | `src/pages/cctv/` | CCTV 제어·모니터링 (PTZ·프리뷰·검출 테스트) |
+| `#/cctv` | `src/pages/cctv/` | CCTV 제어·모니터링 (PTZ·프리뷰·내장 분석·ONI 검출 테스트) |
 | `#/discovery` | `src/pages/discovery/` | 주차면 탐색 · 번호판 호밍 |
 | `#/settings` | `src/pages/settings/` | 설정 (기기·API 서버·검출기·LPR·API 키) — 탭은 `#/settings/<tab>` |
 | `#/calibration` | `src/pages/calibration/` | 카메라 캘리브레이션 (기기별 광학·조준 실측) |
@@ -209,10 +245,10 @@ https://<사이트>/?api=reset          # 저장된 주소를 지우는 탈출�
 | 폴더 | 무엇 | 왜 한 덩어리인가 |
 |---|---|---|
 | `app/` | `main`·`app`·`shell`·`router`·`routes`·`backend-gate`·`gate`·`busy-provider`·`theme` | 화면을 감싸는 껍데기. `routes.mjs` 가 화면 레지스트리, `theme.mjs` 는 셸의 테마 select 만 쓴다 |
-| `camera/` | `provider`·`select`·`preview`·`use-preview`·`mjpeg-player`·`motion-settle` | 활성 카메라(서버 전역 상태)와 프리뷰 스트림. 밖으로 나가는 의존은 `lib/api`·`i18n` 둘뿐이라 **통째로 읽거나 통째로 안 읽어도 된다** |
+| `camera/` | `provider`·`select`·`preview`·`use-preview`·`mjpeg-player`·`motion-settle`·`analytics`·`control`·`control-status` | 활성 카메라·프리뷰·내장 분석 수신·제어 상태와 사용 기록. 서버의 카메라 ID와 응답을 따른다 |
 | `i18n/` | `index`(규칙 98줄) · `dict`(데이터 913줄) | 사전이 커서 갈랐다. `t()` 를 보러 900줄을 열 이유가 없다 |
 | `components/` | `ptz-pad` · `use-stage-pointer` | 여러 화면이 쓰는 React 부품 |
-| `lib/` | `api` · `format` · `prefs` · `use-job-poll` | 어느 화면에도 속하지 않는 것. `api` 는 fetch 계약 + API base 주입, `format` 은 「모르는 값을 아는 값처럼 그리지 않는다」, `prefs` 는 던지는 `localStorage` 를 삼키는 자리, `use-job-poll` 은 폴링 4중 가드 |
+| `lib/` | `api` · `control-session` · `format` · `prefs` · `use-job-poll` | `api` 는 fetch 계약 + API base 주입, `control-session`은 주소별 토큰·카메라별 lease·요청 경합 처리, `format`은 모르는 값 표시, `prefs`는 저장소 예외 처리, `use-job-poll`은 폴링 가드 |
 | `pages/<id>/` | `page.jsx` · `actions.mjs` · `<id>.css` | 화면 하나. 그 화면만 쓰는 것은 전부 여기 안이다(캘리브레이션의 `profile-chart.mjs`, 시뮬레이터의 `geometry`·`map`·탭 패널 셋) |
 
 `src` 최상위에는 **파일을 두지 않는다.** 루트에 낱개로 놓이면 「누가 쓰나」를 위치가 말해
@@ -244,8 +280,8 @@ https://<사이트>/?api=reset          # 저장된 주소를 지우는 탈출�
   스트림이 저하된다. `pagehide` 에도 강제 종료한다.
 - **프리뷰는 열자마자 시작하지 않는다.** 페이지를 여는 행위가 카메라 점유가 되면 안 되므로
   시작/정지 버튼으로만 켜고 그 선택을 기억한다(기본 꺼짐).
-- **박스·클릭 좌표는 항상 1920×1080 논리 프레임.** 프리뷰가 1280 폭이어도 화각이 같으므로
-  비례 매핑이 정확하다. `naturalWidth` 를 쓰지 말고 고정값을 쓴다.
+- **일반 프리뷰의 박스·클릭 좌표는 1920×1080 논리 프레임.** 내장 분석 패널은 별도 계약으로,
+  검출에 대응하는 JPEG의 `image.width/height`를 쓰고 실제 이미지 크기와 일치할 때만 박스를 그린다.
 - **프리뷰 이미지에 `?preview=1`.** 추론용 원본과 다른 경로라는 표시다 — 없으면 프리뷰 폴링이
   매번 고해상 원본을 끌어온다.
 - **타입 이름을 프런트에 박지 않는다.** 폼이 접속 정보를 요구할지는 서버 응답의 메타로

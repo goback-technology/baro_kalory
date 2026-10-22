@@ -5,7 +5,7 @@
 // 확인은 **한 번의 /version 호출**이다. 따로 헬스체크를 더 치면 부팅마다 왕복이 두 번이 되고,
 // 두 결과가 어긋나는 상태까지 생긴다 — 버전 배지와 연결 판정은 같은 응답에서 나와야 한다.
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { api, API_BASE, API_BASE_EXPLICIT } from "../lib/api.mjs";
+import { api, apiFetch, API_BASE, API_BASE_EXPLICIT } from "../lib/api.mjs";
 import { t } from "../i18n/index.mjs";
 import { pageHref } from "./routes.mjs";
 import { gateKind, gateText, backendVersionOf, openWithoutBackend } from "./gate.mjs";
@@ -24,7 +24,7 @@ export function BackendProvider({ children }) {
     setState((s) => ({ ...s, status: "probing" }));
     (async () => {
       try {
-        const r = await fetch(api("/version"), { signal: AbortSignal.timeout(5000) });
+        const r = await apiFetch(api("/version"), { signal: AbortSignal.timeout(5000) });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const version = backendVersionOf(await r.json());
         if (!version) throw new Error("not a baro backend");

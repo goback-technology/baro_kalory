@@ -10,6 +10,7 @@ import { AppShell } from "./shell.jsx";
 import { BackendProvider, BackendGate } from "./backend-gate.jsx";
 import { BusyProvider } from "./busy-provider.jsx";
 import { CameraProvider, CameraSelect } from "../camera/provider.jsx";
+import { CameraControlStatus } from "../camera/control-status.jsx";
 
 // 라우트 표 — **PAGES 를 전부 덮어야 한다**(app-versions.test 가 그것을 문다). 여기에 없는
 // 화면은 대문으로 떨어져 조용히 사라지고, 헤더는 그 화면 이름인데 본문만 대문인 어긋난
@@ -49,6 +50,7 @@ export function App() {
             headerExtra={page?.camera ? <CameraSelect /> : null}
           >
             <BackendGate pageId={pageId}>
+              {page?.camera && <CameraControlStatus />}
               <Suspense fallback={<Loading />}>
                 {Route ? <Route sub={sub} navigate={navigate} /> : <Loading />}
               </Suspense>

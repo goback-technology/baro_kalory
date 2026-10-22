@@ -97,7 +97,7 @@ test("프리뷰 훅이 전환 계약을 든다 — 화면마다 배선하지 않
   assert.match(hook, /window\.addEventListener\("pagehide", bye\)/, "문서 이탈 시 강제 종료는 유지되어야 한다");
   // provider 가 활성을 바꾸기 **전에** 이 함수를 await 한다.
   const provider = await readFile(new URL("../src/camera/provider.jsx", import.meta.url), "utf8");
-  assert.match(provider, /beforeChange: releaseAll/);
+  assert.match(provider, /beforeChange: async \(previous\) => \{ await releaseAll\(\); await releaseCameraControl\(previous\);/);
   const sel = await readFile(new URL("../src/camera/select.mjs", import.meta.url), "utf8");
   assert.ok(sel.indexOf("await beforeChange(") < sel.indexOf('postJson(api("/cctv/active")'),
     "beforeChange 가 /cctv/active 전환보다 먼저여야 한다");
@@ -122,10 +122,10 @@ test("카메라 드롭다운은 한 목록이다 — 서버가 병합한 /cctv/d
 // 이펙트가 전부 따라 돌았기 때문이다.
 test("카메라 위젯은 한 번만 만든다 — 렌더마다 바뀌는 값을 의존성에 두지 않는다", async () => {
   const provider = await readFile(new URL("../src/camera/provider.jsx", import.meta.url), "utf8");
-  const eff = provider.slice(provider.indexOf("const el = selectRef.current;"),
+  const eff = provider.slice(provider.indexOf("const el = selectEl;"),
                             provider.indexOf("const setEnabled ="));
   const deps = eff.match(/\}, \[([^\]]*)\]\);/)?.[1] ?? "";
-  assert.equal(deps.trim(), "releaseAll",
+  assert.equal(deps.trim(), "releaseAll, selectEl",
     "위젯 이펙트의 의존성은 고정된 것뿐이어야 한다 — 지금: [" + deps + "]");
   // 로그 함수는 ref 로 따라간다. 인자로 그대로 넘기면 그것이 곧 불안정한 의존성이 된다.
   assert.match(provider, /const logRef = useRef\(log\);/);

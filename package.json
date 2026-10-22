@@ -1,6 +1,6 @@
 {
   "name": "baro-kalory",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "private": false,
   "type": "module",
   "description": "PTZ CCTV 커미셔닝 콘솔 웹 UI — React SPA(해시 라우팅), 정적 호스팅.",

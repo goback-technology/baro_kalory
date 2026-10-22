@@ -3,7 +3,7 @@
 // 좌표 계산과 검출 판정은 전부 actions.mjs 가 값으로 든다. 여기서는 그리기와 왕복만 한다 —
 // 특히 「그린 쪽이 센다」는 규칙(화면은 비었는데 개수를 말하는 상태 방지)이 그쪽에 있다.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getJson, postJson, api, fmtPtz } from "../../lib/api.mjs";
+import { getJson, postJson, api, apiFetch, fmtPtz } from "../../lib/api.mjs";
 import { t } from "../../i18n/index.mjs";
 import { useCamera } from "../../camera/provider.jsx";
 import { useCameraPreview } from "../../camera/use-preview.mjs";
@@ -11,6 +11,7 @@ import { useJobPoll } from "../../lib/use-job-poll.mjs";
 import { readPref, writePref } from "../../lib/prefs.mjs";
 import { usePtzControls, PtzPad, AbsoluteMove } from "../../components/ptz-pad.jsx";
 import { useStagePointer } from "../../components/use-stage-pointer.mjs";
+import NativeAnalyticsPanel from "./native-analytics-panel.jsx";
 import {
   detectorOverlay, detectorResultCard, fmtWithHeight, ptzErrorText, mountHeightFrom, snapshotName,
 } from "./actions.mjs";
@@ -175,7 +176,7 @@ export default function CctvPage() {
         return;
       }
       // 캐시 무효화용 t= 만 붙인다. preview=1 을 붙이면 저해상 경로로 되돌아간다.
-      const r = await fetch(api("/snapshot") + "?t=" + Date.now());
+      const r = await apiFetch(api("/snapshot") + "?t=" + Date.now());
       if (!r.ok) {
         // 능력 부재(501)와 진짜 장애를 구분해 준다 — 스냅샷을 못 주는 기기가 있다.
         let why = `HTTP ${r.status}`;
@@ -287,6 +288,8 @@ export default function CctvPage() {
             <span id="fps-actual" className="hint" ref={preview.fpsRef}>—</span>
             <span className="hint">(스트림=MJPEG 연속 · 스냅샷=폴링, 0=최대)</span>
           </div>
+          {cam.list.find((device) => device.id === cam.activeId)?.type === "flexwatch" &&
+            <NativeAnalyticsPanel key={cam.activeId} cameraId={cam.activeId} />}
         </div>
 
         <div id="panel">

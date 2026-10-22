@@ -120,7 +120,7 @@ export default function SettingsPage({ sub }) {
         </nav>
         {loadError && <div className="card"><span className="hint">{loadError}</span></div>}
         {tab === "devices" && <DevicesPanel cfg={cfg} reload={load} />}
-        {tab === "server" && <ServerPanel detect={detect} statusTick={statusTick} />}
+        {tab === "server" && <ServerPanel detect={detect} statusTick={statusTick} onAuthChange={load} />}
         {tab === "detect" && (
           <DetectPanel detect={detect} setDetect={setDetect} keys={keys} setKeys={setKeys}
                        keyHint={keyHint} llmNote={llmNote} onSaved={applyAfterSave} />

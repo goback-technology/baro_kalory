@@ -83,7 +83,7 @@ test("CCTV — 스크린샷: 원본은 preview 경로를 타지 않는다", asyn
   assert.match(page, /<option value="full">/);
   assert.match(page, /<option value="screen">/);
   // 원본 경로: /api/snapshot 을 직접 받는다 — preview=1 을 붙이면 저해상으로 되돌아간다.
-  assert.match(shoot, /fetch\(api\("\/snapshot"\) \+ "\?t=" \+ Date\.now\(\)\)/);
+  assert.match(shoot, /apiFetch\(api\("\/snapshot"\) \+ "\?t=" \+ Date\.now\(\)\)/);
   assert.doesNotMatch(shoot, /api\("\/snapshot"\)\s*\+\s*"\?preview=1/);
   // 받은 JPEG 을 그대로 저장한다(캔버스 재인코딩 금지 — 화질이 한 번 더 깎인다).
   assert.match(shoot, /const blob = await r\.blob\(\)[\s\S]{0,200}saveBlob\(blob, ""\)/);

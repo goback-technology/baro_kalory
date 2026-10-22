@@ -25,8 +25,8 @@ export function createCameraPreview(opts) {
     img,
     // api() 기본값: 스트림/스냅샷은 fetch·img 혼용 경로라 API base 를 반드시 타야 한다
     // (base 만 바꾸고 이쪽이 동일출처에 남으면 원격 backend 에서 영상만 조용히 깨진다).
-    streamUrl = api("/stream"),
-    snapshotUrl = api("/snapshot"),
+    streamUrl = null,
+    snapshotUrl = null,
     modeButton = null,     // optional toggle button (stream <-> snapshot)
     intervalInput = null,  // optional snapshot-interval (ms) input
     fpsLabel = null,       // optional element to show "≈ N fps" / status
@@ -145,7 +145,7 @@ export function createCameraPreview(opts) {
       if (paused || mode !== "stream") return;
       await player.stop();
       if (paused || mode !== "stream") return;
-      player.start(streamUrl + "?t=" + Date.now());
+      player.start((streamUrl || api("/stream")) + "?t=" + Date.now());
     }, delay);
   }
 
@@ -250,7 +250,7 @@ export function createCameraPreview(opts) {
     // 거기서 한 장을 떠 주고(카메라에 새 렌더를 안 시킨다), 없으면 기존 스냅샷으로 폴백한다.
     // 이게 없으면 프리뷰가 추론용 고해상 캡처를 매 200ms 마다 새로 시켜, 시뮬에서는
     // 그 카메라의 절반을 프리뷰 혼자 먹고 다른 소비자의 스트림까지 무너뜨린다.
-    img.src = snapshotUrl + "?preview=1&t=" + Date.now();
+    img.src = (snapshotUrl || api("/snapshot")) + "?preview=1&t=" + Date.now();
   }
   async function apply() {
     setWaiting(true);
@@ -263,7 +263,7 @@ export function createCameraPreview(opts) {
     if (mode === "stream") {
       streamRetryCount = 0;
       setLabel(t("스트림 연결 중…"));
-      player.start(streamUrl + "?t=" + Date.now());
+      player.start((streamUrl || api("/stream")) + "?t=" + Date.now());
     } else {
       setLabel("—");
       lastFrameAt = 0;

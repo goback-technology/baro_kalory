@@ -257,3 +257,15 @@ test("설정 라우트 CSS 에 전역 선택자가 없다", async () => {
   assert.match(css, /\.dev-card-list[^}]*min-height: 0/, "목록 단은 자기 안에서 스크롤해야 한다");
   assert.match(css, /\.dev-col-edit[^}]*overflow-y: auto/, "편집 단은 따로 스크롤해야 한다");
 });
+
+test("control credentials use a blank password input and the session API, with explicit removal", async () => {
+  const panel = await read(SET.server);
+  const card = panel.slice(panel.indexOf("export function ControlTokenCard"), panel.indexOf("export function ServerPanel"));
+  assert.match(card, /type="password" autoComplete="off"/);
+  assert.match(card, /\[value, setValue\] = useState\(""\)/);
+  assert.match(card, /await setControlToken\(next\)/);
+  assert.match(card, /setValue\(""\)/);
+  assert.match(card, /onClick=\{\(\) => save\(""\)\}/);
+  assert.match(card, /getControlIdentity\(\{ refresh: true \}\)/);
+  assert.doesNotMatch(card, /localStorage|writePref|location\.(search|href)/);
+});

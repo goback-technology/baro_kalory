@@ -4,10 +4,11 @@
 // 무관하게 항상 뜸). 저장 전 /api/version 프로브로 경고하되 강행은 허용(아직 안 뜬
 // backend 를 미리 지정하는 경우). 탈출구는 주소창 ?api=reset.
 import { useEffect, useState } from "react";
-import { getJson, postJson, api, API_BASE, API_BASE_EXPLICIT, API_BASE_KEY, cleanApiBase, mixedContentBlocked, stripApiParamFromUrl } from "../../lib/api.mjs";
+import { getJson, postJson, api, apiFetch, API_BASE, API_BASE_EXPLICIT, API_BASE_KEY, cleanApiBase, mixedContentBlocked, stripApiParamFromUrl, getControlIdentity, setControlToken, hasControlToken } from "../../lib/api.mjs";
 import { t } from "../../i18n/index.mjs";
 import { removePref, writePref } from "../../lib/prefs.mjs";
 import { classifyProbeError, probeReportText } from "./actions.mjs";
+import { useBackend } from "../../app/backend-gate.jsx";
 
 // 입력값 정규화. **테스트와 저장이 같은 규칙을 써야 한다** — 따로 두면 "테스트는 통과했는데
 // 저장된 건 다른 주소" 라는 최악의 어긋남이 생긴다.
@@ -51,7 +52,7 @@ export function ApiBaseCard() {
     let alive = true;
     (async () => {
       try {
-        const r = await fetch(api("/version"), { signal: AbortSignal.timeout(4000) });
+        const r = await apiFetch(api("/version"), { signal: AbortSignal.timeout(4000) });
         const upstream = r.headers.get("x-baro-upstream");
         if (alive && upstream) setStatus(`${t("연결됨")} · upstream ${upstream}`);
       } catch { /* 연결 실패는 page-chrome 게이트와 '서비스 상태' 카드가 진단한다 */ }
@@ -169,10 +170,63 @@ export function StatusCard({ detect, statusTick }) {
   );
 }
 
-export function ServerPanel({ detect, statusTick }) {
+export function ControlTokenCard({ onAuthChange }) {
+  const { retry } = useBackend();
+  const [value, setValue] = useState("");
+  const [stored, setStored] = useState(hasControlToken);
+  const [identity, setIdentity] = useState(undefined);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!API_BASE_EXPLICIT) return;
+    let alive = true;
+    getControlIdentity({ refresh: true }).then(
+      (result) => { if (alive) setIdentity(result); },
+      (e) => { if (alive) setError(e.message); },
+    );
+    return () => { alive = false; };
+  }, []);
+
+  async function save(next) {
+    if (busy) return;
+    setBusy(true); setError(""); setIdentity(undefined);
+    try {
+      await setControlToken(next);
+      setValue(""); setStored(hasControlToken());
+      setIdentity(await getControlIdentity({ refresh: true }));
+      onAuthChange?.();
+    } catch (e) { setError(e.message || String(e)); }
+    finally { retry(); setBusy(false); }
+  }
+
+  const status = identity === null ? t("이 서버는 제어 인증 정보를 제공하지 않습니다.")
+    : identity?.authenticated ? `${t("인증됨")} · ${identity.actor.kind} / ${identity.actor.id}`
+    : identity?.required ? t("카메라 제어에 인증 토큰이 필요합니다.")
+    : identity ? t("기존 로컬 제어 모드 · 사용자 인증 없음") : "…";
+  return (
+    <div className="card" data-role="control-token-settings">
+      <h2>{t("카메라 제어 인증")}</h2>
+      <p className="hint">{t("토큰은 이 API 주소에만 사용하며 현재 브라우저 탭 세션에 저장합니다.")}</p>
+      <div className="row" style={{ gap: 8 }}>
+        <input id="control-token-input" type="password" autoComplete="off" spellCheck={false}
+          aria-label={t("제어 토큰")} value={value} onChange={(e) => setValue(e.target.value)}
+          disabled={busy || !API_BASE_EXPLICIT} style={{ flex: 1, minWidth: 0 }} />
+        <button id="control-token-save" disabled={busy || !API_BASE_EXPLICIT || !value.trim()}
+          onClick={() => save(value)}>{t("저장")}</button>
+        <button id="control-token-clear" disabled={busy || !stored}
+          onClick={() => save("")}>{t("토큰 삭제")}</button>
+      </div>
+      <p className="hint" aria-live="polite">{error || status}</p>
+    </div>
+  );
+}
+
+export function ServerPanel({ detect, statusTick, onAuthChange }) {
   return (
     <section data-panel="server" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <ApiBaseCard />
+      <ControlTokenCard onAuthChange={onAuthChange} />
       <StatusCard detect={detect} statusTick={statusTick} />
     </section>
   );
